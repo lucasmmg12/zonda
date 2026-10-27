@@ -251,6 +251,44 @@ export interface EmpresaConfig {
 }
 
 // ==========================================
+// CONFIGURACIÓN DE CONEXIONES Y WEB SERVICES
+// ==========================================
+
+export type AfipAmbiente = 'homologacion' | 'produccion';
+
+export interface AfipWsConfig {
+  cuit: string;
+  ambiente: AfipAmbiente;
+  puntoVentaPredeterminado: string;
+  certificadoCrt: string; // Certificado Digital X.509 (.crt / .pem)
+  clavePrivadaKey: string; // Clave privada RSA (.key)
+  estadoConexion: 'desconectado' | 'pendiente_certificados' | 'conectado' | 'error';
+  tokenTicket?: {
+    token: string;
+    sign: string;
+    generationTime: string;
+    expirationTime: string;
+  };
+  ultimoPing?: string;
+  ultimoMensaje?: string;
+}
+
+export type MercadoPagoModo = 'sandbox' | 'produccion';
+
+export interface MercadoPagoConfig {
+  modo: MercadoPagoModo;
+  publicKey: string;
+  accessToken: string;
+  webhookSecret?: string;
+  integradorId?: string;
+  estadoConexion: 'desconectado' | 'pendiente_token' | 'conectado' | 'error';
+  nombreComercio?: string;
+  emailCuenta?: string;
+  ultimoPing?: string;
+  ultimoMensaje?: string;
+}
+
+// ==========================================
 // MÓDULO DE SUELDOS & LIBRO SUELDOS DIGITAL (AFIP RG 3781)
 // ==========================================
 
