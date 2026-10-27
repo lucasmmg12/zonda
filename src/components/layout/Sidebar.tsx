@@ -59,20 +59,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       <div>
         {/* Cabecera del Sidebar */}
-        <div className="h-14 px-4 flex items-center justify-between border-b border-slate-300 bg-slate-900 text-white">
+        <div className="h-14 px-3 flex items-center justify-between border-b border-black bg-black text-white">
           {!collapsed ? (
             <div className="flex items-center gap-2.5">
-              <div className="w-6 h-6 bg-zonda-600 flex items-center justify-center font-mono font-bold text-xs text-white">
-                Z
+              <div className="h-8 w-auto px-1.5 bg-white flex items-center justify-center border border-slate-700">
+                <img src="/logogrow.png" alt="Grow Labs" className="h-5 w-auto object-contain" />
               </div>
               <div>
-                <h1 className="text-xs font-mono font-bold tracking-widest uppercase">ZONDA // ERP</h1>
-                <span className="text-[9px] text-cyan-400 font-mono tracking-wider block">PRECISION CONSOLE</span>
+                <h1 className="text-xs font-mono font-bold tracking-widest uppercase text-white">GROW // ERP</h1>
+                <span className="text-[9px] text-emerald-400 font-mono tracking-wider block font-semibold">PRECISION ENGINE</span>
               </div>
             </div>
           ) : (
-            <div className="mx-auto w-6 h-6 bg-zonda-600 flex items-center justify-center font-mono font-bold text-xs text-white">
-              Z
+            <div className="mx-auto h-8 w-8 bg-white flex items-center justify-center border border-slate-700 p-1">
+              <img src="/logogrow.png" alt="Grow Labs" className="h-6 w-6 object-contain" />
             </div>
           )}
 
@@ -96,13 +96,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => onSelectModule(item.key)}
                 className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-sans transition-all text-left border ${
                   isActive
-                    ? 'bg-slate-900 text-white border-slate-900 border-l-4 border-l-zonda-500 font-bold'
-                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100 border-transparent hover:border-slate-200 font-medium'
+                    ? 'bg-black text-white border-black border-l-4 border-l-[#047857] font-bold'
+                    : 'text-slate-800 hover:text-black hover:bg-emerald-50/50 border-transparent hover:border-slate-200 font-semibold'
                 }`}
                 title={collapsed ? item.label : undefined}
               >
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`text-[10px] font-mono ${isActive ? 'text-cyan-400 font-bold' : 'text-slate-400'}`}>
+                  <span className={`text-[10px] font-mono ${isActive ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}>
                     {item.code}
                   </span>
                   <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-600'}`} />
@@ -115,7 +115,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <span
                         className={`text-[9px] px-1 py-0.2 font-sans font-bold uppercase ${
                           isActive
-                            ? 'bg-zonda-700 text-white border border-zonda-500'
+                            ? 'bg-[#064e3b] text-white border border-[#047857]'
                             : 'bg-slate-100 text-slate-700 border border-slate-300'
                         }`}
                       >
@@ -132,8 +132,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Indicador Técnico de Modo Seguro */}
       {!collapsed ? (
-        <div className="p-3 m-2 bg-slate-50 border border-amber-300 border-l-4 border-l-amber-500 text-slate-800">
-          <div className="flex items-center gap-1.5 text-amber-800 font-mono font-bold text-[10px] uppercase mb-1">
+        <div className="p-3 m-2 bg-slate-50 border border-slate-300 border-l-4 border-l-[#064e3b] text-slate-800">
+          <div className="flex items-center gap-1.5 text-[#064e3b] font-mono font-bold text-[10px] uppercase mb-1">
             <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
             <span>MODO SEGURO // SANDBOX</span>
           </div>
@@ -142,8 +142,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </p>
         </div>
       ) : (
-        <div className="p-2 text-center border-t border-slate-300 bg-amber-50" title="Modo Seguro Activo">
-          <ShieldAlert className="w-4 h-4 text-amber-600 mx-auto" />
+        <div className="p-2 text-center border-t border-slate-300 bg-emerald-50" title="Modo Seguro Activo">
+          <ShieldAlert className="w-4 h-4 text-[#064e3b] mx-auto" />
         </div>
       )}
     </aside>

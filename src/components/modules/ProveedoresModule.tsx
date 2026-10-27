@@ -497,7 +497,7 @@ export const ProveedoresModule: React.FC = () => {
                       <span>de 1</span>
                       <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
                       <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                      <button className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-purple-700" /></button>
+                      <button className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#064e3b]" /></button>
                     </div>
                     <span>
                       {proveedorActivo && proveedorActivo.facturasAdeudadas.length > 0

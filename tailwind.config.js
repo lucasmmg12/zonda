@@ -8,23 +8,44 @@ export default {
     extend: {
       colors: {
         zonda: {
-          50: '#f0f7ff',
-          100: '#e0effe',
-          200: '#bae0fd',
-          300: '#7cc8fb',
-          400: '#36abf7',
-          500: '#0c8ee9',
-          600: '#0070c7',
-          700: '#005696', // Azul Institucional Sanatorio Argentino
-          800: '#054477',
-          900: '#0a385f',
-          950: '#041e35',
+          50: '#f0fdf4',
+          100: '#dcfce7',
+          200: '#bbf7d0',
+          300: '#86efac',
+          400: '#4ade80',
+          500: '#22c55e',
+          600: '#16a34a',
+          700: '#047857', // Verde Oscuro Esmeralda
+          800: '#065f46', // Verde Bosque Grow Labs
+          900: '#064e3b', // Verde Oscuro Profundo
+          950: '#022c22', // Verde Oscuro Extremo
         },
         obsidian: {
-          900: '#0b0f17',
-          800: '#131b26',
-          700: '#1c2636',
-          600: '#2d3b4e',
+          900: '#000000',
+          800: '#0a0a0a',
+          700: '#121212',
+          600: '#1e1e1e',
+        },
+        darkgreen: {
+          50: '#f0fdf4',
+          100: '#dcfce7',
+          600: '#047857',
+          700: '#065f46',
+          800: '#064e3b',
+          900: '#022c22',
+        },
+        sanatorio: {
+          50: '#f0fdf4',
+          100: '#dcfce7',
+          200: '#bbf7d0',
+          300: '#86efac',
+          400: '#4ade80',
+          500: '#22c55e',
+          600: '#16a34a',
+          700: '#047857',
+          800: '#065f46',
+          900: '#064e3b',
+          950: '#022c22',
         },
         hairline: '#e2e8f0',
       },
@@ -45,7 +66,7 @@ export default {
       },
       boxShadow: {
         'crisp': '0 0 0 1px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04)',
-        'sharp-lift': '0 4px 0 0 #005696',
+        'sharp-lift': '0 4px 0 0 #064e3b',
         'subtle': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
       }
     },

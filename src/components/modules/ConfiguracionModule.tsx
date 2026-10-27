@@ -476,7 +476,7 @@ export const ConfiguracionModule: React.FC = () => {
               onClick={() => setSubTabIntegracion('afip')}
               className={`pb-2.5 font-bold text-xs border-b-2 transition-all flex items-center gap-2 ${
                 subTabIntegracion === 'afip'
-                  ? 'border-blue-700 text-blue-900'
+                  ? 'border-[#064e3b] text-[#064e3b]'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -591,10 +591,10 @@ export const ConfiguracionModule: React.FC = () => {
                 <div className="border border-slate-300 p-3 bg-slate-50 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="font-bold text-slate-900 flex items-center gap-1.5">
-                      <FileCode className="w-4 h-4 text-blue-700" />
+                      <FileCode className="w-4 h-4 text-[#064e3b]" />
                       <span>Certificado Digital (.crt)</span>
                     </label>
-                    <label className="text-[11px] text-blue-700 font-bold hover:underline cursor-pointer">
+                    <label className="text-[11px] text-[#064e3b] font-bold hover:underline cursor-pointer">
                       Subir archivo .crt
                       <input
                         type="file"
@@ -625,7 +625,7 @@ export const ConfiguracionModule: React.FC = () => {
                       <Key className="w-4 h-4 text-amber-700" />
                       <span>Clave Privada RSA (.key)</span>
                     </label>
-                    <label className="text-[11px] text-blue-700 font-bold hover:underline cursor-pointer">
+                    <label className="text-[11px] text-[#064e3b] font-bold hover:underline cursor-pointer">
                       Subir archivo .key
                       <input
                         type="file"
@@ -672,7 +672,7 @@ export const ConfiguracionModule: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setVerOpenSsl(!verOpenSsl)}
-                  className="text-blue-700 font-bold hover:underline flex items-center gap-1"
+                  className="text-[#064e3b] font-bold hover:underline flex items-center gap-1"
                 >
                   <HelpCircle className="w-4 h-4" />
                   <span>{verOpenSsl ? 'Ocultar guía OpenSSL' : 'Ver comandos OpenSSL y pasos en AFIP'}</span>
@@ -697,7 +697,7 @@ export const ConfiguracionModule: React.FC = () => {
                     setAfipConfig(getAfipConfig());
                     setProbandoAfip(false);
                   }}
-                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold flex items-center gap-2"
+                  className="px-4 py-2 bg-[#064e3b] hover:bg-[#065f46] text-white font-bold flex items-center gap-2 border border-black shadow-sm"
                 >
                   {probandoAfip ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
                   <span>{probandoAfip ? 'Probando...' : 'Guardar y Probar Conexión AFIP'}</span>
@@ -707,7 +707,7 @@ export const ConfiguracionModule: React.FC = () => {
               {verOpenSsl && (
                 <div className="p-4 bg-slate-900 text-slate-200 space-y-3 border border-slate-700">
                   <div className="flex items-center justify-between border-b border-slate-700 pb-2">
-                    <span className="font-bold text-cyan-400 uppercase flex items-center gap-1.5">
+                    <span className="font-bold text-emerald-400 uppercase flex items-center gap-1.5">
                       <Terminal className="w-4 h-4" /> Generación de Certificado para AFIP
                     </span>
                     <button

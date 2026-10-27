@@ -169,7 +169,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
         {/* Cabecera del Modal */}
         <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between border-b border-slate-700">
           <div className="flex items-center gap-2.5">
-            <Terminal className="w-5 h-5 text-cyan-400" />
+            <Terminal className="w-5 h-5 text-emerald-400" />
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wider">
                 Centro de Conexiones Oficiales & Web Services
@@ -193,7 +193,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
             onClick={() => setTab('afip')}
             className={`px-4 py-2 text-xs font-bold transition-all border-t-2 flex items-center gap-2 ${
               tab === 'afip'
-                ? 'bg-white border-t-blue-700 text-slate-900 border-x border-slate-300 -mb-[1px]'
+                ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px]'
                 : 'text-slate-600 hover:text-slate-900 border-t-transparent'
             }`}
           >
@@ -275,7 +275,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
                       onChange={(e) =>
                         setAfipConfigState({ ...afipConfig, ambiente: e.target.value as any })
                       }
-                      className="w-full px-3 py-1.5 border border-slate-300 bg-white text-xs font-semibold focus:outline-none focus:border-blue-700"
+                      className="w-full px-3 py-1.5 border border-slate-300 bg-white text-xs font-semibold focus:outline-none focus:border-[#064e3b]"
                     >
                       <option value="homologacion">Homologación (Testing / Pruebas)</option>
                       <option value="produccion">Producción (Servidores Reales AFIP)</option>
@@ -291,7 +291,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
                       value={afipConfig.cuit}
                       onChange={(e) => setAfipConfigState({ ...afipConfig, cuit: e.target.value })}
                       placeholder="30-71875908-7"
-                      className="w-full px-3 py-1.5 border border-slate-300 text-xs font-semibold focus:outline-none focus:border-blue-700"
+                      className="w-full px-3 py-1.5 border border-slate-300 text-xs font-semibold focus:outline-none focus:border-[#064e3b]"
                     />
                   </div>
 
@@ -309,7 +309,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
                         })
                       }
                       placeholder="0001"
-                      className="w-full px-3 py-1.5 border border-slate-300 text-xs font-semibold focus:outline-none focus:border-blue-700"
+                      className="w-full px-3 py-1.5 border border-slate-300 text-xs font-semibold focus:outline-none focus:border-[#064e3b]"
                     />
                   </div>
                 </div>
@@ -320,10 +320,10 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
                   <div className="border border-slate-300 p-3 bg-slate-50 space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                        <FileCode className="w-4 h-4 text-blue-700" />
+                        <FileCode className="w-4 h-4 text-[#064e3b]" />
                         <span>Certificado Digital X.509 (.crt / .pem)</span>
                       </label>
-                      <label className="text-[11px] text-blue-700 font-bold hover:underline cursor-pointer">
+                      <label className="text-[11px] text-[#064e3b] font-bold hover:underline cursor-pointer">
                         Subir archivo .crt
                         <input
                           type="file"
@@ -338,7 +338,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
                       value={afipCrtTexto}
                       onChange={(e) => setAfipCrtTexto(e.target.value)}
                       placeholder="-----BEGIN CERTIFICATE-----\nMIIFpzCCBI+gAwIBAgIQDJy6vN...\n-----END CERTIFICATE-----"
-                      className="w-full p-2 bg-white border border-slate-300 text-[10px] font-mono focus:outline-none focus:border-blue-700 leading-tight"
+                      className="w-full p-2 bg-white border border-slate-300 text-[10px] font-mono focus:outline-none focus:border-[#064e3b] leading-tight"
                     />
                     <p className="text-[10px] text-slate-500">
                       Emitido por la Autoridad Certificante de AFIP luego de subir el CSR.
@@ -352,7 +352,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
                         <Key className="w-4 h-4 text-amber-700" />
                         <span>Clave Privada RSA (.key)</span>
                       </label>
-                      <label className="text-[11px] text-blue-700 font-bold hover:underline cursor-pointer">
+                      <label className="text-[11px] text-[#064e3b] font-bold hover:underline cursor-pointer">
                         Subir archivo .key
                         <input
                           type="file"
@@ -367,7 +367,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
                       value={afipKeyTexto}
                       onChange={(e) => setAfipKeyTexto(e.target.value)}
                       placeholder="-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA2yK...\n-----END RSA PRIVATE KEY-----"
-                      className="w-full p-2 bg-white border border-slate-300 text-[10px] font-mono focus:outline-none focus:border-blue-700 leading-tight"
+                      className="w-full p-2 bg-white border border-slate-300 text-[10px] font-mono focus:outline-none focus:border-[#064e3b] leading-tight"
                     />
                     <p className="text-[10px] text-slate-500">
                       Generada localmente con OpenSSL (2048 bits). No compartir públicamente.
@@ -398,7 +398,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setVerOpenSsl(!verOpenSsl)}
-                    className="text-xs text-blue-700 font-bold hover:underline flex items-center gap-1.5"
+                    className="text-xs text-[#064e3b] font-bold hover:underline flex items-center gap-1.5"
                   >
                     <HelpCircle className="w-4 h-4" />
                     <span>{verOpenSsl ? 'Ocultar guía OpenSSL' : '¿Cómo generar la Clave y el CSR para AFIP?'}</span>
@@ -408,7 +408,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
                     <button
                       type="submit"
                       disabled={probandoAfip}
-                      className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
+                      className="px-4 py-2 bg-[#064e3b] hover:bg-[#065f46] text-white text-xs font-bold flex items-center gap-2 transition-colors disabled:opacity-50 border border-black shadow-sm"
                     >
                       {probandoAfip ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
@@ -427,7 +427,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
               {verOpenSsl && (
                 <div className="border border-slate-300 p-4 bg-slate-900 text-slate-200 text-xs space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-700 pb-2">
-                    <span className="font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
+                    <span className="font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
                       <Terminal className="w-4 h-4" /> Comandos oficiales OpenSSL para AFIP
                     </span>
                     <button
@@ -452,7 +452,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
                     </p>
                     {openSslData.pasosTutorial.map((p) => (
                       <div key={p.paso} className="flex gap-2">
-                        <span className="font-bold text-cyan-400 shrink-0">{p.paso}.</span>
+                        <span className="font-bold text-emerald-400 shrink-0">{p.paso}.</span>
                         <p>
                           <strong className="text-white">{p.titulo}:</strong> {p.detalle}
                         </p>
@@ -641,7 +641,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
                     <div className="flex flex-col items-center justify-center p-3 border border-slate-200 bg-slate-50">
                       <div className="w-40 h-40 bg-slate-900 flex flex-col items-center justify-center text-white p-2 text-center">
                         <QrCode className="w-24 h-24 text-white" />
-                        <span className="text-[9px] font-mono text-cyan-400 uppercase mt-1 tracking-wider">
+                        <span className="text-[9px] font-mono text-emerald-400 uppercase mt-1 tracking-wider">
                           QR INTEROPERABLE MP
                         </span>
                       </div>

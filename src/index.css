@@ -40,11 +40,16 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #005696;
+  background: #064e3b;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #054477;
+  background: #065f46;
+}
+
+::selection {
+  background: #064e3b;
+  color: #ffffff;
 }
 
 /* Línea de escaneo o acento técnico */

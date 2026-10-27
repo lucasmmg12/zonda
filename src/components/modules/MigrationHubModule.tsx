@@ -118,7 +118,7 @@ export const MigrationHubModule: React.FC = () => {
 
       {/* Guía Paso a Paso con Iconos Gráficos */}
       {mostrarGuia && (
-        <div className="bg-gradient-to-r from-sanatorio-50/70 via-white to-blue-50/40 border border-sanatorio-200 rounded-lg p-5 shadow-subtle space-y-3">
+        <div className="bg-gradient-to-r from-emerald-50 via-white to-slate-50 border border-slate-300 rounded-none p-5 shadow-subtle space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sanatorio-900 font-bold text-sm">
               <Lightbulb className="w-4 h-4 text-amber-500" />
@@ -222,8 +222,8 @@ export const MigrationHubModule: React.FC = () => {
           </div>
 
           <div className="pt-3 border-t border-slate-100">
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 flex items-start gap-2">
-              <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-none text-xs text-emerald-950 flex items-start gap-2">
+              <Info className="w-4 h-4 text-[#064e3b] shrink-0 mt-0.5" />
               <p className="leading-relaxed">
                 El conector traduce la carga del ERP origen hacia modelos tipados en TypeScript con normalización de asientos.
               </p>

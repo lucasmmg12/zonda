@@ -683,7 +683,7 @@ export const ContabilidadModule: React.FC = () => {
                   <span className="font-bold text-slate-900 block">Cierre de Ejercicio Económico Anual</span>
                   <span className="text-[11px] text-slate-500">Fecha límite: 31 de Diciembre de 2026</span>
                 </div>
-                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 border border-blue-300 font-bold text-[10px]">
+                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-[10px]">
                   Programado
                 </span>
               </div>
