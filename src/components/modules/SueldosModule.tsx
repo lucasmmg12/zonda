@@ -137,17 +137,17 @@ export const SueldosModule: React.FC = () => {
       {/* 1. BARRA SUPERIOR DE ENCABEZADO Y LLAMADA AL CALENDARIO */}
       <div className="bg-white border-b border-slate-300 px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight font-mono uppercase">
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight uppercase">
             Liquidación de Sueldos y Cargas Sociales
           </h1>
-          <span className="text-xs text-slate-400 font-mono">
+          <span className="text-xs text-slate-500 font-medium">
             | CCT UOCRA, COMERCIO, SANIDAD & LIBRO SUELDOS DIGITAL (AFIP RG 3781)
           </span>
         </div>
 
         <button
           onClick={() => alert('Vencimientos Nómina: Pago de Haberes 4to día hábil (05/11), Declaración Jurada F.931 AFIP (12/11).')}
-          className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#4c1d95]"
+          className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#4c1d95]"
         >
           <Calendar className="w-3.5 h-3.5" />
           <span>Calendario de vencimientos</span>
@@ -167,7 +167,7 @@ export const SueldosModule: React.FC = () => {
             <button
               key={tab.key}
               onClick={() => setTabPrincipal(tab.key as any)}
-              className={`px-3.5 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
+              className={`px-3.5 py-2 text-xs font-bold transition-all border-t-2 ${
                 isActive
                   ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
                   : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-white/50'
@@ -186,7 +186,7 @@ export const SueldosModule: React.FC = () => {
           <div className="w-full lg:w-80 border-r border-slate-300 bg-white flex flex-col justify-between shrink-0">
             <div>
               {/* Header del Panel Izquierdo */}
-              <div className="bg-[#f3f0ff] border-b border-slate-300 px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
+              <div className="bg-[#f3f0ff] border-b border-slate-300 px-3 py-1.5 flex items-center justify-between text-xs font-bold text-slate-800">
                 <span>Nómina de Personal</span>
                 <span className="text-[11px] font-normal text-slate-500">
                   Período: {liquidacion.periodo.slice(0, 4)}/{liquidacion.periodo.slice(4)}
@@ -200,13 +200,13 @@ export const SueldosModule: React.FC = () => {
                   value={searchEmpleado}
                   onChange={(e) => setSearchEmpleado(e.target.value)}
                   placeholder="Buscar por legajo, nombre o CUIL"
-                  className="w-full px-2 py-1 bg-white border border-slate-300 text-xs font-mono focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
                 />
 
                 <select
                   value={filtroCct}
                   onChange={(e) => setFiltroCct(e.target.value)}
-                  className="w-full px-2 py-1 bg-white border border-slate-300 text-[11px] font-mono"
+                  className="w-full px-2 py-1 bg-white border border-slate-300 text-[11px]"
                 >
                   <option value="TODOS">Todos los Convenios (CCT)</option>
                   <option value="CCT 76/75 (UOCRA - Construcción)">CCT 76/75 (UOCRA)</option>
@@ -218,7 +218,7 @@ export const SueldosModule: React.FC = () => {
 
               {/* Tabla de Empleados */}
               <div className="overflow-y-auto max-h-[460px]">
-                <table className="w-full text-left text-xs border-collapse font-mono">
+                <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-100 border-b border-slate-300 text-[11px] font-bold text-slate-700">
                       <th className="py-2 px-2.5 border-r border-slate-200">Legajo</th>
@@ -244,12 +244,12 @@ export const SueldosModule: React.FC = () => {
                               : 'hover:bg-slate-50 text-slate-800'
                           }`}
                         >
-                          <td className="py-2 px-2.5 border-r border-slate-200 font-bold">{emp.legajo}</td>
+                          <td className="py-2 px-2.5 border-r border-slate-200 font-bold tabular-nums">{emp.legajo}</td>
                           <td className="py-2 px-2 border-r border-slate-200 truncate max-w-[130px]">
-                            <span className="block truncate">{emp.nombreCompleto}</span>
+                            <span className="block truncate font-semibold">{emp.nombreCompleto}</span>
                             <span className="text-[10px] text-slate-500 font-normal block truncate">{emp.cct}</span>
                           </td>
-                          <td className="py-2 px-2 text-right font-bold text-slate-900 whitespace-nowrap">
+                          <td className="py-2 px-2 text-right font-bold text-slate-900 whitespace-nowrap tabular-nums">
                             ${empNeto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
@@ -261,7 +261,7 @@ export const SueldosModule: React.FC = () => {
             </div>
 
             {/* Paginación del Panel Izquierdo */}
-            <div className="bg-[#f8fafc] border-t border-slate-300 px-3 py-1.5 flex items-center justify-between text-[11px] font-mono text-slate-600">
+            <div className="bg-[#f8fafc] border-t border-slate-300 px-3 py-1.5 flex items-center justify-between text-[11px] text-slate-600">
               <div className="flex items-center gap-1">
                 <button className="p-0.5 hover:bg-slate-200"><ChevronsLeft className="w-3.5 h-3.5" /></button>
                 <button className="p-0.5 hover:bg-slate-200"><ChevronLeft className="w-3.5 h-3.5" /></button>
@@ -271,7 +271,7 @@ export const SueldosModule: React.FC = () => {
                 <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
                 <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
               </div>
-              <span>Total: {empleadosFiltrados.length} legajos</span>
+              <span className="font-medium">Total: {empleadosFiltrados.length} legajos</span>
             </div>
           </div>
 
@@ -281,10 +281,10 @@ export const SueldosModule: React.FC = () => {
               {/* Encabezado del Recibo */}
               <div className="bg-[#f3f0ff] border-b border-slate-300 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-bold text-slate-900 uppercase">
+                  <span className="text-xs font-bold text-slate-900 uppercase tracking-tight">
                     RECIBO OFICIAL DE SUELDOS (LEY 20.744 ART. 140)
                   </span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold">
+                  <span className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold">
                     HOMOLOGADO AFIP
                   </span>
                 </div>
@@ -292,7 +292,7 @@ export const SueldosModule: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => window.print()}
-                    className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 font-mono text-xs font-bold border border-slate-300 flex items-center gap-1 transition-colors"
+                    className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-300 flex items-center gap-1 transition-colors"
                   >
                     <Printer className="w-3.5 h-3.5" />
                     <span>Imprimir</span>
@@ -300,7 +300,7 @@ export const SueldosModule: React.FC = () => {
 
                   <button
                     onClick={() => setTabPrincipal('afip_lsd')}
-                    className="px-2.5 py-1 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold border border-[#4c1d95] flex items-center gap-1 transition-colors"
+                    className="px-2.5 py-1 bg-[#4c1d95] hover:bg-[#3b0764] text-white text-xs font-bold border border-[#4c1d95] flex items-center gap-1 transition-colors"
                   >
                     <FileCode2 className="w-3.5 h-3.5" />
                     <span>Ver TXT LSD AFIP</span>
@@ -310,22 +310,22 @@ export const SueldosModule: React.FC = () => {
 
               {/* Ficha Laboral del Recibo */}
               {empleadoActivo && (
-                <div className="p-4 border-b border-slate-300 bg-slate-50/50 font-mono text-xs space-y-2">
+                <div className="p-4 border-b border-slate-300 bg-slate-50/50 text-xs space-y-2">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="border border-slate-200 bg-white p-2">
-                      <span className="text-slate-500 text-[10px] block">Empleador:</span>
+                      <span className="text-slate-500 text-[10px] block font-medium">Empleador:</span>
                       <p className="font-bold text-slate-900">{mockEmpresa.razonSocial}</p>
                       <p className="text-[11px] text-slate-600">CUIT: {mockEmpresa.cuit}</p>
                     </div>
 
                     <div className="border border-slate-200 bg-white p-2">
-                      <span className="text-slate-500 text-[10px] block">Trabajador:</span>
+                      <span className="text-slate-500 text-[10px] block font-medium">Trabajador:</span>
                       <p className="font-bold text-slate-900">{empleadoActivo.nombreCompleto}</p>
                       <p className="text-[11px] text-slate-600">CUIL: {empleadoActivo.cuil} | Legajo: {empleadoActivo.legajo}</p>
                     </div>
 
                     <div className="border border-slate-200 bg-white p-2">
-                      <span className="text-slate-500 text-[10px] block">Convenio y Categoría:</span>
+                      <span className="text-slate-500 text-[10px] block font-medium">Convenio y Categoría:</span>
                       <p className="font-bold text-slate-900 truncate" title={empleadoActivo.cct}>{empleadoActivo.cct}</p>
                       <p className="text-[11px] text-slate-600 truncate">{empleadoActivo.categoria}</p>
                     </div>
@@ -333,19 +333,19 @@ export const SueldosModule: React.FC = () => {
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
                     <div className="border border-slate-200 bg-white p-1.5">
-                      <span className="text-slate-500 block text-[10px]">Período Liquidado:</span>
+                      <span className="text-slate-500 block text-[10px] font-medium">Período Liquidado:</span>
                       <span className="font-bold text-slate-900">{liquidacion.periodo} - {liquidacion.tipoLiquidacion}</span>
                     </div>
                     <div className="border border-slate-200 bg-white p-1.5">
-                      <span className="text-slate-500 block text-[10px]">Fecha de Pago:</span>
+                      <span className="text-slate-500 block text-[10px] font-medium">Fecha de Pago:</span>
                       <span className="font-bold text-slate-900">{liquidacion.fechaPago}</span>
                     </div>
                     <div className="border border-slate-200 bg-white p-1.5">
-                      <span className="text-slate-500 block text-[10px]">Ingreso / Antigüedad:</span>
+                      <span className="text-slate-500 block text-[10px] font-medium">Ingreso / Antigüedad:</span>
                       <span className="font-bold text-slate-900">{empleadoActivo.fechaIngreso} ({empleadoActivo.antiguedadAnios} años)</span>
                     </div>
                     <div className="border border-slate-200 bg-white p-1.5">
-                      <span className="text-slate-500 block text-[10px]">Banco y CBU:</span>
+                      <span className="text-slate-500 block text-[10px] font-medium">Banco y CBU:</span>
                       <span className="font-bold text-slate-900 truncate block" title={empleadoActivo.cbu}>{empleadoActivo.banco}</span>
                     </div>
                   </div>
@@ -354,7 +354,7 @@ export const SueldosModule: React.FC = () => {
 
               {/* Grilla de Conceptos del Recibo de Sueldo */}
               <div className="overflow-x-auto min-h-[300px]">
-                <table className="w-full text-left text-xs border-collapse font-mono">
+                <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-100 border-b border-slate-300 text-[11px] font-bold text-slate-700">
                       <th className="py-2 px-2.5 border-r border-slate-200 w-16 text-center">Código</th>
@@ -369,27 +369,27 @@ export const SueldosModule: React.FC = () => {
                     {empleadoActivo &&
                       empleadoActivo.conceptosLiquidacion.map((c) => (
                         <tr key={c.codigo} className="hover:bg-slate-50">
-                          <td className="py-1.5 px-2.5 border-r border-slate-200 text-center text-slate-500 font-bold">
+                          <td className="py-1.5 px-2.5 border-r border-slate-200 text-center text-slate-500 font-bold tabular-nums">
                             {c.codigo}
                           </td>
                           <td className="py-1.5 px-3 border-r border-slate-200">
-                            <span className="font-bold text-slate-900">{c.descripcion}</span>
-                            <span className="text-[10px] text-slate-400 block">Cod. AFIP LSD: {c.codigoAfipLsd}</span>
+                            <span className="font-semibold text-slate-900">{c.descripcion}</span>
+                            <span className="text-[10px] text-slate-400 block font-normal">Cod. AFIP LSD: {c.codigoAfipLsd}</span>
                           </td>
                           <td className="py-1.5 px-2.5 border-r border-slate-200 text-center text-slate-600">
                             {c.unidades || '-'}
                           </td>
-                          <td className="py-1.5 px-3 border-r border-slate-200 text-right font-medium">
+                          <td className="py-1.5 px-3 border-r border-slate-200 text-right font-semibold tabular-nums">
                             {c.remunerativo > 0
                               ? `$${c.remunerativo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
                               : '-'}
                           </td>
-                          <td className="py-1.5 px-3 border-r border-slate-200 text-right text-emerald-700 font-medium">
+                          <td className="py-1.5 px-3 border-r border-slate-200 text-right text-emerald-700 font-semibold tabular-nums">
                             {c.noRemunerativo > 0
                               ? `$${c.noRemunerativo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
                               : '-'}
                           </td>
-                          <td className="py-1.5 px-3 text-right text-rose-700 font-medium">
+                          <td className="py-1.5 px-3 text-right text-rose-700 font-semibold tabular-nums">
                             {c.descuento > 0
                               ? `$${c.descuento.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
                               : '-'}
@@ -401,23 +401,23 @@ export const SueldosModule: React.FC = () => {
               </div>
 
               {/* Totales del Recibo */}
-              <div className="bg-[#f8fafc] border-t-2 border-slate-300 p-4 font-mono text-xs">
+              <div className="bg-[#f8fafc] border-t-2 border-slate-300 p-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-center sm:text-right border-b border-slate-200 pb-3">
                   <div>
-                    <span className="text-slate-500 text-[10px] block">Total Remunerativo:</span>
-                    <span className="font-bold text-slate-900 text-sm">
+                    <span className="text-slate-500 text-[10px] block font-medium">Total Remunerativo:</span>
+                    <span className="font-bold text-slate-900 text-sm tabular-nums">
                       ${totalRemunerativo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[10px] block">Total No Remunerativo:</span>
-                    <span className="font-bold text-emerald-700 text-sm">
+                    <span className="text-slate-500 text-[10px] block font-medium">Total No Remunerativo:</span>
+                    <span className="font-bold text-emerald-700 text-sm tabular-nums">
                       ${totalNoRemunerativo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[10px] block">Total Retenciones (17%+):</span>
-                    <span className="font-bold text-rose-700 text-sm">
+                    <span className="text-slate-500 text-[10px] block font-medium">Total Retenciones (17%+):</span>
+                    <span className="font-bold text-rose-700 text-sm tabular-nums">
                       ${totalDescuentos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -425,7 +425,7 @@ export const SueldosModule: React.FC = () => {
                     <span className="text-[#4c1d95] text-[10px] font-bold block uppercase tracking-wider">
                       Neto a Cobrar
                     </span>
-                    <span className="font-extrabold text-[#4c1d95] text-lg">
+                    <span className="font-extrabold text-[#4c1d95] text-lg tabular-nums">
                       ${netoCobrar.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -435,7 +435,7 @@ export const SueldosModule: React.FC = () => {
                   <span>
                     Son pesos: <strong className="uppercase">Neto bancarizado acreditado en cuenta sueldos</strong>
                   </span>
-                  <span>Firma del Empleador: ____________________________</span>
+                  <span className="font-medium">Firma del Empleador: ____________________________</span>
                 </div>
               </div>
             </div>
@@ -445,7 +445,7 @@ export const SueldosModule: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowNuevaLiquidacionModal(true)}
-                  className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
+                  className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
                 >
                   <DollarSign className="w-3.5 h-3.5" />
                   <span>Nueva liquidación ▼</span>
@@ -453,7 +453,7 @@ export const SueldosModule: React.FC = () => {
 
                 <button
                   onClick={() => setShowNuevoLegajoModal(true)}
-                  className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
+                  className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Nuevo legajo (Alta AFIP)</span>
@@ -461,7 +461,7 @@ export const SueldosModule: React.FC = () => {
 
                 <button
                   onClick={() => setShowF931Modal(true)}
-                  className="px-3.5 py-1.5 bg-[#ede9fe] hover:bg-[#ddd6fe] text-[#4c1d95] font-mono text-xs font-bold border border-[#c4b5fd] flex items-center gap-1.5 transition-colors"
+                  className="px-3.5 py-1.5 bg-[#ede9fe] hover:bg-[#ddd6fe] text-[#4c1d95] text-xs font-bold border border-[#c4b5fd] flex items-center gap-1.5 transition-colors"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>Cargas Sociales F.931</span>
@@ -470,7 +470,7 @@ export const SueldosModule: React.FC = () => {
 
               <button
                 onClick={handleDescargarTxtLsd}
-                className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs font-bold border border-emerald-800 flex items-center gap-1.5 transition-colors shadow-sm"
+                className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold border border-emerald-800 flex items-center gap-1.5 transition-colors shadow-sm"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Generar TXT Libro Sueldos Digital AFIP</span>
@@ -482,7 +482,7 @@ export const SueldosModule: React.FC = () => {
 
       {/* 4. VISTA 2: LIBRO SUELDOS DIGITAL AFIP (TXT OFICIAL RG 3781) */}
       {tabPrincipal === 'afip_lsd' && (
-        <div className="bg-white border border-slate-300 border-t-0 p-6 font-mono text-xs space-y-5">
+        <div className="bg-white border border-slate-300 border-t-0 p-6 text-xs space-y-5">
           {/* Header informativo AFIP */}
           <div className="bg-slate-50 border border-slate-300 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
@@ -517,19 +517,19 @@ export const SueldosModule: React.FC = () => {
           {/* Validaciones de AFIP */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div className="border border-slate-200 p-3 bg-white">
-              <span className="text-slate-500 text-[10px] block">Nombre de Archivo:</span>
-              <p className="font-bold text-slate-900 truncate">{lsdResultado.nombreArchivo}</p>
+              <span className="text-slate-500 text-[10px] block font-medium">Nombre de Archivo:</span>
+              <p className="font-bold text-slate-900 truncate font-mono text-[11px]">{lsdResultado.nombreArchivo}</p>
             </div>
             <div className="border border-slate-200 p-3 bg-white">
-              <span className="text-slate-500 text-[10px] block">Registros Generados:</span>
-              <p className="font-bold text-slate-900">{lsdResultado.totalRegistros} líneas posicionales</p>
+              <span className="text-slate-500 text-[10px] block font-medium">Registros Generados:</span>
+              <p className="font-bold text-slate-900 tabular-nums">{lsdResultado.totalRegistros} líneas posicionales</p>
             </div>
             <div className="border border-slate-200 p-3 bg-white">
-              <span className="text-slate-500 text-[10px] block">Masa Salarial Bruta:</span>
-              <p className="font-bold text-emerald-700">${lsdResultado.totalBruto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
+              <span className="text-slate-500 text-[10px] block font-medium">Masa Salarial Bruta:</span>
+              <p className="font-bold text-emerald-700 tabular-nums">${lsdResultado.totalBruto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
             </div>
             <div className="border border-slate-200 p-3 bg-white">
-              <span className="text-slate-500 text-[10px] block">Estado Validación RG 3781:</span>
+              <span className="text-slate-500 text-[10px] block font-medium">Estado Validación RG 3781:</span>
               <p className="font-bold text-emerald-700 flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Estructura 100% Válida</span>
@@ -540,7 +540,7 @@ export const SueldosModule: React.FC = () => {
           {/* Visor de Código TXT Posicional */}
           <div>
             <div className="bg-[#1e1b4b] text-slate-300 px-4 py-2 flex items-center justify-between text-[11px] font-bold">
-              <span>PREVISUALIZACIÓN DE ARCHIVO PLANO POSICIONAL (AFIP LSD)</span>
+              <span className="tracking-wide">PREVISUALIZACIÓN DE ARCHIVO PLANO POSICIONAL (AFIP LSD)</span>
               <span className="text-slate-400 font-normal">Formato UTF-8 / CRLF</span>
             </div>
             <pre className="p-4 bg-slate-900 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-[380px] leading-relaxed border border-slate-800 select-all">
@@ -552,7 +552,7 @@ export const SueldosModule: React.FC = () => {
 
       {/* 5. VISTA 3: NÓMINA DE LEGAJOS */}
       {tabPrincipal === 'nomina' && (
-        <div className="bg-white border border-slate-300 border-t-0 p-6 font-mono text-xs space-y-4">
+        <div className="bg-white border border-slate-300 border-t-0 p-6 text-xs space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-slate-900 text-sm">Ficha Maestra de Empleados y Categorías de Convenio</h3>
             <button
@@ -580,13 +580,13 @@ export const SueldosModule: React.FC = () => {
             <tbody className="divide-y divide-slate-200">
               {empleados.map((emp) => (
                 <tr key={emp.id} className="hover:bg-slate-50">
-                  <td className="py-2 px-3 border-r border-slate-200 font-bold">{emp.legajo}</td>
+                  <td className="py-2 px-3 border-r border-slate-200 font-bold tabular-nums">{emp.legajo}</td>
                   <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-900">{emp.nombreCompleto}</td>
                   <td className="py-2 px-3 border-r border-slate-200">{emp.cuil}</td>
                   <td className="py-2 px-3 border-r border-slate-200">{emp.cct}</td>
                   <td className="py-2 px-3 border-r border-slate-200 text-slate-600">{emp.categoria}</td>
                   <td className="py-2 px-3 border-r border-slate-200">{emp.fechaIngreso}</td>
-                  <td className="py-2 px-3 border-r border-slate-200 text-right font-bold">
+                  <td className="py-2 px-3 border-r border-slate-200 text-right font-bold tabular-nums">
                     ${emp.sueldoBasico.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </td>
                   <td className="py-2 px-3 text-center">
@@ -601,7 +601,7 @@ export const SueldosModule: React.FC = () => {
 
       {/* 6. VISTA 4: CONVENIOS CCT Y FÓRMULAS */}
       {tabPrincipal === 'cct' && (
-        <div className="bg-white border border-slate-300 border-t-0 p-6 font-mono text-xs space-y-4 max-w-4xl">
+        <div className="bg-white border border-slate-300 border-t-0 p-6 text-xs space-y-4 max-w-4xl">
           <h3 className="font-bold text-slate-900 text-sm">Convenios Colectivos Parametrizados en el Motor de Zonda ERP</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="border border-slate-200 p-4 bg-slate-50 space-y-2">
@@ -642,9 +642,9 @@ export const SueldosModule: React.FC = () => {
       {/* MODAL: NUEVA LIQUIDACIÓN */}
       {showNuevaLiquidacionModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-md shadow-2xl font-mono text-xs">
+          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-md shadow-2xl text-xs">
             <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-bold">
-              <span>APERTURA DE NUEVA LIQUIDACIÓN DE SUELDOS</span>
+              <span className="tracking-tight">APERTURA DE NUEVA LIQUIDACIÓN DE SUELDOS</span>
               <button onClick={() => setShowNuevaLiquidacionModal(false)}><X className="w-4 h-4" /></button>
             </div>
             <form
@@ -656,17 +656,17 @@ export const SueldosModule: React.FC = () => {
               className="p-4 space-y-3"
             >
               <div>
-                <label className="text-slate-600 block text-[11px] mb-1">Período (AAAAMM):</label>
+                <label className="text-slate-600 block text-[11px] mb-1 font-medium">Período (AAAAMM):</label>
                 <input
                   type="text"
                   required
                   defaultValue={liquidacion.periodo}
-                  className="w-full px-2 py-1.5 border border-slate-300 focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full px-2 py-1.5 border border-slate-300 focus:outline-none focus:border-[#4c1d95] tabular-nums"
                 />
               </div>
 
               <div>
-                <label className="text-slate-600 block text-[11px] mb-1">Tipo de Liquidación:</label>
+                <label className="text-slate-600 block text-[11px] mb-1 font-medium">Tipo de Liquidación:</label>
                 <select className="w-full px-2 py-1.5 border border-slate-300 bg-white">
                   <option value="Mensual">Mensual Ordinaria</option>
                   <option value="1ra Quincena">1ra Quincena (Jornalizados CCT 76/75)</option>
@@ -678,7 +678,7 @@ export const SueldosModule: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-slate-600 block text-[11px] mb-1">Fecha de Pago Bancario:</label>
+                <label className="text-slate-600 block text-[11px] mb-1 font-medium">Fecha de Pago Bancario:</label>
                 <input
                   type="date"
                   defaultValue={liquidacion.fechaPago}
@@ -690,7 +690,7 @@ export const SueldosModule: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowNuevaLiquidacionModal(false)}
-                  className="px-3 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-100"
+                  className="px-3 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium"
                 >
                   Cancelar
                 </button>
@@ -709,15 +709,15 @@ export const SueldosModule: React.FC = () => {
       {/* MODAL: NUEVO LEGAJO */}
       {showNuevoLegajoModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-lg shadow-2xl font-mono text-xs">
+          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-lg shadow-2xl text-xs">
             <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-bold">
-              <span>ALTA DE LEGAJO / TRABAJADOR (MI SIMPLIFICACIÓN AFIP)</span>
+              <span className="tracking-tight">ALTA DE LEGAJO / TRABAJADOR (MI SIMPLIFICACIÓN AFIP)</span>
               <button onClick={() => setShowNuevoLegajoModal(false)}><X className="w-4 h-4" /></button>
             </div>
             <form onSubmit={handleCrearLegajo} className="p-4 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-slate-600 block text-[11px] mb-1">Nombre Completo:</label>
+                  <label className="text-slate-600 block text-[11px] mb-1 font-medium">Nombre Completo:</label>
                   <input
                     type="text"
                     required
@@ -728,21 +728,21 @@ export const SueldosModule: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-slate-600 block text-[11px] mb-1">CUIL (11 dígitos):</label>
+                  <label className="text-slate-600 block text-[11px] mb-1 font-medium">CUIL (11 dígitos):</label>
                   <input
                     type="text"
                     required
                     value={nuevoCuil}
                     onChange={(e) => setNuevoCuil(e.target.value)}
                     placeholder="20-35891204-9"
-                    className="w-full px-2 py-1.5 border border-slate-300 focus:outline-none focus:border-[#4c1d95]"
+                    className="w-full px-2 py-1.5 border border-slate-300 focus:outline-none focus:border-[#4c1d95] tabular-nums"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-slate-600 block text-[11px] mb-1">Convenio Colectivo (CCT):</label>
+                  <label className="text-slate-600 block text-[11px] mb-1 font-medium">Convenio Colectivo (CCT):</label>
                   <select
                     value={nuevoCct}
                     onChange={(e) => setNuevoCct(e.target.value as any)}
@@ -755,7 +755,7 @@ export const SueldosModule: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="text-slate-600 block text-[11px] mb-1">Categoría Laboral:</label>
+                  <label className="text-slate-600 block text-[11px] mb-1 font-medium">Categoría Laboral:</label>
                   <input
                     type="text"
                     value={nuevaCategoria}
@@ -767,13 +767,13 @@ export const SueldosModule: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-slate-600 block text-[11px] mb-1">Sueldo Básico de Convenio ($):</label>
+                <label className="text-slate-600 block text-[11px] mb-1 font-medium">Sueldo Básico de Convenio ($):</label>
                 <input
                   type="number"
                   required
                   value={nuevoBasico}
                   onChange={(e) => setNuevoBasico(Number(e.target.value))}
-                  className="w-full px-2 py-1.5 border border-slate-300"
+                  className="w-full px-2 py-1.5 border border-slate-300 tabular-nums"
                 />
               </div>
 
@@ -781,7 +781,7 @@ export const SueldosModule: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowNuevoLegajoModal(false)}
-                  className="px-3 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-100"
+                  className="px-3 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium"
                 >
                   Cancelar
                 </button>
@@ -800,22 +800,22 @@ export const SueldosModule: React.FC = () => {
       {/* MODAL: CARGAS SOCIALES F.931 */}
       {showF931Modal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-xl shadow-2xl font-mono text-xs">
+          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-xl shadow-2xl text-xs">
             <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-bold">
-              <span>DECLARACIÓN JURADA CARGAS SOCIALES F.931 AFIP</span>
+              <span className="tracking-tight">DECLARACIÓN JURADA CARGAS SOCIALES F.931 AFIP</span>
               <button onClick={() => setShowF931Modal(false)}><X className="w-4 h-4" /></button>
             </div>
             <div className="p-4 space-y-3">
               <div className="grid grid-cols-2 gap-3 text-[11px]">
                 <div className="border border-slate-200 p-2.5 bg-slate-50">
-                  <span className="text-slate-500 block">Total Aportes Trabajadores (Retenciones):</span>
-                  <p className="font-bold text-slate-900 text-sm mt-0.5">
+                  <span className="text-slate-500 block font-medium">Total Aportes Trabajadores (Retenciones):</span>
+                  <p className="font-bold text-slate-900 text-sm mt-0.5 tabular-nums">
                     ${liquidacion.totalRetenciones.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="border border-slate-200 p-2.5 bg-slate-50">
-                  <span className="text-slate-500 block">Total Contribuciones Patronales:</span>
-                  <p className="font-bold text-slate-900 text-sm mt-0.5">
+                  <span className="text-slate-500 block font-medium">Total Contribuciones Patronales:</span>
+                  <p className="font-bold text-slate-900 text-sm mt-0.5 tabular-nums">
                     ${liquidacion.totalContribucionesPatronales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
@@ -825,25 +825,25 @@ export const SueldosModule: React.FC = () => {
                 <h4 className="font-bold text-slate-900">Desglose de Obligaciones de Seguridad Social:</h4>
                 <div className="flex justify-between border-b border-slate-100 py-1">
                   <span>SIPA (Jubilación 10.77% + PAMI 1.58%):</span>
-                  <span className="font-bold text-slate-900">$635.420,00</span>
+                  <span className="font-bold text-slate-900 tabular-nums">$635.420,00</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 py-1">
                   <span>Asignaciones Familiares + FNE (5.64%):</span>
-                  <span className="font-bold text-slate-900">$290.150,00</span>
+                  <span className="font-bold text-slate-900 tabular-nums">$290.150,00</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 py-1">
                   <span>Régimen Nacional de Obras Sociales (6.00%):</span>
-                  <span className="font-bold text-slate-900">$308.700,00</span>
+                  <span className="font-bold text-slate-900 tabular-nums">$308.700,00</span>
                 </div>
                 <div className="flex justify-between py-1">
                   <span>Aseguradora de Riesgos del Trabajo (ART) + Seguro Vida:</span>
-                  <span className="font-bold text-slate-900">$209.305,66</span>
+                  <span className="font-bold text-slate-900 tabular-nums">$209.305,66</span>
                 </div>
               </div>
 
               <div className="bg-[#ede9fe] border border-[#c4b5fd] p-3 flex justify-between items-center text-sm font-bold text-[#4c1d95]">
                 <span>TOTAL A PAGAR VEP AFIP F.931:</span>
-                <span>
+                <span className="tabular-nums">
                   ${(liquidacion.totalRetenciones + liquidacion.totalContribucionesPatronales).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                 </span>
               </div>

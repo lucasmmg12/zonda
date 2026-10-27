@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Montserrat', 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color: #0f172a;
@@ -13,6 +13,7 @@
 /* Patrón técnico de grilla sutil de ingeniería de fondo */
 body {
   margin: 0;
+  font-family: 'Montserrat', 'Inter', system-ui, -apple-system, sans-serif;
   min-width: 320px;
   min-height: 100vh;
   background-color: #f8fafc;

@@ -94,15 +94,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.key}
                 onClick={() => onSelectModule(item.key)}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-mono transition-all text-left border ${
+                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-sans transition-all text-left border ${
                   isActive
                     ? 'bg-slate-900 text-white border-slate-900 border-l-4 border-l-zonda-500 font-bold'
-                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100 border-transparent hover:border-slate-200'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100 border-transparent hover:border-slate-200 font-medium'
                 }`}
                 title={collapsed ? item.label : undefined}
               >
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`text-[10px] font-mono ${isActive ? 'text-cyan-400' : 'text-slate-400'}`}>
+                  <span className={`text-[10px] font-mono ${isActive ? 'text-cyan-400 font-bold' : 'text-slate-400'}`}>
                     {item.code}
                   </span>
                   <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-600'}`} />
@@ -110,10 +110,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {!collapsed && (
                   <div className="flex-1 flex items-center justify-between min-w-0">
-                    <span className="truncate uppercase tracking-tight text-[11px]">{item.label}</span>
+                    <span className="truncate uppercase tracking-tight text-[11px] font-semibold">{item.label}</span>
                     {item.badge && (
                       <span
-                        className={`text-[9px] px-1 py-0.2 font-mono font-bold uppercase ${
+                        className={`text-[9px] px-1 py-0.2 font-sans font-bold uppercase ${
                           isActive
                             ? 'bg-zonda-700 text-white border border-zonda-500'
                             : 'bg-slate-100 text-slate-700 border border-slate-300'
