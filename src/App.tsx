@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sidebar, ModuleKey } from './components/layout/Sidebar';
+import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { DashboardModule } from './components/modules/DashboardModule';
 import { ClientesModule } from './components/modules/ClientesModule';
@@ -10,23 +10,11 @@ import { InventarioModule } from './components/modules/InventarioModule';
 import { MigrationHubModule } from './components/modules/MigrationHubModule';
 import { ConfiguracionModule } from './components/modules/ConfiguracionModule';
 import { SueldosModule } from './components/modules/SueldosModule';
-import { mockEmpresa } from './services/mockData';
+import { ErpProvider, useErp } from './context/ErpContext';
 
-export function App() {
-  const getInitialModule = (): ModuleKey => {
-    const hash = window.location.hash.replace('#', '') as ModuleKey;
-    const validModules: ModuleKey[] = ['tablero', 'clientes', 'proveedores', 'tesoreria', 'contabilidad', 'inventario', 'sueldos', 'migracion', 'configuracion'];
-    if (validModules.includes(hash)) return hash;
-    return 'sueldos';
-  };
-
-  const [activeModule, setActiveModuleState] = useState<ModuleKey>(getInitialModule);
+function AppLayout() {
+  const { activeModule, setActiveModule, empresa } = useErp();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-  const setActiveModule = (mod: ModuleKey) => {
-    setActiveModuleState(mod);
-    window.location.hash = mod;
-  };
 
   const renderModule = () => {
     switch (activeModule) {
@@ -66,7 +54,7 @@ export function App() {
       {/* Contenedor principal */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Cabecera superior */}
-        <Header empresa={mockEmpresa} activeModule={activeModule} />
+        <Header empresa={empresa} activeModule={activeModule} />
 
         {/* Área de contenido scrollable */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50">
@@ -76,6 +64,14 @@ export function App() {
         </main>
       </div>
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <ErpProvider>
+      <AppLayout />
+    </ErpProvider>
   );
 }
 

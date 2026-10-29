@@ -9,9 +9,6 @@ import {
   ChevronsRight,
   RotateCw,
   Plus,
-  Landmark,
-  CreditCard,
-  Coins,
   CheckCircle2,
   X,
   ChevronUp,
@@ -19,16 +16,23 @@ import {
   ArrowRightLeft,
   FileText,
   DollarSign,
-  Download,
-  Link2,
-  Eye
+  Download
 } from 'lucide-react';
-import { CuentaBancaria, MovimientoTesoreria } from '../../types/models';
-import { mockCuentasBancarias } from '../../services/mockData';
+import { useErp } from '../../context/ErpContext';
+import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
 
 export const TesoreriaModule: React.FC = () => {
-  const [cuentas, setCuentas] = useState<CuentaBancaria[]>(mockCuentasBancarias);
-  const [cuentaSeleccionadaId, setCuentaSeleccionadaId] = useState<string>('CTA-01'); // CAJA en $ seleccionada por defecto
+  const {
+    cuentasBancarias,
+    cheques,
+    crearCuentaBancaria,
+    editarCuentaBancaria,
+    conciliarCuentaBancaria,
+    registrarMovimientoTesoreria,
+    refreshAllFromDb
+  } = useErp();
+
+  const [cuentaSeleccionadaId, setCuentaSeleccionadaId] = useState<string>('CTA-01');
   const [periodoGrafico, setPeriodoGrafico] = useState<'mensual' | 'trimestral' | 'anual'>('mensual');
   const [graficoColapsado, setGraficoColapsado] = useState(false);
 
@@ -47,18 +51,27 @@ export const TesoreriaModule: React.FC = () => {
   const [nuevoTipoCuenta, setNuevoTipoCuenta] = useState<'Caja Física' | 'Cuenta Corriente' | 'Tarjeta' | 'Cheques'>('Cuenta Corriente');
   const [nuevoSaldoInicial, setNuevoSaldoInicial] = useState<number>(0);
 
+  // Formulario Editar Cuenta
+  const [editNombreCuenta, setEditNombreCuenta] = useState('');
+  const [editBancoCuenta, setEditBancoCuenta] = useState('');
+  const [editCbuCuenta, setEditCbuCuenta] = useState('');
+
   // Formulario Pago
   const [pagoProveedor, setPagoProveedor] = useState('');
   const [pagoMonto, setPagoMonto] = useState<number>(50000);
   const [pagoConcepto, setPagoConcepto] = useState('');
 
+  // Formulario Cobranza
+  const [cobroCliente, setCobroCliente] = useState('');
+  const [cobroMonto, setCobroMonto] = useState<number>(120000);
+  const [cobroConcepto, setCobroConcepto] = useState('');
+
   // Formulario Movimiento Interno
   const [tipoMovInterno, setTipoMovInterno] = useState<'Extracción Efectivo' | 'Depósito Bancario' | 'Canje de Cheque'>('Extracción Efectivo');
   const [montoMovInterno, setMontoMovInterno] = useState<number>(100000);
 
-  const cuentaActiva = cuentas.find((c) => c.id === cuentaSeleccionadaId) || cuentas[0];
+  const cuentaActiva = cuentasBancarias.find((c) => c.id === cuentaSeleccionadaId) || cuentasBancarias[0];
 
-  // Datos del gráfico mensual para los últimos 12 meses (como en la imagen: Nov, Dic, Ene, Feb, Mar, Abr, May, Jun, Jul, Ago, Sep, Oct)
   const mesesGrafico = [
     { mes: 'Nov', ingresos: 0, egresos: 0, saldo: 0 },
     { mes: 'Dic', ingresos: 0, egresos: 0, saldo: 0 },
@@ -71,102 +84,154 @@ export const TesoreriaModule: React.FC = () => {
     { mes: 'Jul', ingresos: 0, egresos: 0, saldo: 0 },
     { mes: 'Ago', ingresos: 0, egresos: 0, saldo: 0 },
     { mes: 'Sep', ingresos: 490000, egresos: 1738683, saldo: -1248683 },
-    { mes: 'Oct', ingresos: 120000, egresos: 85000, saldo: -1213683 }
+    { mes: 'Oct', ingresos: 120000, egresos: 85000, saldo: cuentaActiva?.saldoActual || -1213683 }
   ];
 
-  // Agregar Pago
-  const handleCrearPago = (e: React.FormEvent) => {
+  // Agregar Pago en Supabase + Contabilidad
+  const handleCrearPago = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cuentaActiva) return;
 
-    const nuevoSaldo = cuentaActiva.saldoActual - pagoMonto;
-    const nuevoMov: MovimientoTesoreria = {
-      id: `MOV-T${Date.now()}`,
-      fecha: new Date().toISOString().split('T')[0].split('-').reverse().join('/'),
-      clienteProveedor: pagoProveedor || 'PROVEEDOR VARIOS',
+    await registrarMovimientoTesoreria({
+      cuentaId: cuentaActiva.id,
       tipo: 'PAG',
-      nro: `0001-00000${Math.floor(10 + Math.random() * 90)}`,
-      descripcion: pagoConcepto || 'Pago registrado',
+      clienteProveedor: pagoProveedor || 'PROVEEDOR VARIOS',
+      descripcion: pagoConcepto || 'Pago de tesorería registrado',
       ingresos: 0,
-      egresos: pagoMonto,
-      saldo: nuevoSaldo
-    };
-
-    setCuentas((prev) =>
-      prev.map((c) => {
-        if (c.id === cuentaActiva.id) {
-          return {
-            ...c,
-            saldoActual: nuevoSaldo,
-            movimientos: [nuevoMov, ...(c.movimientos || [])]
-          };
-        }
-        return c;
-      })
-    );
+      egresos: pagoMonto
+    });
 
     setShowPagoModal(false);
     setPagoProveedor('');
     setPagoConcepto('');
   };
 
+  // Agregar Cobranza en Supabase + Contabilidad
+  const handleCrearCobro = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cuentaActiva) return;
+
+    await registrarMovimientoTesoreria({
+      cuentaId: cuentaActiva.id,
+      tipo: 'COB',
+      clienteProveedor: cobroCliente || 'CLIENTE VARIOS',
+      descripcion: cobroConcepto || 'Cobranza de tesorería registrada',
+      ingresos: cobroMonto,
+      egresos: 0
+    });
+
+    setShowCobroModal(false);
+    setCobroCliente('');
+    setCobroConcepto('');
+  };
+
   // Agregar Movimiento Interno (Extracción / Depósito)
-  const handleCrearMovInterno = (e: React.FormEvent) => {
+  const handleCrearMovInterno = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cuentaActiva) return;
 
     const esIngreso = tipoMovInterno === 'Depósito Bancario' || tipoMovInterno === 'Extracción Efectivo';
-    const nuevoSaldo = esIngreso ? cuentaActiva.saldoActual + montoMovInterno : cuentaActiva.saldoActual - montoMovInterno;
 
-    const nuevoMov: MovimientoTesoreria = {
-      id: `MOV-T${Date.now()}`,
-      fecha: new Date().toISOString().split('T')[0].split('-').reverse().join('/'),
-      clienteProveedor: '',
+    await registrarMovimientoTesoreria({
+      cuentaId: cuentaActiva.id,
       tipo: 'EXE',
-      nro: String(Math.floor(1 + Math.random() * 99)),
+      clienteProveedor: 'MOVIMIENTO INTERNO',
       descripcion: tipoMovInterno,
       ingresos: esIngreso ? montoMovInterno : 0,
-      egresos: !esIngreso ? montoMovInterno : 0,
-      saldo: nuevoSaldo
-    };
-
-    setCuentas((prev) =>
-      prev.map((c) => {
-        if (c.id === cuentaActiva.id) {
-          return {
-            ...c,
-            saldoActual: nuevoSaldo,
-            movimientos: [nuevoMov, ...(c.movimientos || [])]
-          };
-        }
-        return c;
-      })
-    );
+      egresos: !esIngreso ? montoMovInterno : 0
+    });
 
     setShowMovimientoInternoModal(false);
   };
 
-  // Crear Cuenta
-  const handleCrearCuenta = (e: React.FormEvent) => {
+  // Crear Cuenta en Supabase
+  const handleCrearCuenta = async (e: React.FormEvent) => {
     e.preventDefault();
-    const nueva: CuentaBancaria = {
-      id: `CTA-0${cuentas.length + 1}`,
+    const nueva = await crearCuentaBancaria({
       nombre: nuevoNombreCuenta || 'Nueva Cuenta Bancaria',
       banco: nuevoTipoCuenta === 'Cuenta Corriente' ? 'Banco Operativo' : 'Caja Fiduciaria',
       tipoCuenta: nuevoTipoCuenta,
       moneda: 'ARS',
-      saldoActual: nuevoSaldoInicial,
-      saldoConciliado: 0,
-      conectarDisponible: nuevoTipoCuenta === 'Cuenta Corriente',
-      movimientos: []
-    };
+      saldoInicial: nuevoSaldoInicial
+    });
 
-    setCuentas([...cuentas, nueva]);
     setCuentaSeleccionadaId(nueva.id);
     setShowAgregarCuentaModal(false);
     setNuevoNombreCuenta('');
     setNuevoSaldoInicial(0);
   };
+
+  // Abrir Modal Editar Cuenta
+  const handleAbrirEditar = (c: typeof cuentaActiva) => {
+    if (!c) return;
+    setCuentaSeleccionadaId(c.id);
+    setEditNombreCuenta(c.nombre);
+    setEditBancoCuenta(c.banco);
+    setEditCbuCuenta(c.cbu || '');
+    setShowEditarModal(true);
+  };
+
+  // Guardar Edición Cuenta
+  const handleGuardarEdicionCuenta = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cuentaActiva) return;
+    await editarCuentaBancaria(cuentaActiva.id, {
+      nombre: editNombreCuenta,
+      banco: editBancoCuenta,
+      cbu: editCbuCuenta || undefined
+    });
+    setShowEditarModal(false);
+  };
+
+  // Conciliar Cuenta en Supabase
+  const handleConfirmarConciliacion = async () => {
+    if (!cuentaActiva) return;
+    await conciliarCuentaBancaria(cuentaActiva.id);
+    setShowConciliarModal(false);
+  };
+
+  // Exportar Movimientos a Excel
+  const handleExportarMovimientosExcel = () => {
+    if (!cuentaActiva) return;
+    exportToExcelCsv(
+      `Movimientos_${cuentaActiva.nombre.replace(/\s+/g, '_')}`,
+      (cuentaActiva.movimientos || []).map((m) => ({
+        Cuenta: cuentaActiva.nombre,
+        Fecha: m.fecha,
+        Tercero: m.clienteProveedor,
+        Tipo: m.tipo,
+        Numero: m.nro,
+        Cheque: m.nroCheque || '-',
+        Descripcion: m.descripcion,
+        Ingresos: m.ingresos,
+        Egresos: m.egresos,
+        Saldo: m.saldo
+      }))
+    );
+  };
+
+  // Exportar PDF de Cheques
+  const handleDescargarReporteChequesPdf = () => {
+    printFinancialReport(
+      showReporteModal || 'REPORTE DE CHEQUES Y VALORES',
+      `Auditoría de Cartera de Valores - ${new Date().toLocaleDateString('es-AR')}`,
+      ['Nro. Cheque', 'Banco', 'Librador / Destino', 'Emisión', 'Cobro', 'Estado', 'Monto ($)'],
+      cheques.map((ch) => [
+        ch.numero,
+        ch.bancoEmisor,
+        ch.librador,
+        ch.fechaEmision,
+        ch.fechaPago,
+        ch.estado,
+        `$${ch.importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+      ])
+    );
+  };
+
+  const chequesEnCartera = cheques.filter((c) => c.estado === 'En Cartera');
+  const chequesEmitidos = cheques.filter((c) => c.tipo === 'Cheque Propio Diferido');
+  const totalCartera = chequesEnCartera.reduce((acc, c) => acc + c.importe, 0);
+  const totalEmitidos = chequesEmitidos.reduce((acc, c) => acc + c.importe, 0);
 
   return (
     <div className="space-y-0 text-slate-800 font-sans">
@@ -176,7 +241,7 @@ export const TesoreriaModule: React.FC = () => {
           <h1 className="text-xl font-bold text-slate-900 tracking-tight font-mono uppercase">
             Tesorería
           </h1>
-          <span className="text-xs text-slate-400 font-mono">| CAJAS, BANCOS, CHEQUES Y CONCILIACIONES</span>
+          <span className="text-xs text-slate-400 font-mono">| CAJAS, BANCOS, CHEQUES Y CONCILIACIONES (SUPABASE DB)</span>
         </div>
 
         <button
@@ -199,11 +264,12 @@ export const TesoreriaModule: React.FC = () => {
                 <span>Lista de Cajas/Bancos</span>
                 <HelpCircle className="w-3.5 h-3.5 text-[#4c1d95]" />
               </div>
+              <span className="text-[10px] text-slate-500">{cuentasBancarias.length} cuentas</span>
             </div>
 
             {/* Lista de Tarjetas de Cuentas */}
             <div className="divide-y divide-slate-200 overflow-y-auto max-h-[580px]">
-              {cuentas.map((c) => {
+              {cuentasBancarias.map((c) => {
                 const isSelected = cuentaActiva?.id === c.id;
                 return (
                   <div
@@ -222,7 +288,7 @@ export const TesoreriaModule: React.FC = () => {
                     <div className="mt-1.5 font-mono text-[11px] space-y-0.5">
                       <div className="text-slate-700">
                         <span>Saldo: </span>
-                        <strong className={c.saldoActual < 0 ? 'text-slate-900' : 'text-slate-900'}>
+                        <strong className={c.saldoActual < 0 ? 'text-rose-700' : 'text-slate-900'}>
                           ${c.saldoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                         </strong>
                       </div>
@@ -238,7 +304,7 @@ export const TesoreriaModule: React.FC = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setShowEditarModal(true);
+                            handleAbrirEditar(c);
                           }}
                           className="px-2.5 py-0.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[10px] font-mono font-semibold"
                         >
@@ -247,6 +313,7 @@ export const TesoreriaModule: React.FC = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            setCuentaSeleccionadaId(c.id);
                             setShowConciliarModal(true);
                           }}
                           className="px-2.5 py-0.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[10px] font-mono font-semibold"
@@ -260,7 +327,8 @@ export const TesoreriaModule: React.FC = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              alert(`Conexión directa a extractos API de ${c.nombre} activada.`);
+                              setCuentaSeleccionadaId(c.id);
+                              setShowConciliarModal(true);
                             }}
                             className="px-2 py-0.5 bg-[#15803d] hover:bg-[#166534] text-white text-[10px] font-mono font-bold flex items-center gap-1"
                           >
@@ -346,23 +414,20 @@ export const TesoreriaModule: React.FC = () => {
                         {mesesGrafico.map((m, idx) => (
                           <div key={idx} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
                             <div className="w-full flex items-end justify-center gap-1 h-32">
-                              {/* Barra Ingresos */}
                               {m.ingresos > 0 && (
                                 <div
                                   className="w-2.5 bg-[#22c55e] transition-all"
-                                  style={{ height: `${(m.ingresos / 2000000) * 100}%` }}
+                                  style={{ height: `${Math.min(100, (m.ingresos / 2000000) * 100)}%` }}
                                   title={`Ingresos ${m.mes}: $${m.ingresos}`}
                                 ></div>
                               )}
-                              {/* Barra Egresos */}
                               {m.egresos > 0 && (
                                 <div
                                   className="w-2.5 bg-[#f59e0b] transition-all"
-                                  style={{ height: `${(m.egresos / 2000000) * 100}%` }}
+                                  style={{ height: `${Math.min(100, (m.egresos / 2000000) * 100)}%` }}
                                   title={`Egresos ${m.mes}: $${m.egresos}`}
                                 ></div>
                               )}
-                              {/* Punto de Línea de Saldo */}
                               <div
                                 className="w-1.5 h-1.5 rounded-full bg-slate-600 -mb-1 z-10"
                                 title={`Saldo ${m.mes}: $${m.saldo}`}
@@ -376,10 +441,10 @@ export const TesoreriaModule: React.FC = () => {
 
                     {/* Filtros de período */}
                     <div className="flex items-center gap-1 text-[11px] font-mono">
-                      {['mensual', 'trimestral', 'anual'].map((p) => (
+                      {(['mensual', 'trimestral', 'anual'] as const).map((p) => (
                         <button
                           key={p}
-                          onClick={() => setPeriodoGrafico(p as any)}
+                          onClick={() => setPeriodoGrafico(p)}
                           className={`px-3 py-0.5 border text-xs capitalize transition-colors ${
                             periodoGrafico === p
                               ? 'bg-white border-slate-400 font-bold text-slate-900 shadow-sm'
@@ -405,19 +470,19 @@ export const TesoreriaModule: React.FC = () => {
                           onClick={() => setShowReporteModal('Reporte de cheques en cartera')}
                           className="block text-left text-slate-700 hover:text-[#4c1d95] hover:underline"
                         >
-                          Reporte de cheques en cartera
+                          Reporte de cheques en cartera ({chequesEnCartera.length})
                         </button>
                         <button
                           onClick={() => setShowReporteModal('Reporte de cheques emitidos diferidos')}
                           className="block text-left text-slate-700 hover:text-[#4c1d95] hover:underline"
                         >
-                          Reporte de cheques emitidos diferidos
+                          Reporte de cheques emitidos diferidos ({chequesEmitidos.length})
                         </button>
                         <button
                           onClick={() => setShowReporteModal('Reporte de seguimiento de cheques')}
                           className="block text-left text-slate-700 hover:text-[#4c1d95] hover:underline"
                         >
-                          Reporte de seguimiento de cheques
+                          Reporte de seguimiento de cheques ({cheques.length})
                         </button>
                       </div>
                     </div>
@@ -438,12 +503,17 @@ export const TesoreriaModule: React.FC = () => {
                   <span>Movimientos {cuentaActiva?.nombre}</span>
                   <HelpCircle className="w-3.5 h-3.5 text-[#4c1d95]" />
                 </div>
-                <button title="Exportar a Excel" className="p-1 hover:bg-slate-200 text-emerald-700">
+                <button
+                  onClick={handleExportarMovimientosExcel}
+                  title="Exportar Movimientos a Excel (CSV)"
+                  className="p-1 hover:bg-slate-200 text-emerald-700 flex items-center gap-1 font-bold"
+                >
                   <FileSpreadsheet className="w-4 h-4" />
+                  <span className="text-[10px]">Excel</span>
                 </button>
               </div>
 
-              {/* Grilla de Movimientos (Exacta a la imagen) */}
+              {/* Grilla de Movimientos */}
               <div className="overflow-x-auto min-h-[300px]">
                 <table className="w-full text-left text-xs border-collapse font-mono">
                   <thead>
@@ -508,7 +578,7 @@ export const TesoreriaModule: React.FC = () => {
               <span>de 1</span>
               <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
               <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-              <button className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5" /></button>
+              <button onClick={() => refreshAllFromDb()} title="Sincronizar con Supabase" className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5" /></button>
             </div>
 
             {/* Botonera de Acciones (Pagos, Cobranzas, Depósitos/Extracciones/Canjes) */}
@@ -615,6 +685,143 @@ export const TesoreriaModule: React.FC = () => {
         </div>
       )}
 
+      {/* MODAL: COBRANZAS */}
+      {showCobroModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-300 max-w-md w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h3 className="text-sm font-bold text-slate-900 uppercase">
+                REGISTRAR COBRANZA // {cuentaActiva?.nombre}
+              </h3>
+              <button onClick={() => setShowCobroModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCrearCobro} className="space-y-4">
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">Cliente / Pagador:</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: CONSTRUCTORA DEL OESTE S.A."
+                  value={cobroCliente}
+                  onChange={(e) => setCobroCliente(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 uppercase"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">Monto de Ingreso ($ ARS):</label>
+                <input
+                  type="number"
+                  required
+                  step="0.01"
+                  value={cobroMonto}
+                  onChange={(e) => setCobroMonto(parseFloat(e.target.value) || 0)}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-emerald-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">Concepto / Recibo:</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Cobro Certificado de Obra #4"
+                  value={cobroConcepto}
+                  onChange={(e) => setCobroConcepto(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCobroModal(false)}
+                  className="px-3.5 py-1.5 font-bold text-slate-600 hover:bg-slate-100 uppercase"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold uppercase flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Confirmar Cobranza</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDITAR CUENTA */}
+      {showEditarModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-300 max-w-md w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h3 className="text-sm font-bold text-slate-900 uppercase">
+                EDITAR CUENTA // {cuentaActiva?.id}
+              </h3>
+              <button onClick={() => setShowEditarModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGuardarEdicionCuenta} className="space-y-4">
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">Nombre de la Cuenta / Caja:</label>
+                <input
+                  type="text"
+                  required
+                  value={editNombreCuenta}
+                  onChange={(e) => setEditNombreCuenta(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">Entidad Bancaria / Responsable:</label>
+                <input
+                  type="text"
+                  required
+                  value={editBancoCuenta}
+                  onChange={(e) => setEditBancoCuenta(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">CBU / Alias (Opcional):</label>
+                <input
+                  type="text"
+                  value={editCbuCuenta}
+                  onChange={(e) => setEditCbuCuenta(e.target.value)}
+                  placeholder="0720000720000001293840"
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditarModal(false)}
+                  className="px-3.5 py-1.5 font-bold text-slate-600 hover:bg-slate-100 uppercase"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold uppercase"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL: MOVIMIENTOS INTERNOS (DEPÓSITOS / EXTRACCIONES / CANJES) */}
       {showMovimientoInternoModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -633,7 +840,7 @@ export const TesoreriaModule: React.FC = () => {
                 <label className="block text-slate-600 font-bold mb-1">Tipo de Operación:</label>
                 <select
                   value={tipoMovInterno}
-                  onChange={(e) => setTipoMovInterno(e.target.value as any)}
+                  onChange={(e) => setTipoMovInterno(e.target.value as 'Extracción Efectivo' | 'Depósito Bancario' | 'Canje de Cheque')}
                   className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
                 >
                   <option value="Extracción Efectivo">Extracción en Efectivo de Banco a Caja</option>
@@ -680,7 +887,7 @@ export const TesoreriaModule: React.FC = () => {
           <div className="bg-white border border-slate-300 max-w-md w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <h3 className="text-sm font-bold text-slate-900 uppercase">
-                AGREGAR CUENTA / CAJA BANCARIA
+                AGREGAR CUENTA / CAJA BANCARIA (SUPABASE DB)
               </h3>
               <button onClick={() => setShowAgregarCuentaModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
@@ -704,7 +911,7 @@ export const TesoreriaModule: React.FC = () => {
                 <label className="block text-slate-600 font-bold mb-1">Tipo de Cuenta:</label>
                 <select
                   value={nuevoTipoCuenta}
-                  onChange={(e) => setNuevoTipoCuenta(e.target.value as any)}
+                  onChange={(e) => setNuevoTipoCuenta(e.target.value as 'Caja Física' | 'Cuenta Corriente' | 'Tarjeta' | 'Cheques')}
                   className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
                 >
                   <option value="Cuenta Corriente">Cuenta Corriente Bancaria</option>
@@ -759,24 +966,37 @@ export const TesoreriaModule: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              <div className="p-3 bg-slate-50 border border-slate-200">
-                <span className="text-slate-500 block">Saldo en Libro Mayor:</span>
-                <strong className="text-base text-slate-900 font-bold">
+              <div className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
+                <span className="text-slate-500">Saldo Actual en Libros:</span>
+                <strong className="text-sm text-slate-900 font-bold">
                   ${cuentaActiva?.saldoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                 </strong>
               </div>
+              <div className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
+                <span className="text-slate-500">Saldo Conciliado Anterior:</span>
+                <strong className="text-sm text-slate-700 font-bold">
+                  ${cuentaActiva?.saldoConciliado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                </strong>
+              </div>
               <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800">
-                <span className="font-bold block">Extracto Bancario:</span>
-                <span>Todos los movimientos del período Septiembre - Octubre 2026 han sido contrastados.</span>
+                <span className="font-bold block">Extracto Bancario Sincronizado:</span>
+                <span>Al confirmar, el saldo conciliado en Supabase se igualará al saldo operativo actual de la cuenta.</span>
               </div>
             </div>
 
-            <div className="text-right pt-2">
+            <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 onClick={() => setShowConciliarModal(false)}
-                className="px-4 py-1.5 bg-[#4c1d95] text-white font-bold uppercase"
+                className="px-3.5 py-1.5 font-bold text-slate-600 hover:bg-slate-100 uppercase"
               >
-                Cerrar Conciliación
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmarConciliacion}
+                className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold uppercase flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Confirmar Conciliación</span>
               </button>
             </div>
           </div>
@@ -796,26 +1016,47 @@ export const TesoreriaModule: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-slate-600">Generando reporte de auditoría de cheques para el período en curso:</p>
+            <div className="space-y-3">
               <div className="border border-slate-200 p-3 bg-slate-50 space-y-1">
                 <div className="flex justify-between">
                   <span>Cheques en Cartera:</span>
-                  <span className="font-bold text-slate-900">2 valores ($4.270.000,00)</span>
+                  <span className="font-bold text-slate-900">
+                    {chequesEnCartera.length} valores (${totalCartera.toLocaleString('es-AR', { minimumFractionDigits: 2 })})
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Cheques Emitidos Diferidos:</span>
-                  <span className="font-bold text-slate-900">1 valor ($3.950.000,00)</span>
+                  <span className="font-bold text-slate-900">
+                    {chequesEmitidos.length} valores (${totalEmitidos.toLocaleString('es-AR', { minimumFractionDigits: 2 })})
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Estado de Compensación:</span>
-                  <span className="font-bold text-emerald-700">100% al día</span>
+                  <span className="font-bold text-emerald-700">100% Sincronizado en Supabase</span>
                 </div>
+              </div>
+
+              <div className="max-h-48 overflow-y-auto border border-slate-200 divide-y divide-slate-200">
+                {cheques.map((ch) => (
+                  <div key={ch.id} className="p-2.5 flex justify-between items-center bg-white">
+                    <div>
+                      <span className="font-bold text-slate-900">#{ch.numero} - {ch.bancoEmisor}</span>
+                      <p className="text-[10px] text-slate-500">{ch.librador} | Cobro: {ch.fechaPago}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-slate-900 block">${ch.importe.toLocaleString('es-AR')}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 border border-slate-300">{ch.estado}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
             <div className="flex items-center justify-between pt-2">
-              <button className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold flex items-center gap-1">
+              <button
+                onClick={handleDescargarReporteChequesPdf}
+                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold flex items-center gap-1"
+              >
                 <Download className="w-3.5 h-3.5" />
                 <span>Descargar PDF</span>
               </button>
@@ -845,29 +1086,15 @@ export const TesoreriaModule: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <div className="p-3 bg-amber-50 border border-amber-200 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-amber-900 block">15/11/2026 // EN 19 DÍAS</span>
-                  <p className="text-[11px] text-amber-800">Cheque Banco San Juan N° 48910231 (En Cartera)</p>
+              {cheques.map((ch) => (
+                <div key={ch.id} className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
+                  <div>
+                    <span className="font-bold text-slate-900 block">FECHA COBRO: {ch.fechaPago} ({ch.estado})</span>
+                    <p className="text-[11px] text-slate-600">Cheque {ch.bancoEmisor} N° {ch.numero} - {ch.librador}</p>
+                  </div>
+                  <span className="font-bold text-slate-900">${ch.importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                 </div>
-                <span className="font-bold text-amber-900">$2.850.000,00</span>
-              </div>
-
-              <div className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-slate-900 block">20/11/2026 // EN 24 DÍAS</span>
-                  <p className="text-[11px] text-slate-600">Cheque Banco Macro N° 89123049 (En Cartera)</p>
-                </div>
-                <span className="font-bold text-slate-900">$1.420.000,00</span>
-              </div>
-
-              <div className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-slate-900 block">25/11/2026 // EN 29 DÍAS</span>
-                  <p className="text-[11px] text-slate-600">Cheque Propio Diferido N° 00004921 a HOLCIM</p>
-                </div>
-                <span className="font-bold text-slate-900">$3.950.000,00</span>
-              </div>
+              ))}
             </div>
 
             <div className="text-right pt-2">

@@ -1,42 +1,82 @@
 import React, { useState } from 'react';
 import {
-  TrendingUp,
-  TrendingDown,
   Clock,
   Landmark,
   ArrowUpRight,
-  ShieldCheck,
-  FileCheck2,
-  AlertTriangle,
-  Lightbulb,
   FileText,
   BookOpenCheck,
   ArrowRight,
   Compass,
-  Terminal,
-  Activity
+  Terminal
 } from 'lucide-react';
-import { mockFacturasVenta, mockFacturasCompra, mockCuentasBancarias, mockCheques } from '../../services/mockData';
+import { useErp } from '../../context/ErpContext';
+import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
 
 export const DashboardModule: React.FC = () => {
+  const {
+    facturasVenta,
+    facturasCompra,
+    cuentasBancarias,
+    cheques,
+    setActiveModule,
+    lastSync
+  } = useErp();
+
   const [mostrarGuia, setMostrarGuia] = useState(true);
 
-  const totalVentas = mockFacturasVenta.reduce((acc, f) => acc + f.total, 0);
-  const totalCompras = mockFacturasCompra.reduce((acc, f) => acc + f.total, 0);
-  const totalLiquidez = mockCuentasBancarias.reduce((acc, c) => acc + c.saldoActual, 0);
-  const chequesEnCartera = mockCheques
+  const totalVentas = facturasVenta.reduce((acc, f) => acc + f.total, 0);
+  const totalCompras = facturasCompra.reduce((acc, f) => acc + f.total, 0);
+  const totalLiquidez = cuentasBancarias.reduce((acc, c) => acc + c.saldoActual, 0);
+  const chequesEnCartera = cheques
     .filter((c) => c.estado === 'En Cartera')
     .reduce((acc, c) => acc + c.importe, 0);
 
-  // Datos para gráfico de barras semestral
+  // Datos para gráfico de barras semestral (OCT refleja las ventas y compras en vivo de Supabase)
   const mesesFinancieros = [
     { mes: 'MAY', ingresos: 18.2, gastos: 14.1 },
     { mes: 'JUN', ingresos: 22.4, gastos: 17.8 },
     { mes: 'JUL', ingresos: 19.8, gastos: 16.2 },
     { mes: 'AGO', ingresos: 26.5, gastos: 21.0 },
     { mes: 'SEP', ingresos: 24.1, gastos: 19.4 },
-    { mes: 'OCT', ingresos: 21.5, gastos: 18.3 }
+    {
+      mes: 'OCT',
+      ingresos: Number((totalVentas / 1000000).toFixed(2)),
+      gastos: Number((totalCompras / 1000000).toFixed(2))
+    }
   ];
+
+  const handleDescargarReporteAuditoria = () => {
+    exportToExcelCsv(
+      `Reporte_Auditoria_Ejecutiva_${new Date().toISOString().split('T')[0]}`,
+      ['Indicador / Entidad', 'Categoría', 'Moneda', 'Importe ($ ARS)', 'Estado'],
+      [
+        ['Facturación Ventas del Período', 'Ingresos Operativos', 'ARS', totalVentas.toFixed(2), 'Auditado AFIP'],
+        ['Compras y Gastos Registrados', 'Egresos Operativos', 'ARS', totalCompras.toFixed(2), 'Imputado'],
+        ['Disponibilidad Cajas y Bancos', 'Tesorería', 'ARS', totalLiquidez.toFixed(2), 'Conciliado'],
+        ['Valores y Cheques en Cartera', 'Custodia', 'ARS', chequesEnCartera.toFixed(2), 'En Cartera'],
+        ...cuentasBancarias.map((c) => [c.nombre, c.tipoCuenta, c.moneda, c.saldoActual.toFixed(2), 'Activo'])
+      ]
+    );
+  };
+
+  const handleImprimirResumen = () => {
+    printFinancialReport(
+      'Reporte Ejecutivo de Auditoría Financiera',
+      'Consolidado de Facturación AFIP, Compras, Tesorería y Valores en Custodia (Base de Datos Supabase)',
+      ['Indicador / Cuenta', 'Categoría', 'Moneda', 'Saldo / Total'],
+      [
+        ['Facturación Total Ventas', 'Ventas AFIP', 'ARS', `$${totalVentas.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+        ['Compras y Gastos del Período', 'Proveedores', 'ARS', `$${totalCompras.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+        ['Valores en Custodia (Cheques)', 'Cartera', 'ARS', `$${chequesEnCartera.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+        ...cuentasBancarias.map((c) => [
+          c.nombre,
+          c.tipoCuenta,
+          c.moneda,
+          `$${c.saldoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+        ])
+      ]
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -48,7 +88,7 @@ export const DashboardModule: React.FC = () => {
               SYS // TABLERO EJECUTIVO
             </span>
             <span className="font-mono text-xs text-slate-500 font-semibold">
-              PERÍODO: 2026.10 // OCTUBRE
+              PERÍODO: 2026.10 // SUPABASE LIVE
             </span>
           </div>
           <h2 className="text-lg font-bold text-slate-900 tracking-tight mt-1 font-mono uppercase">
@@ -66,13 +106,13 @@ export const DashboardModule: React.FC = () => {
           </button>
 
           <div className="text-right hidden sm:block font-mono">
-            <p className="text-[10px] text-slate-400 uppercase">ÚLTIMA CONCILIACIÓN</p>
-            <p className="text-xs font-bold text-slate-800">10:45:00 UTC-3 // 100% CUADRADO</p>
+            <p className="text-[10px] text-slate-400 uppercase">SINCRONIZACIÓN SUPABASE</p>
+            <p className="text-xs font-bold text-slate-800">{lastSync} // 100% CUADRADO</p>
           </div>
         </div>
       </div>
 
-      {/* Guía Operativa con Bordes Rectos y Numeración Técnica */}
+      {/* Guía Operativa con Navegación Directa */}
       {mostrarGuia && (
         <div className="bg-black border border-slate-800 p-4 text-white space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800">
@@ -87,7 +127,10 @@ export const DashboardModule: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
             {/* Paso 1 */}
-            <div className="p-3 bg-slate-900 border border-slate-800 hover:border-emerald-600 transition-colors">
+            <div
+              onClick={() => setActiveModule('clientes')}
+              className="p-3 bg-slate-900 border border-slate-800 hover:border-emerald-500 transition-colors cursor-pointer"
+            >
               <div className="flex items-center justify-between font-mono text-[11px]">
                 <span className="text-emerald-400 font-bold">[PASO 01]</span>
                 <FileText className="w-4 h-4 text-slate-400" />
@@ -103,7 +146,10 @@ export const DashboardModule: React.FC = () => {
             </div>
 
             {/* Paso 2 */}
-            <div className="p-3 bg-slate-900 border border-slate-800 hover:border-emerald-600 transition-colors">
+            <div
+              onClick={() => setActiveModule('tesoreria')}
+              className="p-3 bg-slate-900 border border-slate-800 hover:border-emerald-500 transition-colors cursor-pointer"
+            >
               <div className="flex items-center justify-between font-mono text-[11px]">
                 <span className="text-emerald-400 font-bold">[PASO 02]</span>
                 <Landmark className="w-4 h-4 text-slate-400" />
@@ -119,7 +165,10 @@ export const DashboardModule: React.FC = () => {
             </div>
 
             {/* Paso 3 */}
-            <div className="p-3 bg-slate-900 border border-slate-800 hover:border-emerald-600 transition-colors">
+            <div
+              onClick={() => setActiveModule('tesoreria')}
+              className="p-3 bg-slate-900 border border-slate-800 hover:border-emerald-500 transition-colors cursor-pointer"
+            >
               <div className="flex items-center justify-between font-mono text-[11px]">
                 <span className="text-emerald-400 font-bold">[PASO 03]</span>
                 <Clock className="w-4 h-4 text-slate-400" />
@@ -135,7 +184,10 @@ export const DashboardModule: React.FC = () => {
             </div>
 
             {/* Paso 4 */}
-            <div className="p-3 bg-slate-900 border border-slate-800 hover:border-emerald-600 transition-colors">
+            <div
+              onClick={() => setActiveModule('contabilidad')}
+              className="p-3 bg-slate-900 border border-slate-800 hover:border-emerald-500 transition-colors cursor-pointer"
+            >
               <div className="flex items-center justify-between font-mono text-[11px]">
                 <span className="text-emerald-400 font-bold">[PASO 04]</span>
                 <BookOpenCheck className="w-4 h-4 text-slate-400" />
@@ -153,31 +205,37 @@ export const DashboardModule: React.FC = () => {
         </div>
       )}
 
-      {/* Tarjetas KPIs Superiores con Bordes Rectos y Acentos Superiores */}
+      {/* Tarjetas KPIs Superiores */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* KPI: Ventas */}
-        <div className="bg-white border border-slate-300 border-t-4 border-t-emerald-600 p-4">
+        <div
+          onClick={() => setActiveModule('clientes')}
+          className="bg-white border border-slate-300 border-t-4 border-t-emerald-600 p-4 cursor-pointer hover:border-slate-400 transition-colors"
+        >
           <div className="flex items-center justify-between font-mono text-[10px] text-slate-500 uppercase">
             <span>[METRIC // 01]</span>
-            <span className="text-emerald-700 font-bold">FACTURADO AFIP</span>
+            <span className="text-emerald-700 font-bold">FACTURADO AFIP ({facturasVenta.length})</span>
           </div>
           <div className="mt-2">
-            <span className="text-xs text-slate-500 font-mono">VENTAS NETAS:</span>
+            <span className="text-xs text-slate-500 font-mono">VENTAS TOTALES:</span>
             <p className="text-2xl font-mono font-bold text-slate-900 tracking-tight">
               ${totalVentas.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
             </p>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-700 font-mono font-semibold">
               <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>+14.8% VS. MES ANTERIOR</span>
+              <span>SINCRONIZADO CON CLIENTES</span>
             </div>
           </div>
         </div>
 
         {/* KPI: Compras */}
-        <div className="bg-white border border-slate-300 border-t-4 border-t-rose-600 p-4">
+        <div
+          onClick={() => setActiveModule('proveedores')}
+          className="bg-white border border-slate-300 border-t-4 border-t-rose-600 p-4 cursor-pointer hover:border-slate-400 transition-colors"
+        >
           <div className="flex items-center justify-between font-mono text-[10px] text-slate-500 uppercase">
             <span>[METRIC // 02]</span>
-            <span className="text-rose-700 font-bold">EGRESOS & GASTOS</span>
+            <span className="text-rose-700 font-bold">EGRESOS & GASTOS ({facturasCompra.length})</span>
           </div>
           <div className="mt-2">
             <span className="text-xs text-slate-500 font-mono">COMPRAS REGISTRADAS:</span>
@@ -191,24 +249,30 @@ export const DashboardModule: React.FC = () => {
         </div>
 
         {/* KPI: Liquidez en Bancos */}
-        <div className="bg-white border border-slate-300 border-t-4 border-t-zonda-700 p-4">
+        <div
+          onClick={() => setActiveModule('tesoreria')}
+          className="bg-white border border-slate-300 border-t-4 border-t-zonda-700 p-4 cursor-pointer hover:border-slate-400 transition-colors"
+        >
           <div className="flex items-center justify-between font-mono text-[10px] text-slate-500 uppercase">
             <span>[METRIC // 03]</span>
             <span className="text-zonda-700 font-bold">DISPONIBILIDAD BANCARIA</span>
           </div>
           <div className="mt-2">
-            <span className="text-xs text-slate-500 font-mono">SALDO CONCILIADO:</span>
+            <span className="text-xs text-slate-500 font-mono">SALDO CONSOLIDADO:</span>
             <p className="text-2xl font-mono font-bold text-slate-900 tracking-tight">
               ${totalLiquidez.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
             </p>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-zonda-700 font-mono font-semibold">
-              <span>SANTANDER + GALICIA + CAJA</span>
+              <span>{cuentasBancarias.length} ENTIDADES ACTIVAS</span>
             </div>
           </div>
         </div>
 
         {/* KPI: Cheques en Cartera */}
-        <div className="bg-white border border-slate-300 border-t-4 border-t-amber-500 p-4">
+        <div
+          onClick={() => setActiveModule('tesoreria')}
+          className="bg-white border border-slate-300 border-t-4 border-t-amber-500 p-4 cursor-pointer hover:border-slate-400 transition-colors"
+        >
           <div className="flex items-center justify-between font-mono text-[10px] text-slate-500 uppercase">
             <span>[METRIC // 04]</span>
             <span className="text-amber-700 font-bold">VALORES EN CUSTODIA</span>
@@ -219,20 +283,20 @@ export const DashboardModule: React.FC = () => {
               ${chequesEnCartera.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
             </p>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-amber-800 font-mono font-semibold">
-              <span>{mockCheques.filter((c) => c.estado === 'En Cartera').length} CHEQUES FÍSICOS</span>
+              <span>{cheques.filter((c) => c.estado === 'En Cartera').length} CHEQUES EN CARTERA</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Gráfico y Balances con Aspecto de Terminal Financiera */}
+      {/* Gráfico y Balances */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Gráfico Estilo Osciloscopio Financiero */}
         <div className="lg:col-span-2 bg-white border border-slate-300 p-5">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
             <div>
               <div className="font-mono text-[10px] text-zonda-700 font-bold uppercase">
-                [ANÁLISIS TEMPORAL]
+                [ANÁLISIS TEMPORAL EN VIVO]
               </div>
               <h3 className="text-sm font-bold text-slate-900 font-mono uppercase">
                 FLUJO OPERATIVO // INGRESOS VS. EGRESOS (MILLONES ARS)
@@ -251,38 +315,54 @@ export const DashboardModule: React.FC = () => {
           </div>
 
           <div className="h-64 flex items-end justify-between gap-3 pt-6 pb-2 px-2 border-b border-slate-300 bg-slate-50/50">
-            {mesesFinancieros.map((item, idx) => (
-              <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
-                <div className="w-full flex items-end justify-center gap-1.5 h-48">
-                  {/* Barra Ingresos */}
-                  <div
-                    className="w-1/2 bg-zonda-700 hover:bg-slate-900 transition-all relative group"
-                    style={{ height: `${(item.ingresos / 30) * 100}%` }}
-                  >
-                    <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white font-mono text-[10px] py-0.5 px-1.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-slate-700">
-                      ${item.ingresos}M
-                    </span>
+            {mesesFinancieros.map((item, idx) => {
+              const maxScale = Math.max(30, item.ingresos * 1.15, item.gastos * 1.15);
+              return (
+                <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                  <div className="w-full flex items-end justify-center gap-1.5 h-48">
+                    {/* Barra Ingresos */}
+                    <div
+                      className="w-1/2 bg-zonda-700 hover:bg-slate-900 transition-all relative group"
+                      style={{ height: `${Math.min(100, (item.ingresos / maxScale) * 100)}%` }}
+                    >
+                      <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white font-mono text-[10px] py-0.5 px-1.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-slate-700">
+                        ${item.ingresos}M
+                      </span>
+                    </div>
+                    {/* Barra Gastos */}
+                    <div
+                      className="w-1/2 bg-slate-300 hover:bg-slate-500 transition-all relative group"
+                      style={{ height: `${Math.min(100, (item.gastos / maxScale) * 100)}%` }}
+                    >
+                      <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white font-mono text-[10px] py-0.5 px-1.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-slate-700">
+                        ${item.gastos}M
+                      </span>
+                    </div>
                   </div>
-                  {/* Barra Gastos */}
-                  <div
-                    className="w-1/2 bg-slate-300 hover:bg-slate-500 transition-all relative group"
-                    style={{ height: `${(item.gastos / 30) * 100}%` }}
-                  >
-                    <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white font-mono text-[10px] py-0.5 px-1.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-slate-700">
-                      ${item.gastos}M
-                    </span>
-                  </div>
+                  <span className="text-[10px] font-mono font-bold text-slate-700">{item.mes}</span>
                 </div>
-                <span className="text-[10px] font-mono font-bold text-slate-700">{item.mes}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          <div className="mt-3 flex items-center justify-between text-xs font-mono text-slate-500">
-            <span>PROMEDIO MENSUAL: <strong className="text-slate-900">$22.08M ARS</strong></span>
-            <span className="text-zonda-700 font-bold hover:underline cursor-pointer uppercase">
-              DESCARGAR REPORTE AUDITORÍA →
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-500">
+            <span>
+              FACTURACIÓN OCTUBRE: <strong className="text-slate-900">${(totalVentas / 1000000).toFixed(2)}M ARS</strong>
             </span>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleImprimirResumen}
+                className="text-slate-700 font-bold hover:underline cursor-pointer uppercase"
+              >
+                IMPRIMIR PDF →
+              </button>
+              <button
+                onClick={handleDescargarReporteAuditoria}
+                className="text-zonda-700 font-bold hover:underline cursor-pointer uppercase"
+              >
+                DESCARGAR EXCEL AUDITORÍA →
+              </button>
+            </div>
           </div>
         </div>
 
@@ -294,13 +374,17 @@ export const DashboardModule: React.FC = () => {
                 [SALDOS // CAJAS Y BANCOS]
               </h3>
               <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 border border-emerald-200">
-                LIVE
+                SUPABASE LIVE
               </span>
             </div>
 
-            <div className="space-y-2">
-              {mockCuentasBancarias.map((cuenta) => (
-                <div key={cuenta.id} className="p-3 bg-slate-50 border border-slate-200 hover:border-slate-400 transition-colors">
+            <div className="space-y-2 max-h-[260px] overflow-y-auto">
+              {cuentasBancarias.map((cuenta) => (
+                <div
+                  key={cuenta.id}
+                  onClick={() => setActiveModule('tesoreria')}
+                  className="p-3 bg-slate-50 border border-slate-200 hover:border-slate-400 transition-colors cursor-pointer"
+                >
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-mono font-bold text-slate-900">{cuenta.nombre}</span>
                     <span className="text-[9px] font-mono px-1 py-0.2 bg-slate-200 text-slate-800 font-bold">

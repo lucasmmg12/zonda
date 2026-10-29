@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Calendar,
   FileSpreadsheet,
@@ -7,7 +7,6 @@ import {
   ChevronsLeft,
   ChevronsRight,
   RotateCw,
-  Plus,
   BarChart3,
   Upload,
   ArrowUpDown,
@@ -15,15 +14,22 @@ import {
   X,
   Tag,
   Warehouse,
-  CheckCircle2
+  CheckCircle2,
+  Download
 } from 'lucide-react';
-import { ArticuloInventario, MovimientoInventario } from '../../types/models';
-import { mockInventario } from '../../services/mockData';
+import { useErp } from '../../context/ErpContext';
+import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
 
 export const InventarioModule: React.FC = () => {
-  // Lista de artículos
-  const [articulos, setArticulos] = useState<ArticuloInventario[]>(mockInventario);
-  const [articuloSeleccionadoId, setArticuloSeleccionadoId] = useState<string | null>(null);
+  const {
+    inventario,
+    crearArticuloInventario,
+    actualizarPreciosInventario,
+    registrarMovimientoStock,
+    refreshAllFromDb
+  } = useErp();
+
+  const [articuloSeleccionadoId, setArticuloSeleccionadoId] = useState<string | null>('INV-001');
   const [search, setSearch] = useState('');
 
   // Pestañas principales superiores
@@ -34,6 +40,7 @@ export const InventarioModule: React.FC = () => {
 
   // Modales
   const [showAgregarModal, setShowAgregarModal] = useState(false);
+  const [showMovimientoStockModal, setShowMovimientoStockModal] = useState(false);
   const [showPreciosModal, setShowPreciosModal] = useState(false);
   const [showReportesModal, setShowReportesModal] = useState(false);
   const [showCalendarioModal, setShowCalendarioModal] = useState(false);
@@ -47,11 +54,29 @@ export const InventarioModule: React.FC = () => {
   const [nuevoCosto, setNuevoCosto] = useState(800);
   const [nuevoStock, setNuevoStock] = useState(10);
 
+  // Formulario Movimiento de Stock
+  const [tipoMovStock, setTipoMovStock] = useState<'REM' | 'FAC' | 'AJU'>('REM');
+  const [descMovStock, setDescMovStock] = useState('');
+  const [cantMovStock, setCantMovStock] = useState(5);
+
   // Formulario Ajuste Precios
   const [porcentajeAumento, setPorcentajeAumento] = useState(15);
 
+  // Configuración de Inventario
+  const [metodoValuacion, setMetodoValuacion] = useState('Costo Promedio Ponderado (CPP)');
+  const [depositoPredeterminado, setDepositoPredeterminado] = useState('Depósito Central San Juan');
+  const [permitirStockNegativo, setPermitirStockNegativo] = useState(true);
+  const [configGuardada, setConfigGuardada] = useState(false);
+
+  // Listas de precios
+  const [coefListaMinorista, setCoefListaMinorista] = useState(1.25);
+  const [coefListaCorporativa, setCoefListaCorporativa] = useState(1.0);
+  const [coefListaMayorista, setCoefListaMayorista] = useState(0.92);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Filtrado de artículos
-  const articulosFiltrados = articulos.filter((a) => {
+  const articulosFiltrados = inventario.filter((a) => {
     const q = search.toLowerCase();
     return (
       a.codigo.toLowerCase().includes(q) ||
@@ -60,72 +85,135 @@ export const InventarioModule: React.FC = () => {
     );
   });
 
-  const articuloActivo = articuloSeleccionadoId
-    ? articulos.find((a) => a.id === articuloSeleccionadoId)
-    : undefined;
+  const articuloActivo =
+    inventario.find((a) => a.id === articuloSeleccionadoId) || articulosFiltrados[0];
 
-  // Manejo de creación de artículo
-  const handleCrearArticulo = (e: React.FormEvent) => {
+  // Manejo de creación de artículo en Supabase
+  const handleCrearArticulo = async (e: React.FormEvent) => {
     e.preventDefault();
-    const nuevo: ArticuloInventario = {
-      id: `INV-${Date.now()}`,
-      codigo: nuevoCodigo || `00000${articulos.length + 1}`,
-      sku: nuevoCodigo || `00000${articulos.length + 1}`,
+    const creado = await crearArticuloInventario({
+      codigo: nuevoCodigo || `00000${inventario.length + 1}`,
       descripcion: nuevaDescripcion.toUpperCase(),
       tipo: nuevoTipo,
       um: nuevaUm,
       categoria: 'Materiales Generales',
-      unidadMedida: 'Unidad',
-      disponible: nuevoStock,
-      stockActual: nuevoStock,
-      stockMinimo: 1,
-      costoCalculado: nuevoCosto,
       precioVentaNeto: nuevoPrecioVenta,
-      alicuotaIva: 21,
-      deposito: 'Depósito Central San Juan',
-      movimientos: [
-        {
-          id: `MOV-INV-${Date.now()}`,
-          fecha: new Date().toISOString().split('T')[0],
-          deposito: 'Depósito Central',
-          descripcion: 'Alta de Stock Inicial de Artículo',
-          tipoDoc: 'INI',
-          precio: nuevoCosto,
-          cantidad: nuevoStock
-        }
-      ]
-    };
+      costoCalculado: nuevoCosto,
+      stockInicial: nuevoStock,
+      deposito: depositoPredeterminado
+    });
 
-    setArticulos([...articulos, nuevo]);
-    setArticuloSeleccionadoId(nuevo.id);
+    setArticuloSeleccionadoId(creado.id);
     setShowAgregarModal(false);
     setNuevoCodigo('');
     setNuevaDescripcion('');
   };
 
-  // Manejo de actualización porcentual de precios
-  const handleActualizarPrecios = (e: React.FormEvent) => {
+  // Registrar movimiento de stock en Supabase
+  const handleRegistrarMovimientoStock = async (e: React.FormEvent) => {
     e.preventDefault();
-    const factor = 1 + porcentajeAumento / 100;
-    setArticulos((prev) =>
-      prev.map((a) => ({
-        ...a,
-        precioVentaNeto: Number((a.precioVentaNeto * factor).toFixed(2)),
-        costoCalculado: Number((a.costoCalculado * factor).toFixed(2))
+    if (!articuloActivo) return;
+
+    await registrarMovimientoStock({
+      articuloId: articuloActivo.id,
+      tipoDoc: tipoMovStock,
+      descripcion: descMovStock || 'Ajuste / Remito de Stock',
+      cantidad: cantMovStock,
+      precio: articuloActivo.costoCalculado,
+      deposito: articuloActivo.deposito
+    });
+
+    setShowMovimientoStockModal(false);
+    setDescMovStock('');
+  };
+
+  // Manejo de actualización porcentual de precios en Supabase
+  const handleActualizarPrecios = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await actualizarPreciosInventario(porcentajeAumento);
+    setShowPreciosModal(false);
+  };
+
+  // Importación CSV de Artículos
+  const handleImportCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(/[;,]/).map((c) => c.replace(/^"|"$/g, '').trim());
+      if (cols[0] && cols[1]) {
+        await crearArticuloInventario({
+          codigo: cols[0],
+          descripcion: cols[1],
+          tipo: 'P',
+          um: '1',
+          precioVentaNeto: parseFloat(cols[2]) || 1500,
+          costoCalculado: parseFloat(cols[3]) || 1000,
+          stockInicial: parseFloat(cols[4]) || 10
+        });
+      }
+    }
+    e.target.value = '';
+  };
+
+  // Exportar Artículos a Excel
+  const handleExportarInventarioExcel = () => {
+    exportToExcelCsv(
+      'Catalogo_Inventario_Stock',
+      articulosFiltrados.map((a) => ({
+        Codigo: a.codigo,
+        Descripcion: a.descripcion,
+        Tipo: a.tipo,
+        UM: a.um,
+        Categoria: a.categoria,
+        PrecioVentaNeto: a.precioVentaNeto,
+        CostoCalculado: a.costoCalculado,
+        Disponible: a.disponible,
+        Deposito: a.deposito
       }))
     );
-    setShowPreciosModal(false);
+  };
+
+  // Exportar Valuación de Inventario en PDF
+  const handleDescargarValuacionPdf = () => {
+    const valuacionTotal = inventario.reduce(
+      (acc, a) => acc + Math.max(0, a.disponible) * a.costoCalculado,
+      0
+    );
+    printFinancialReport(
+      'EXISTENCIAS FÍSICAS Y VALUACIÓN CONTABLE DE INVENTARIO',
+      `Método: ${metodoValuacion} | Valuación Total Activos de Cambio: $${valuacionTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+      ['Código', 'Descripción', 'Depósito', 'Disponible', 'Costo Unit. ($)', 'Precio Venta ($)'],
+      inventario.map((a) => [
+        a.codigo,
+        a.descripcion,
+        a.deposito,
+        a.disponible.toFixed(2),
+        `$${a.costoCalculado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+        `$${a.precioVentaNeto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+      ])
+    );
+    setShowReportesModal(false);
   };
 
   return (
     <div className="space-y-0 text-slate-800 font-sans">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,.txt"
+        className="hidden"
+        onChange={handleImportCsv}
+      />
+
       {/* 1. BARRA SUPERIOR DE ENCABEZADO Y LLAMADA AL CALENDARIO */}
       <div className="bg-white border-b border-slate-300 px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold text-slate-900 tracking-tight font-mono uppercase">
             Inventario
           </h1>
-          <span className="text-xs text-slate-400 font-mono">| CONTROL MULTIDEPÓSITO Y LISTAS DE PRECIOS</span>
+          <span className="text-xs text-slate-400 font-mono">| CONTROL MULTIDEPÓSITO Y LISTAS DE PRECIOS (SUPABASE DB)</span>
         </div>
 
         <button
@@ -148,7 +236,7 @@ export const InventarioModule: React.FC = () => {
           return (
             <button
               key={tab.key}
-              onClick={() => setTabPrincipal(tab.key as any)}
+              onClick={() => setTabPrincipal(tab.key as 'items' | 'configuracion' | 'listas')}
               className={`px-4 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
                 isActive
                   ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
@@ -161,7 +249,7 @@ export const InventarioModule: React.FC = () => {
         })}
       </div>
 
-      {/* 3. VISTA PRINCIPAL: SPLIT-SCREEN MASTER-DETAIL */}
+      {/* 3. VISTA PRINCIPAL: SPLIT-SCREEN MASTER-DETAIL (ITEMS DE INVENTARIO) */}
       {tabPrincipal === 'items' && (
         <div className="flex flex-col lg:flex-row min-h-[640px] bg-white border border-slate-300 border-t-0">
           {/* PANEL IZQUIERDO: LISTADO DE ITEMS DE INVENTARIO (MASTER) */}
@@ -195,9 +283,14 @@ export const InventarioModule: React.FC = () => {
 
               {/* Sub-cabecera de la tabla */}
               <div className="bg-[#f3f0ff] border-b border-slate-300 px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
-                <span>Listado de items de inventario (doble click para seleccionar)</span>
-                <button title="Exportar a Excel" className="p-0.5 hover:bg-slate-200 text-emerald-700">
+                <span>Listado de items de inventario ({articulosFiltrados.length} registrados)</span>
+                <button
+                  onClick={handleExportarInventarioExcel}
+                  title="Exportar a Excel (CSV)"
+                  className="p-0.5 hover:bg-slate-200 text-emerald-700 flex items-center gap-1"
+                >
                   <FileSpreadsheet className="w-4 h-4" />
+                  <span className="text-[10px]">Excel</span>
                 </button>
               </div>
 
@@ -250,7 +343,7 @@ export const InventarioModule: React.FC = () => {
                               minimumFractionDigits: art.costoCalculado % 1 === 0 ? 2 : 3
                             })}
                           </td>
-                          <td className="py-2 px-2.5 text-right font-bold text-slate-900">
+                          <td className={`py-2 px-2.5 text-right font-bold ${art.disponible < 0 ? 'text-rose-700' : 'text-slate-900'}`}>
                             {art.disponible.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
@@ -271,7 +364,7 @@ export const InventarioModule: React.FC = () => {
                 <span>de 1</span>
                 <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
                 <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                <button className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#4c1d95]" /></button>
+                <button onClick={() => refreshAllFromDb()} className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#4c1d95]" /></button>
               </div>
               <span>Mostrando 1 - {articulosFiltrados.length} de {articulosFiltrados.length}</span>
             </div>
@@ -290,7 +383,7 @@ export const InventarioModule: React.FC = () => {
                   return (
                     <button
                       key={t.key}
-                      onClick={() => setTabDetalle(t.key as any)}
+                      onClick={() => setTabDetalle(t.key as 'movimientos' | 'general')}
                       className={`px-3 py-1.5 font-bold transition-colors border-t-2 ${
                         isActive
                           ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
@@ -307,11 +400,11 @@ export const InventarioModule: React.FC = () => {
               <div className="bg-[#f3f0ff] border-b border-slate-300 px-4 py-2 flex items-center justify-between">
                 <span className="font-mono text-xs font-bold text-slate-900">
                   {articuloActivo
-                    ? `Movimientos de inventario: ${articuloActivo.codigo} - ${articuloActivo.descripcion}`
+                    ? `Movimientos: ${articuloActivo.codigo} - ${articuloActivo.descripcion}`
                     : 'Movimientos de inventario del item'}
                 </span>
                 {articuloActivo && (
-                  <span className="text-[10px] font-mono px-2 py-0.5 bg-white border border-slate-300 text-slate-700">
+                  <span className="text-[10px] font-mono px-2 py-0.5 bg-white border border-slate-300 text-slate-700 font-bold">
                     Stock Disponible: {articuloActivo.disponible.toFixed(2)} {articuloActivo.unidadMedida}
                   </span>
                 )}
@@ -374,12 +467,12 @@ export const InventarioModule: React.FC = () => {
                       <span>de 1</span>
                       <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
                       <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                      <button className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#4c1d95]" /></button>
+                      <button onClick={() => refreshAllFromDb()} className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#4c1d95]" /></button>
                     </div>
                     <span>
                       {articuloActivo && articuloActivo.movimientos && articuloActivo.movimientos.length > 0
                         ? `Mostrando 1 - ${articuloActivo.movimientos.length} de ${articuloActivo.movimientos.length}`
-                        : 'Sin datos para mostrar'}
+                        : 'Sin movimientos'}
                     </span>
                   </div>
                 </div>
@@ -439,24 +532,252 @@ export const InventarioModule: React.FC = () => {
               )}
             </div>
 
-            {/* BOTONERA INFERIOR (Agregar ▼, Importar items) */}
-            <div className="bg-[#ede9fe]/30 border-t border-slate-300 px-4 py-2 flex items-center gap-2">
+            {/* BOTONERA INFERIOR (Agregar item, Registrar Movimiento Stock, Importar items) */}
+            <div className="bg-[#ede9fe]/30 border-t border-slate-300 px-4 py-2 flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setShowAgregarModal(true)}
                 className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
               >
                 <Boxes className="w-3.5 h-3.5" />
-                <span>Agregar ▼</span>
+                <span>Agregar Item ▼</span>
               </button>
 
               <button
-                onClick={() => alert('Asistente de importación masiva de artículos y stock en catálogo activo.')}
+                onClick={() => setShowMovimientoStockModal(true)}
+                className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs font-bold border border-emerald-700 flex items-center gap-1.5 transition-colors"
+              >
+                <ArrowUpDown className="w-3.5 h-3.5" />
+                <span>Movimiento de Stock</span>
+              </button>
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
                 className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
               >
                 <Upload className="w-3.5 h-3.5" />
-                <span>Importar items</span>
+                <span>Importar CSV</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PESTAÑA 2: CONFIGURACIÓN DE INVENTARIO */}
+      {tabPrincipal === 'configuracion' && (
+        <div className="bg-white border border-slate-300 border-t-0 p-6 space-y-6 font-mono text-xs">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase flex items-center gap-2">
+                <Warehouse className="w-4 h-4 text-[#4c1d95]" />
+                <span>CONFIGURACIÓN DE DEPÓSITOS Y VALUACIÓN CONTABLE</span>
+              </h3>
+              <p className="text-slate-500 mt-0.5">Parámetros operativos de inventario y costeo de mercaderías</p>
+            </div>
+            {configGuardada && (
+              <span className="px-3 py-1 bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4" /> Configuración guardada
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+            <div className="border border-slate-300 p-4 bg-slate-50 space-y-4">
+              <h4 className="font-bold text-slate-900 uppercase border-b border-slate-200 pb-2">
+                Criterio de Valuación y Costeo
+              </h4>
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">Método de Valuación de Existencias:</label>
+                <select
+                  value={metodoValuacion}
+                  onChange={(e) => setMetodoValuacion(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-300"
+                >
+                  <option value="Costo Promedio Ponderado (CPP)">Costo Promedio Ponderado (CPP)</option>
+                  <option value="PEPS / FIFO (Primero Entrado, Primero Salido)">PEPS / FIFO (Primero Entrado, Primero Salido)</option>
+                  <option value="Costo de Última Compra">Costo de Reposición / Última Compra</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">Depósito Operativo Predeterminado:</label>
+                <select
+                  value={depositoPredeterminado}
+                  onChange={(e) => setDepositoPredeterminado(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-300"
+                >
+                  <option value="Depósito Central San Juan">Depósito Central San Juan (Ruta 40)</option>
+                  <option value="Obrador Zonda - Acueducto">Obrador Zonda - Acueducto</option>
+                  <option value="Pañol Móvil Equipos">Pañol Móvil Equipos</option>
+                </select>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer pt-2">
+                <input
+                  type="checkbox"
+                  checked={permitirStockNegativo}
+                  onChange={(e) => setPermitirStockNegativo(e.target.checked)}
+                  className="accent-[#4c1d95] w-4 h-4"
+                />
+                <span className="font-bold text-slate-800">Permitir facturación y remitos con stock negativo (Pendiente de ingreso)</span>
+              </label>
+            </div>
+
+            <div className="border border-slate-300 p-4 bg-slate-50 space-y-3">
+              <h4 className="font-bold text-slate-900 uppercase border-b border-slate-200 pb-2">
+                Depósitos Físicos Habilitados
+              </h4>
+              <div className="space-y-2">
+                {[
+                  { cod: 'DEP-01', nom: 'Depósito Central San Juan', resp: 'Ing. Roberto Quiroga', estado: 'Activo' },
+                  { cod: 'DEP-02', nom: 'Obrador Zonda - Acueducto', resp: 'Capataz M. Marinero', estado: 'Activo' },
+                  { cod: 'DEP-03', nom: 'Pañol Móvil Equipos', resp: 'Logística HORMISUR', estado: 'Activo' }
+                ].map((d) => (
+                  <div key={d.cod} className="p-2.5 bg-white border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-slate-900 block">{d.cod} // {d.nom}</span>
+                      <span className="text-[11px] text-slate-500">Responsable: {d.resp}</span>
+                    </div>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px] border border-emerald-300">
+                      {d.estado}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                setConfigGuardada(true);
+                setTimeout(() => setConfigGuardada(false), 2500);
+              }}
+              className="px-5 py-2 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold uppercase"
+            >
+              Guardar Configuración de Inventario
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* PESTAÑA 3: LISTAS DE PRECIOS */}
+      {tabPrincipal === 'listas' && (
+        <div className="bg-white border border-slate-300 border-t-0 p-6 space-y-6 font-mono text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-slate-200">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase flex items-center gap-2">
+                <Tag className="w-4 h-4 text-[#4c1d95]" />
+                <span>LISTAS DE PRECIOS DIFERENCIADAS EN VIVO</span>
+              </h3>
+              <p className="text-slate-500 mt-0.5">Cálculo automático según coeficientes comerciales sobre Precio Base</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowPreciosModal(true)}
+                className="px-3 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold"
+              >
+                Ajuste Masivo %
+              </button>
+              <button
+                onClick={() =>
+                  exportToExcelCsv(
+                    'Listas_De_Precios_Comparativa',
+                    inventario.map((a) => ({
+                      Codigo: a.codigo,
+                      Descripcion: a.descripcion,
+                      CostoBase: a.costoCalculado,
+                      ListaCorporativaObras: Number((a.precioVentaNeto * coefListaCorporativa).toFixed(2)),
+                      ListaMinoristaPublico: Number((a.precioVentaNeto * coefListaMinorista).toFixed(2)),
+                      ListaMayorista: Number((a.precioVentaNeto * coefListaMayorista).toFixed(2))
+                    }))
+                  )
+                }
+                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold flex items-center gap-1"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Exportar Listas Excel</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Coeficientes de listas */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-3 border border-slate-300 bg-slate-50 flex items-center justify-between">
+              <div>
+                <span className="font-bold text-slate-900 block">LISTA 1: CORPORATIVA OBRAS (BASE)</span>
+                <span className="text-[10px] text-slate-500">Coeficiente multiplicador:</span>
+              </div>
+              <input
+                type="number"
+                step="0.01"
+                value={coefListaCorporativa}
+                onChange={(e) => setCoefListaCorporativa(Number(e.target.value) || 1)}
+                className="w-20 px-2 py-1 bg-white border border-slate-300 text-right font-bold"
+              />
+            </div>
+
+            <div className="p-3 border border-slate-300 bg-slate-50 flex items-center justify-between">
+              <div>
+                <span className="font-bold text-slate-900 block">LISTA 2: MINORISTA MOSTRADOR (+25%)</span>
+                <span className="text-[10px] text-slate-500">Coeficiente multiplicador:</span>
+              </div>
+              <input
+                type="number"
+                step="0.01"
+                value={coefListaMinorista}
+                onChange={(e) => setCoefListaMinorista(Number(e.target.value) || 1)}
+                className="w-20 px-2 py-1 bg-white border border-slate-300 text-right font-bold"
+              />
+            </div>
+
+            <div className="p-3 border border-slate-300 bg-slate-50 flex items-center justify-between">
+              <div>
+                <span className="font-bold text-slate-900 block">LISTA 3: MAYORISTA GREMIO (-8%)</span>
+                <span className="text-[10px] text-slate-500">Coeficiente multiplicador:</span>
+              </div>
+              <input
+                type="number"
+                step="0.01"
+                value={coefListaMayorista}
+                onChange={(e) => setCoefListaMayorista(Number(e.target.value) || 1)}
+                className="w-20 px-2 py-1 bg-white border border-slate-300 text-right font-bold"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto border border-slate-300">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-100 border-b border-slate-300 text-[11px] font-bold text-slate-700">
+                  <th className="py-2 px-3 border-r border-slate-200">Código</th>
+                  <th className="py-2 px-3 border-r border-slate-200">Descripción del Artículo</th>
+                  <th className="py-2 px-3 border-r border-slate-200 text-right">Costo Calc.</th>
+                  <th className="py-2 px-3 border-r border-slate-200 text-right bg-[#ede9fe]/50">Lista 1: Corporativa</th>
+                  <th className="py-2 px-3 border-r border-slate-200 text-right">Lista 2: Minorista</th>
+                  <th className="py-2 px-3 text-right">Lista 3: Mayorista</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {inventario.map((art) => (
+                  <tr key={art.id} className="hover:bg-slate-50">
+                    <td className="py-2 px-3 border-r border-slate-200 font-bold">{art.codigo}</td>
+                    <td className="py-2 px-3 border-r border-slate-200">{art.descripcion}</td>
+                    <td className="py-2 px-3 border-r border-slate-200 text-right text-slate-500">
+                      ${art.costoCalculado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-[#4c1d95] bg-[#ede9fe]/20">
+                      ${(art.precioVentaNeto * coefListaCorporativa).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-slate-900">
+                      ${(art.precioVentaNeto * coefListaMinorista).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-2 px-3 text-right font-bold text-emerald-700">
+                      ${(art.precioVentaNeto * coefListaMayorista).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -466,7 +787,7 @@ export const InventarioModule: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white border-2 border-[#4c1d95] w-full max-w-lg shadow-2xl">
             <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
-              <span>AGREGAR ITEM DE INVENTARIO</span>
+              <span>AGREGAR ITEM DE INVENTARIO (SUPABASE DB)</span>
               <button onClick={() => setShowAgregarModal(false)}><X className="w-4 h-4" /></button>
             </div>
             <form onSubmit={handleCrearArticulo} className="p-4 space-y-3 font-mono text-xs">
@@ -568,12 +889,74 @@ export const InventarioModule: React.FC = () => {
         </div>
       )}
 
+      {/* MODAL: REGISTRAR MOVIMIENTO DE STOCK */}
+      {showMovimientoStockModal && (
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-emerald-700 w-full max-w-md shadow-2xl">
+            <div className="bg-emerald-700 text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
+              <span>MOVIMIENTO DE STOCK // {articuloActivo?.codigo}</span>
+              <button onClick={() => setShowMovimientoStockModal(false)}><X className="w-4 h-4" /></button>
+            </div>
+            <form onSubmit={handleRegistrarMovimientoStock} className="p-4 space-y-3 font-mono text-xs">
+              <div>
+                <label className="text-slate-600 font-bold block text-[11px] mb-1">Tipo de Comprobante:</label>
+                <select
+                  value={tipoMovStock}
+                  onChange={(e) => setTipoMovStock(e.target.value as 'REM' | 'FAC' | 'AJU')}
+                  className="w-full px-2 py-1.5 border border-slate-300 bg-slate-50"
+                >
+                  <option value="REM">REM - Remito de Ingreso / Egreso de Obra</option>
+                  <option value="AJU">AJU - Ajuste de Inventario Físico</option>
+                  <option value="FAC">FAC - Descuento por Facturación</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-slate-600 font-bold block text-[11px] mb-1">
+                  Cantidad (+ para ingreso, - para egreso):
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={cantMovStock}
+                  onChange={(e) => setCantMovStock(Number(e.target.value))}
+                  className="w-full px-2 py-1.5 border border-slate-300 font-bold"
+                />
+              </div>
+              <div>
+                <label className="text-slate-600 font-bold block text-[11px] mb-1">Descripción / Destino:</label>
+                <input
+                  type="text"
+                  required
+                  value={descMovStock}
+                  onChange={(e) => setDescMovStock(e.target.value)}
+                  placeholder="Ej: Ingreso por Compra Remito #0042"
+                  className="w-full px-2 py-1.5 border border-slate-300"
+                />
+              </div>
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowMovimientoStockModal(false)}
+                  className="px-3 py-1.5 border border-slate-300 text-slate-700"
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="px-4 py-1.5 bg-emerald-700 text-white font-bold">
+                  Registrar en Supabase
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL: ACTUALIZAR PRECIOS */}
       {showPreciosModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white border-2 border-[#4c1d95] w-full max-w-md shadow-2xl">
             <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
-              <span>ACTUALIZAR PRECIOS DE VENTA Y COSTOS</span>
+              <span>ACTUALIZAR PRECIOS DE VENTA Y COSTOS (SUPABASE DB)</span>
               <button onClick={() => setShowPreciosModal(false)}><X className="w-4 h-4" /></button>
             </div>
             <form onSubmit={handleActualizarPrecios} className="p-4 space-y-3 font-mono text-xs">
@@ -624,23 +1007,26 @@ export const InventarioModule: React.FC = () => {
             </div>
             <div className="p-4 space-y-2 font-mono text-xs">
               <button
-                onClick={() => { alert('Generando informe de Existencias Físicas y Valuación Contable...'); setShowReportesModal(false); }}
+                onClick={handleDescargarValuacionPdf}
                 className="w-full text-left p-3 border border-slate-200 hover:bg-[#ede9fe] transition-colors flex items-center justify-between"
               >
                 <div>
-                  <p className="font-bold text-slate-900">1. Existencias Físicas y Valuación Contable</p>
+                  <p className="font-bold text-slate-900">1. Existencias Físicas y Valuación Contable (PDF)</p>
                   <p className="text-[11px] text-slate-500">Listado de unidades disponibles valuadas a costo calculado y precio venta neto.</p>
                 </div>
                 <FileSpreadsheet className="w-5 h-5 text-emerald-700 shrink-0" />
               </button>
 
               <button
-                onClick={() => { alert('Generando informe de Movimientos de Stock por Depósito...'); setShowReportesModal(false); }}
+                onClick={() => {
+                  handleExportarInventarioExcel();
+                  setShowReportesModal(false);
+                }}
                 className="w-full text-left p-3 border border-slate-200 hover:bg-[#ede9fe] transition-colors flex items-center justify-between"
               >
                 <div>
-                  <p className="font-bold text-slate-900">2. Libro Mayor de Movimientos por Depósito</p>
-                  <p className="text-[11px] text-slate-500">Trazabilidad de remitos de ingreso, egreso y ajustes por roturas o mermas.</p>
+                  <p className="font-bold text-slate-900">2. Exportar Padrón Completo de Artículos y Stock (Excel CSV)</p>
+                  <p className="text-[11px] text-slate-500">Descarga inmediata de todos los SKUs, costos y disponibilidades.</p>
                 </div>
                 <FileSpreadsheet className="w-5 h-5 text-emerald-700 shrink-0" />
               </button>

@@ -1,33 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Calendar,
   AlertCircle,
   Save,
-  Upload,
   CheckCircle2,
-  Building2,
-  Receipt,
   CreditCard,
-  Sliders,
-  Globe,
-  FileText,
   ShieldCheck,
   ShieldAlert,
   Key,
   Terminal,
   QrCode,
-  ExternalLink,
-  Copy,
   HelpCircle,
   RefreshCw,
-  FileCode
+  FileCode,
+  Plus,
+  X
 } from 'lucide-react';
-import { mockEmpresa } from '../../services/mockData';
-import { EmpresaConfig, AfipWsConfig, MercadoPagoConfig } from '../../types/models';
-import { getAfipConfig, saveAfipConfig, probarConexionAfip, generarInstruccionesOpenSsl } from '../../services/afip/afipWsClient';
-import { getMercadoPagoConfig, saveMercadoPagoConfig, probarConexionMercadoPago, crearPreferenciaMercadoPago, generarQrCobroMercadoPago } from '../../services/mercadopago/mercadoPagoClient';
+import type { AfipWsConfig, MercadoPagoConfig } from '../../types/models';
+import { getAfipConfig, saveAfipConfig, probarConexionAfip, generarInstruccionesOpenSsl, DEFAULT_ARCA_FUNCTION_URL } from '../../services/afip/afipWsClient';
+import { getMercadoPagoConfig, saveMercadoPagoConfig, probarConexionMercadoPago, crearPreferenciaMercadoPago, simularWebhookPagoMercadoPago, DEFAULT_MP_WEBHOOK_URL } from '../../services/mercadopago/mercadoPagoClient';
+import { useErp } from '../../context/ErpContext';
 
 export const ConfiguracionModule: React.FC = () => {
+  const { empresa, empresaExtra, guardarConfiguracionEmpresa, clientes, registrarCobroCliente } = useErp();
+
   // Pestaña activa superior
   const [tabActiva, setTabActiva] = useState<
     'generales' | 'impositivos' | 'clientes_proveedores' | 'talonarios' | 'portal' | 'tesoreria' | 'integraciones' | 'costos'
@@ -51,38 +47,118 @@ export const ConfiguracionModule: React.FC = () => {
   const [resultadoMp, setResultadoMp] = useState<{ success: boolean; mensaje: string } | null>(null);
   const [qrPrueba, setQrPrueba] = useState<{ link: string } | null>(null);
 
-  // Datos Generales
-  const [nombre, setNombre] = useState('ECAR S. A. S.');
-  const [razonSocial, setRazonSocial] = useState('ECAR S. A. S.');
-  const [domicilio, setDomicilio] = useState('CASA 15  M:E');
-  const [localidad, setLocalidad] = useState('VILLA KRAUSE');
-  const [codPostal, setCodPostal] = useState('5425');
-  const [provincia, setProvincia] = useState('San Juan');
-  const [pais, setPais] = useState('12');
-  const [telefono, setTelefono] = useState('+542644693547');
-  const [email, setEmail] = useState('administracion@ecarconstrucciones.com');
-  const [cbu, setCbu] = useState('');
-  const [cuit, setCuit] = useState('30718759087');
-  const [numeroIibb, setNumeroIibb] = useState('30718759087');
-  const [convenioMultilateral, setConvenioMultilateral] = useState(false);
+  // Datos Generales (sincronizados con Supabase via ErpContext)
+  const [nombre, setNombre] = useState(empresaExtra.nombre);
+  const [razonSocial, setRazonSocial] = useState(empresa.razonSocial);
+  const [domicilio, setDomicilio] = useState(empresa.domicilioFiscal);
+  const [localidad, setLocalidad] = useState(empresaExtra.localidad);
+  const [codPostal, setCodPostal] = useState(empresaExtra.codPostal);
+  const [provincia, setProvincia] = useState(empresaExtra.provincia);
+  const [pais, setPais] = useState(empresaExtra.pais);
+  const [telefono, setTelefono] = useState(empresaExtra.telefono);
+  const [email, setEmail] = useState(empresaExtra.email);
+  const [cbu, setCbu] = useState(empresaExtra.cbu);
+  const [cuit, setCuit] = useState(empresa.cuit);
+  const [numeroIibb, setNumeroIibb] = useState(empresa.ingresosBrutos);
+  const [convenioMultilateral, setConvenioMultilateral] = useState(empresaExtra.convenioMultilateral);
 
   // Logo
-  const [logoAncho, setLogoAncho] = useState('');
-  const [logoAltura, setLogoAltura] = useState('');
-  const [logoArchivo, setLogoArchivo] = useState('');
+  const [logoAncho, setLogoAncho] = useState(empresaExtra.logoAncho || '45');
+  const [logoAltura, setLogoAltura] = useState(empresaExtra.logoAltura || '20');
+  const [logoArchivo, setLogoArchivo] = useState(empresaExtra.logoArchivo || 'logo_ecar_oficial.png');
+
+  // Talonarios dinámicos
+  const [talonarios, setTalonarios] = useState([
+    { punto: '0001', desc: 'Facturación Electrónica Sede Central San Juan', emision: 'Web Service AFIP (WSFE v1)', hab: 'Facturas A, B, Notas de Crédito/Débito A, B', estado: 'Activo' },
+    { punto: '0002', desc: 'Sucursal Rawson', emision: 'Web Service AFIP (WSFE v1)', hab: 'Facturas A, B, Remitos R', estado: 'Activo' },
+    { punto: '0003', desc: 'Recibos Móviles de Cobranza en Obra', emision: 'Comprobante de Cobro Interno', hab: 'Recibos Oficiales X', estado: 'Activo' }
+  ]);
+  const [showNuevoPuntoModal, setShowNuevoPuntoModal] = useState(false);
+  const [nuevoPtoNro, setNuevoPtoNro] = useState('0004');
+  const [nuevoPtoDesc, setNuevoPtoDesc] = useState('');
+
+  // Centros de Costo dinámicos
+  const [centrosCosto, setCentrosCosto] = useState([
+    { codigo: 'CC-100', nombre: 'Obra Acueducto Gran Tulum - Tramo II', responsable: 'Ing. Roberto Quiroga', presupuesto: 45000000 },
+    { codigo: 'CC-200', nombre: 'Planta Elaboradora de Hormigón Ruta 40', responsable: 'Téc. Lucas Marinero', presupuesto: 28000000 },
+    { codigo: 'CC-300', nombre: 'Administración Central y Finanzas', responsable: 'Cra. Valeria Sánchez', presupuesto: 12500000 }
+  ]);
+
+  useEffect(() => {
+    setNombre(empresaExtra.nombre);
+    setRazonSocial(empresa.razonSocial);
+    setDomicilio(empresa.domicilioFiscal);
+    setLocalidad(empresaExtra.localidad);
+    setCodPostal(empresaExtra.codPostal);
+    setProvincia(empresaExtra.provincia);
+    setPais(empresaExtra.pais);
+    setTelefono(empresaExtra.telefono);
+    setEmail(empresaExtra.email);
+    setCbu(empresaExtra.cbu);
+    setCuit(empresa.cuit);
+    setNumeroIibb(empresa.ingresosBrutos);
+    setConvenioMultilateral(empresaExtra.convenioMultilateral);
+  }, [empresa, empresaExtra]);
 
   // Notificaciones de guardado
   const [notificacion, setNotificacion] = useState<string | null>(null);
 
-  const handleGuardarDatos = (e: React.FormEvent) => {
+  const handleGuardarDatos = async (e: React.FormEvent) => {
     e.preventDefault();
-    setNotificacion('Datos generales de la empresa guardados correctamente.');
+    await guardarConfiguracionEmpresa(
+      {
+        ...empresa,
+        razonSocial,
+        cuit,
+        domicilioFiscal: domicilio,
+        ingresosBrutos: numeroIibb
+      },
+      {
+        nombre,
+        localidad,
+        codPostal,
+        provincia,
+        pais,
+        telefono,
+        email,
+        cbu,
+        convenioMultilateral,
+        logoAncho,
+        logoAltura,
+        logoArchivo
+      }
+    );
+    setNotificacion('Datos generales de la empresa guardados en Supabase PostgreSQL.');
     setTimeout(() => setNotificacion(null), 3000);
   };
 
-  const handleGuardarLogo = (e: React.FormEvent) => {
+  const handleGuardarLogo = async (e: React.FormEvent) => {
     e.preventDefault();
-    setNotificacion('Parámetros de logotipo corporativo guardados con éxito.');
+    await guardarConfiguracionEmpresa(empresa, {
+      ...empresaExtra,
+      logoAncho,
+      logoAltura,
+      logoArchivo
+    });
+    setNotificacion('Parámetros de logotipo corporativo sincronizados en Supabase.');
+    setTimeout(() => setNotificacion(null), 3000);
+  };
+
+  const handleAgregarPuntoVenta = (e: React.FormEvent) => {
+    e.preventDefault();
+    setTalonarios([
+      ...talonarios,
+      {
+        punto: nuevoPtoNro,
+        desc: nuevoPtoDesc || 'Nuevo Punto de Emisión',
+        emision: 'Web Service AFIP (WSFE v1)',
+        hab: 'Facturas A, B, C y Notas de Crédito',
+        estado: 'Activo'
+      }
+    ]);
+    setShowNuevoPuntoModal(false);
+    setNuevoPtoDesc('');
+    setNotificacion(`Punto de venta ${nuevoPtoNro} habilitado correctamente.`);
     setTimeout(() => setNotificacion(null), 3000);
   };
 
@@ -94,11 +170,11 @@ export const ConfiguracionModule: React.FC = () => {
           <h1 className="text-xl font-bold text-slate-900 tracking-tight uppercase">
             Configuración de la Empresa
           </h1>
-          <span className="text-xs text-slate-500 font-medium">| PARÁMETROS FISCALES, TALONARIOS Y AFIP</span>
+          <span className="text-xs text-slate-500 font-medium">| PARÁMETROS FISCALES, TALONARIOS Y AFIP (SUPABASE DB)</span>
         </div>
 
         <button
-          onClick={() => alert('Calendario de vencimientos impositivos: IVA 18/11, IIBB San Juan 20/11, 931 Cargas Sociales 12/11.')}
+          onClick={() => setNotificacion('Calendario impositivo sincronizado: IVA 18/11, IIBB San Juan 20/11, F.931 12/11.')}
           className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#4c1d95]"
         >
           <Calendar className="w-3.5 h-3.5" />
@@ -122,7 +198,7 @@ export const ConfiguracionModule: React.FC = () => {
           return (
             <button
               key={tab.key}
-              onClick={() => setTabActiva(tab.key as any)}
+              onClick={() => setTabActiva(tab.key as typeof tabActiva)}
               className={`px-3 py-1.5 text-xs font-bold transition-all border-t-2 ${
                 isActive
                   ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
@@ -143,22 +219,19 @@ export const ConfiguracionModule: React.FC = () => {
         </div>
       )}
 
-      {/* 3. VISTA PRINCIPAL: PESTAÑA DATOS GENERALES (RÉPLICA EXACTA) */}
+      {/* 3. VISTA PRINCIPAL: PESTAÑA DATOS GENERALES */}
       {tabActiva === 'generales' && (
         <div className="bg-white border border-slate-300 border-t-0 min-h-[640px]">
-          {/* Sub-cabecera con títulos de columnas */}
           <div className="grid grid-cols-1 lg:grid-cols-2 bg-[#f3f0ff] border-b border-slate-300 text-xs font-mono font-bold text-slate-800">
             <div className="px-4 py-1.5 border-r border-slate-300">
-              Datos generales
+              Datos generales (Persistidos en Supabase `erp_empresa`)
             </div>
             <div className="px-4 py-1.5">
               Logo
             </div>
           </div>
 
-          {/* Cuerpo dividido en 2 columnas */}
           <div className="grid grid-cols-1 lg:grid-cols-2">
-            {/* COLUMNA IZQUIERDA: FORMULARIO DATOS GENERALES */}
             <form onSubmit={handleGuardarDatos} className="p-4 border-r border-slate-300 space-y-2.5 font-mono text-xs">
               <div className="flex items-center gap-2">
                 <label className="w-32 shrink-0 text-slate-700">Nombre:</label>
@@ -263,7 +336,6 @@ export const ConfiguracionModule: React.FC = () => {
                   type="text"
                   value={cbu}
                   onChange={(e) => setCbu(e.target.value)}
-                  placeholder=""
                   className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
                 />
               </div>
@@ -305,7 +377,7 @@ export const ConfiguracionModule: React.FC = () => {
                   type="submit"
                   className="px-4 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold transition-colors border border-[#4c1d95]"
                 >
-                  Guardar datos
+                  Guardar datos en Supabase
                 </button>
               </div>
             </form>
@@ -317,7 +389,7 @@ export const ConfiguracionModule: React.FC = () => {
                 <input
                   type="text"
                   readOnly
-                  value=""
+                  value={logoArchivo}
                   className="w-full max-w-md px-2 py-1 bg-slate-50 border border-slate-300 text-xs"
                 />
               </div>
@@ -360,14 +432,7 @@ export const ConfiguracionModule: React.FC = () => {
                     placeholder="Seleccionar una Imagen del Logo(.jpg/.gif/.png)"
                     className="w-full px-2 py-1 bg-white border border-slate-300 text-xs pr-7 focus:outline-none focus:border-[#4c1d95]"
                   />
-                  <button
-                    type="button"
-                    onClick={() => alert('Selector de archivo de imagen abierto. Formatos aceptados: JPG, PNG, GIF.')}
-                    className="absolute right-1 text-slate-500 hover:text-slate-800 p-0.5"
-                    title="Examinar imagen"
-                  >
-                    <Save className="w-4 h-4 text-slate-600" />
-                  </button>
+                  <Save className="w-4 h-4 text-slate-600 absolute right-2" />
                 </div>
               </div>
 
@@ -392,20 +457,43 @@ export const ConfiguracionModule: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <span className="text-slate-500 text-[11px] block">Condición frente al IVA:</span>
-                <p className="font-bold text-slate-900 mt-1">IVA Responsable Inscripto</p>
+                <p className="font-bold text-slate-900 mt-1">{empresa.condicionIva}</p>
               </div>
               <div>
                 <span className="text-slate-500 text-[11px] block">Inicio de Actividades:</span>
-                <p className="font-bold text-slate-900 mt-1">01/03/2021</p>
+                <p className="font-bold text-slate-900 mt-1">{empresa.inicioActividades}</p>
               </div>
               <div>
                 <span className="text-slate-500 text-[11px] block">Agente de Retención Ganancias:</span>
-                <p className="text-slate-800 mt-1">No Sujeto a Retención RG 830</p>
+                <p className="text-slate-800 mt-1">Régimen General RG 830 AFIP</p>
               </div>
               <div>
                 <span className="text-slate-500 text-[11px] block">Padrón Rentas San Juan:</span>
                 <p className="font-bold text-emerald-700 mt-1">Alícuota General 3.0% (Construcción y Redes)</p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PESTAÑA 3: CLIENTES / PROVEEDORES */}
+      {tabActiva === 'clientes_proveedores' && (
+        <div className="bg-white border border-slate-300 border-t-0 p-6 font-mono text-xs space-y-4 max-w-4xl">
+          <h3 className="font-bold text-slate-900 text-sm uppercase">
+            Parámetros Predeterminados de Cuentas Corrientes (Clientes y Proveedores)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border border-slate-200 p-4 bg-slate-50 space-y-2">
+              <span className="font-bold text-[#4c1d95] block">VENTAS Y CUENTAS POR COBRAR</span>
+              <p className="text-slate-600">Cuenta Contable Deudores por Ventas: <strong>1.1.02 Créditos por Ventas</strong></p>
+              <p className="text-slate-600">Plazo de Vencimiento Facturas por Defecto: <strong>30 días corridos</strong></p>
+              <p className="text-slate-600">Interés Punitorio por Mora: <strong>4.5% mensual</strong></p>
+            </div>
+            <div className="border border-slate-200 p-4 bg-slate-50 space-y-2">
+              <span className="font-bold text-[#4c1d95] block">COMPRAS Y CUENTAS POR PAGAR</span>
+              <p className="text-slate-600">Cuenta Contable Proveedores: <strong>2.1.01 Proveedores Locales</strong></p>
+              <p className="text-slate-600">Validación de CUIT duplicado: <strong>Estricta (Bloqueante)</strong></p>
+              <p className="text-slate-600">Cálculo Automático Retenciones IIBB/Ganancias: <strong>Activo</strong></p>
             </div>
           </div>
         </div>
@@ -417,10 +505,11 @@ export const ConfiguracionModule: React.FC = () => {
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-slate-900 text-sm">Puntos de Venta y Talonarios de Emisión Electrónica</h3>
             <button
-              onClick={() => alert('Asistente de alta de nuevo Punto de Venta AFIP activo.')}
-              className="px-3 py-1.5 bg-[#4c1d95] text-white font-bold"
+              onClick={() => setShowNuevoPuntoModal(true)}
+              className="px-3 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold flex items-center gap-1"
             >
-              + Agregar Punto de Venta
+              <Plus className="w-3.5 h-3.5" />
+              <span>Agregar Punto de Venta</span>
             </button>
           </div>
 
@@ -435,33 +524,17 @@ export const ConfiguracionModule: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              <tr className="hover:bg-slate-50">
-                <td className="py-2 px-3 border-r border-slate-200 font-bold">0001</td>
-                <td className="py-2 px-3 border-r border-slate-200">Facturación Electrónica Sede Central San Juan</td>
-                <td className="py-2 px-3 border-r border-slate-200">Web Service AFIP (WSFE v1)</td>
-                <td className="py-2 px-3 border-r border-slate-200">Facturas A, B, Notas de Crédito/Débito A, B</td>
-                <td className="py-2 px-3 text-center">
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px]">Activo</span>
-                </td>
-              </tr>
-              <tr className="hover:bg-slate-50">
-                <td className="py-2 px-3 border-r border-slate-200 font-bold">0002</td>
-                <td className="py-2 px-3 border-r border-slate-200">Sucursal Rawson</td>
-                <td className="py-2 px-3 border-r border-slate-200">Web Service AFIP (WSFE v1)</td>
-                <td className="py-2 px-3 border-r border-slate-200">Facturas A, B, Remitos R</td>
-                <td className="py-2 px-3 text-center">
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px]">Activo</span>
-                </td>
-              </tr>
-              <tr className="hover:bg-slate-50">
-                <td className="py-2 px-3 border-r border-slate-200 font-bold">0003</td>
-                <td className="py-2 px-3 border-r border-slate-200">Recibos Móviles de Cobranza en Obra</td>
-                <td className="py-2 px-3 border-r border-slate-200">Comprobante de Cobro Interno</td>
-                <td className="py-2 px-3 border-r border-slate-200">Recibos Oficiales X</td>
-                <td className="py-2 px-3 text-center">
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px]">Activo</span>
-                </td>
-              </tr>
+              {talonarios.map((t) => (
+                <tr key={t.punto} className="hover:bg-slate-50">
+                  <td className="py-2 px-3 border-r border-slate-200 font-bold">{t.punto}</td>
+                  <td className="py-2 px-3 border-r border-slate-200">{t.desc}</td>
+                  <td className="py-2 px-3 border-r border-slate-200">{t.emision}</td>
+                  <td className="py-2 px-3 border-r border-slate-200">{t.hab}</td>
+                  <td className="py-2 px-3 text-center">
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px]">{t.estado}</span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -470,7 +543,6 @@ export const ConfiguracionModule: React.FC = () => {
       {/* PESTAÑA 5: INTEGRACIONES (AFIP WEB SERVICES & MERCADO PAGO) */}
       {tabActiva === 'integraciones' && (
         <div className="bg-white border border-slate-300 border-t-0 p-6 text-xs space-y-6">
-          {/* Sub-selector */}
           <div className="flex border-b border-slate-300 gap-4">
             <button
               onClick={() => setSubTabIntegracion('afip')}
@@ -543,6 +615,26 @@ export const ConfiguracionModule: React.FC = () => {
                 </div>
               </div>
 
+              <div className="bg-slate-900 text-white p-3 border border-slate-700 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="text-[11px] font-bold uppercase text-emerald-400 block">
+                    Endpoint Serverless ARCA WSAA / WSFEv1 (Preconfigurado):
+                  </span>
+                  <code className="text-xs text-emerald-300 font-mono">{DEFAULT_ARCA_FUNCTION_URL}</code>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(DEFAULT_ARCA_FUNCTION_URL);
+                    setNotificacion('Endpoint ARCA WSFE copiado al portapapeles.');
+                    setTimeout(() => setNotificacion(null), 2500);
+                  }}
+                  className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-600"
+                >
+                  Copiar Endpoint ARCA
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">
@@ -551,7 +643,7 @@ export const ConfiguracionModule: React.FC = () => {
                   <select
                     value={afipConfig.ambiente}
                     onChange={(e) =>
-                      setAfipConfig({ ...afipConfig, ambiente: e.target.value as any })
+                      setAfipConfig({ ...afipConfig, ambiente: e.target.value as 'homologacion' | 'produccion' })
                     }
                     className="w-full px-3 py-1.5 border border-slate-300 bg-white font-semibold text-xs"
                   >
@@ -764,6 +856,49 @@ export const ConfiguracionModule: React.FC = () => {
                 </div>
               </div>
 
+              <div className="bg-slate-900 text-white p-3.5 border border-slate-700 space-y-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase text-sky-400 block">
+                      URL del Webhook para pegar en Mercado Pago Developers:
+                    </span>
+                    <code className="text-xs text-sky-300 font-mono select-all">{DEFAULT_MP_WEBHOOK_URL}</code>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(DEFAULT_MP_WEBHOOK_URL);
+                        setNotificacion('URL de Webhook de Mercado Pago copiada al portapapeles.');
+                        setTimeout(() => setNotificacion(null), 2500);
+                      }}
+                      className="px-3 py-1 bg-[#009ee3] hover:bg-[#007eb5] text-white text-xs font-bold"
+                    >
+                      Copiar Webhook URL
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const refDemo = 'WH-MP-' + String(Math.floor(1000 + Math.random() * 9000));
+                        await simularWebhookPagoMercadoPago({ monto: 25000, referencia: refDemo });
+                        if (clientes[0]) {
+                          await registrarCobroCliente({
+                            clienteId: clientes[0].id,
+                            monto: 25000,
+                            medioCobro: 'Mercado Pago (Webhook IPN)'
+                          });
+                        }
+                        setNotificacion(`Webhook IPN (${refDemo}) simulado: $25.000 acreditados en Tesorería y Contabilidad.`);
+                        setTimeout(() => setNotificacion(null), 4000);
+                      }}
+                      className="px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold"
+                    >
+                      Simular Webhook ($25.000)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">
@@ -771,7 +906,7 @@ export const ConfiguracionModule: React.FC = () => {
                   </label>
                   <select
                     value={mpConfig.modo}
-                    onChange={(e) => setMpConfig({ ...mpConfig, modo: e.target.value as any })}
+                    onChange={(e) => setMpConfig({ ...mpConfig, modo: e.target.value as 'sandbox' | 'produccion' })}
                     className="w-full px-3 py-1.5 border border-slate-300 bg-white font-semibold text-xs"
                   >
                     <option value="sandbox">Sandbox (Pruebas con tarjetas de test)</option>
@@ -900,10 +1035,132 @@ export const ConfiguracionModule: React.FC = () => {
         </div>
       )}
 
-      {/* OTRAS PESTAÑAS */}
-      {tabActiva !== 'generales' && tabActiva !== 'impositivos' && tabActiva !== 'talonarios' && tabActiva !== 'integraciones' && (
-        <div className="bg-white border border-slate-300 border-t-0 p-8 text-xs text-slate-500 text-center font-medium">
-          Pestaña {tabActiva} configurada según los parámetros de la empresa en Zonda ERP.
+      {/* PESTAÑA 6: PORTAL CLIENTES */}
+      {tabActiva === 'portal' && (
+        <div className="bg-white border border-slate-300 border-t-0 p-6 font-mono text-xs space-y-4 max-w-3xl">
+          <h3 className="font-bold text-slate-900 text-sm uppercase">Configuración de Portal de Autogestión de Clientes</h3>
+          <div className="p-4 bg-slate-50 border border-slate-200 space-y-3">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" defaultChecked className="accent-[#4c1d95] w-4 h-4" />
+              <span className="font-bold">Enviar comprobantes electrónicos con CAE automáticamente por correo al emitir</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" defaultChecked className="accent-[#4c1d95] w-4 h-4" />
+              <span className="font-bold">Incluir botón de pago QR interoperable de Mercado Pago en el PDF de la factura</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" defaultChecked className="accent-[#4c1d95] w-4 h-4" />
+              <span className="font-bold">Permitir descarga de certificados de retención y recibos X</span>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* PESTAÑA 7: TESORERÍA */}
+      {tabActiva === 'tesoreria' && (
+        <div className="bg-white border border-slate-300 border-t-0 p-6 font-mono text-xs space-y-4 max-w-3xl">
+          <h3 className="font-bold text-slate-900 text-sm uppercase">Parámetros de Tesorería y Conciliación Bancaria</h3>
+          <div className="p-4 bg-slate-50 border border-slate-200 space-y-2">
+            <p className="text-slate-700">Moneda Principal del Sistema: <strong>ARS (Peso Argentino)</strong></p>
+            <p className="text-slate-700">Cuenta Puente de Valores a Depositar: <strong>1.1.01 Caja y Bancos</strong></p>
+            <p className="text-slate-700">Control de numeración correlativa de Órdenes de Pago y Recibos X: <strong>Automático</strong></p>
+          </div>
+        </div>
+      )}
+
+      {/* PESTAÑA 8: CENTROS DE COSTOS */}
+      {tabActiva === 'costos' && (
+        <div className="bg-white border border-slate-300 border-t-0 p-6 font-mono text-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-slate-900 text-sm uppercase">Centros de Costos y Unidades de Negocio / Obras</h3>
+            <button
+              onClick={() => {
+                setCentrosCosto([
+                  ...centrosCosto,
+                  {
+                    codigo: `CC-${(centrosCosto.length + 1) * 100}`,
+                    nombre: 'Nueva Obra Civil San Juan',
+                    responsable: 'Dirección Técnica',
+                    presupuesto: 15000000
+                  }
+                ]);
+              }}
+              className="px-3 py-1.5 bg-[#4c1d95] text-white font-bold flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Nuevo Centro de Costo</span>
+            </button>
+          </div>
+
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-100 border-b border-slate-300 font-bold text-slate-700">
+                <th className="py-2 px-3 border-r border-slate-200">Código</th>
+                <th className="py-2 px-3 border-r border-slate-200">Unidad de Negocio / Obra</th>
+                <th className="py-2 px-3 border-r border-slate-200">Responsable</th>
+                <th className="py-2 px-3 text-right">Presupuesto Asignado ($)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {centrosCosto.map((cc) => (
+                <tr key={cc.codigo} className="hover:bg-slate-50">
+                  <td className="py-2 px-3 border-r border-slate-200 font-bold">{cc.codigo}</td>
+                  <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-900">{cc.nombre}</td>
+                  <td className="py-2 px-3 border-r border-slate-200">{cc.responsable}</td>
+                  <td className="py-2 px-3 text-right font-bold text-emerald-700">
+                    ${cc.presupuesto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* MODAL: NUEVO PUNTO DE VENTA */}
+      {showNuevoPuntoModal && (
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-md shadow-2xl font-mono text-xs">
+            <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-bold">
+              <span>HABILITAR PUNTO DE VENTA AFIP</span>
+              <button onClick={() => setShowNuevoPuntoModal(false)}><X className="w-4 h-4" /></button>
+            </div>
+            <form onSubmit={handleAgregarPuntoVenta} className="p-4 space-y-3">
+              <div>
+                <label className="text-slate-600 font-bold block mb-1">Número de Punto de Venta (4 o 5 dígitos):</label>
+                <input
+                  type="text"
+                  required
+                  value={nuevoPtoNro}
+                  onChange={(e) => setNuevoPtoNro(e.target.value)}
+                  className="w-full px-2 py-1.5 border border-slate-300 font-bold"
+                />
+              </div>
+              <div>
+                <label className="text-slate-600 font-bold block mb-1">Descripción / Sucursal:</label>
+                <input
+                  type="text"
+                  required
+                  value={nuevoPtoDesc}
+                  onChange={(e) => setNuevoPtoDesc(e.target.value)}
+                  placeholder="Ej: Obrador Acueducto Zonda"
+                  className="w-full px-2 py-1.5 border border-slate-300"
+                />
+              </div>
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowNuevoPuntoModal(false)}
+                  className="px-3 py-1.5 border border-slate-300 text-slate-700"
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="px-4 py-1.5 bg-[#4c1d95] text-white font-bold">
+                  Guardar Punto de Venta
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

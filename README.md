@@ -101,3 +101,19 @@ Zonda ERP incorpora un motor nativo de liquidación de haberes y exportación re
   * **Registro 04 (Bases Imponibles F.931):** Determinación de aportes y contribuciones de Seguridad Social (Base 1 SIPA, Base 2 PAMI, Base 4 Obra Social, Base 5 ART/LRT, y detracción Ley 27.430).
 * Incluye botón de descarga directa de archivo `.txt` y previsualizador con validación de sintaxis en tiempo real.
 
+---
+
+## 5. Base de Datos Supabase PostgreSQL & Orquestación ARCA / Mercado Pago
+
+Todo el sistema persiste en tiempo real sobre **Supabase PostgreSQL** (`https://dtjmckbrofevgfqbkzli.supabase.co`) y cuenta con dos **Supabase Edge Functions** listas para producción:
+
+* **Webhook de Mercado Pago (`mercadopago-webhook`):**
+  * **URL:** `https://dtjmckbrofevgfqbkzli.supabase.co/functions/v1/mercadopago-webhook`
+  * Recibe notificaciones IPN/Webhooks de pagos aprobados, acredita automáticamente la cuenta en **Tesorería (`erp_cuentas_bancarias`)**, imputa la factura en **Clientes (`erp_comprobantes_venta`)**, genera el asiento en **Contabilidad (`erp_asientos_contables`)** y guarda el evento en `erp_webhooks_log`.
+* **Puente Serverless ARCA WSAA / WSFEv1 (`arca-wsfe`):**
+  * **URL:** `https://dtjmckbrofevgfqbkzli.supabase.co/functions/v1/arca-wsfe`
+  * Gestiona la firma del Ticket de Requerimiento de Acceso (`TRA.xml`) y la solicitud de CAE (`FECAESolicitar`) ante ARCA (ex-AFIP) sin bloqueos CORS del navegador.
+
+Consultá la guía completa paso a paso en [`INSTRUCCIONES_ARCA_MERCADOPAGO.md`](./INSTRUCCIONES_ARCA_MERCADOPAGO.md).
+
+

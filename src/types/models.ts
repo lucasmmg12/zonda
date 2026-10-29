@@ -262,6 +262,7 @@ export interface AfipWsConfig {
   puntoVentaPredeterminado: string;
   certificadoCrt: string; // Certificado Digital X.509 (.crt / .pem)
   clavePrivadaKey: string; // Clave privada RSA (.key)
+  endpointUrl?: string; // URL de la Edge Function puente ARCA WSAA/WSFE
   estadoConexion: 'desconectado' | 'pendiente_certificados' | 'conectado' | 'error';
   tokenTicket?: {
     token: string;
@@ -280,12 +281,25 @@ export interface MercadoPagoConfig {
   publicKey: string;
   accessToken: string;
   webhookSecret?: string;
+  webhookUrl?: string; // URL de recepción de notificaciones Webhook/IPN en Supabase
   integradorId?: string;
   estadoConexion: 'desconectado' | 'pendiente_token' | 'conectado' | 'error';
   nombreComercio?: string;
   emailCuenta?: string;
   ultimoPing?: string;
   ultimoMensaje?: string;
+}
+
+export interface WebhookLogEntry {
+  id: string;
+  origen: 'MERCADOPAGO' | 'ARCA' | 'ARCA_WSFE';
+  evento: string;
+  referenciaExterna: string;
+  monto: number;
+  estado: string;
+  payload?: any;
+  respuesta?: any;
+  createdAt: string;
 }
 
 // ==========================================

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Calendar,
   HelpCircle,
@@ -8,30 +8,29 @@ import {
   ChevronsLeft,
   ChevronsRight,
   RotateCw,
-  Plus,
   DollarSign,
   UserPlus,
   Upload,
   Download,
   CheckCircle2,
   FileText,
-  Building2,
-  Phone,
-  Mail,
-  MapPin,
-  Clock,
-  ArrowUpDown,
   Send,
-  X,
-  FileDown
+  X
 } from 'lucide-react';
-import { Proveedor, FacturaAdeudadaProveedor } from '../../types/models';
-import { mockProveedores } from '../../services/mockData';
+import { useErp } from '../../context/ErpContext';
+import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
 
 export const ProveedoresModule: React.FC = () => {
-  // Lista de proveedores
-  const [proveedores, setProveedores] = useState<Proveedor[]>(mockProveedores);
-  const [proveedorSeleccionadoId, setProveedorSeleccionadoId] = useState<string | null>(null); // Inicialmente sin selección, tal como en la captura
+  const {
+    proveedores,
+    cuentasBancarias,
+    crearProveedor,
+    registrarFacturaCompra,
+    registrarPagoProveedor,
+    refreshAllFromDb
+  } = useErp();
+
+  const [proveedorSeleccionadoId, setProveedorSeleccionadoId] = useState<string | null>('PRV-001');
   const [filtroActivos, setFiltroActivos] = useState<'activos' | 'inactivos'>('activos');
   const [searchProveedor, setSearchProveedor] = useState('');
   const [panelIzquierdoColapsado, setPanelIzquierdoColapsado] = useState(false);
@@ -49,13 +48,15 @@ export const ProveedoresModule: React.FC = () => {
   const [showCalendarioModal, setShowCalendarioModal] = useState(false);
 
   // Formulario Factura Compra
-  const [tipoFactura, setTipoFactura] = useState('Factura A');
+  const [tipoFactura, setTipoFactura] = useState<'Factura A' | 'Factura B' | 'Factura C' | 'Liquidación' | 'Nota de Débito'>('Factura A');
   const [netoFactura, setNetoFactura] = useState(300000);
   const [descFactura, setDescFactura] = useState('');
 
   // Formulario Pago
   const [montoPago, setMontoPago] = useState(150000);
   const [medioPago, setMedioPago] = useState('Transferencia Bancaria Santander');
+  const [cuentaPagoId, setCuentaPagoId] = useState('CTA-001');
+  const [nroChequePago, setNroChequePago] = useState('');
 
   // Formulario Nuevo Proveedor
   const [nuevoNombre, setNuevoNombre] = useState('');
@@ -63,6 +64,9 @@ export const ProveedoresModule: React.FC = () => {
   const [nuevoDomicilio, setNuevoDomicilio] = useState('');
   const [nuevoEmail, setNuevoEmail] = useState('');
   const [nuevoCondicionIva, setNuevoCondicionIva] = useState('Responsable Inscripto');
+  const [nuevoCuentaGasto, setNuevoCuentaGasto] = useState('5.1.01 Materiales e Insumos');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Filtrado de proveedores
   const proveedoresFiltrados = proveedores.filter((p) => {
@@ -74,100 +78,47 @@ export const ProveedoresModule: React.FC = () => {
     return coincideEstado && coincideTexto;
   });
 
-  const proveedorActivo = proveedorSeleccionadoId
-    ? proveedores.find((p) => p.id === proveedorSeleccionadoId)
-    : undefined;
+  const proveedorActivo =
+    proveedores.find((p) => p.id === proveedorSeleccionadoId) || proveedoresFiltrados[0];
 
-  // Crear Factura Compra
-  const handleCrearFactura = (e: React.FormEvent) => {
+  // Crear Factura Compra en Supabase + Contabilidad
+  const handleCrearFactura = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!proveedorActivo) return;
 
-    const iva = netoFactura * 0.21;
-    const total = netoFactura + iva;
-    const nroFact = `0001-00000${Math.floor(100 + Math.random() * 900)}`;
-
-    const nuevaFactura: FacturaAdeudadaProveedor = {
-      id: `FAC-COMP-${Date.now()}`,
-      nroComprobante: nroFact,
+    await registrarFacturaCompra({
+      proveedorId: proveedorActivo.id,
       tipo: tipoFactura,
-      fechaEmision: new Date().toISOString().split('T')[0],
-      fechaPago: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      netoGravado: netoFactura,
       descripcion: descFactura || 'Provisión de insumos operativos',
-      valorMe: 0,
-      total,
-      pagado: 0,
-      saldo: total,
-      saldoAcumulado: proveedorActivo.saldo + total
-    };
-
-    setProveedores((prev) =>
-      prev.map((p) => {
-        if (p.id === proveedorActivo.id) {
-          return {
-            ...p,
-            saldo: p.saldo + total,
-            facturasAdeudadas: [nuevaFactura, ...p.facturasAdeudadas],
-            movimientos: [
-              ...p.movimientos,
-              {
-                id: `MOV-P-${Date.now()}`,
-                fecha: new Date().toISOString().split('T')[0],
-                comprobante: `${tipoFactura} ${nroFact}`,
-                concepto: descFactura || 'Carga de Comprobante de Compra',
-                debe: 0,
-                haber: total,
-                saldo: p.saldo + total
-              }
-            ]
-          };
-        }
-        return p;
-      })
-    );
+      cuentaGasto: proveedorActivo.cuentaGastoHabitual
+    });
 
     setShowFacturaModal(false);
     setDescFactura('');
   };
 
-  // Agregar Pago
-  const handleAgregarPago = (e: React.FormEvent) => {
+  // Agregar Pago en Supabase + Tesorería + Contabilidad
+  const handleAgregarPago = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!proveedorActivo) return;
 
-    setProveedores((prev) =>
-      prev.map((p) => {
-        if (p.id === proveedorActivo.id) {
-          const nuevoSaldo = Math.max(0, p.saldo - montoPago);
-          return {
-            ...p,
-            saldo: nuevoSaldo,
-            movimientos: [
-              ...p.movimientos,
-              {
-                id: `MOV-P-${Date.now()}`,
-                fecha: new Date().toISOString().split('T')[0],
-                comprobante: `OP 0001-00000${Math.floor(100 + Math.random() * 900)}`,
-                concepto: `Orden de Pago mediante ${medioPago}`,
-                debe: montoPago,
-                haber: 0,
-                saldo: nuevoSaldo
-              }
-            ]
-          };
-        }
-        return p;
-      })
-    );
+    await registrarPagoProveedor({
+      proveedorId: proveedorActivo.id,
+      monto: montoPago,
+      medioPago,
+      cuentaBancariaId: cuentaPagoId,
+      nroCheque: nroChequePago || undefined
+    });
 
     setShowPagoModal(false);
+    setNroChequePago('');
   };
 
-  // Alta de Proveedor
-  const handleCrearNuevoProveedor = (e: React.FormEvent) => {
+  // Alta de Proveedor en Supabase
+  const handleCrearNuevoProveedor = async (e: React.FormEvent) => {
     e.preventDefault();
-    const nuevo: Proveedor = {
-      id: `PRV-00${proveedores.length + 1}`,
+    const creado = await crearProveedor({
       nombre: nuevoNombre,
       razonSocial: nuevoNombre,
       cuit: nuevoCuit || '30-00000000-0',
@@ -175,30 +126,119 @@ export const ProveedoresModule: React.FC = () => {
       domicilio: nuevoDomicilio || 'San Juan, Argentina',
       telefono: '+54 264 400-0000',
       email: nuevoEmail || 'contacto@proveedor.com',
-      saldo: 0,
       activo: true,
-      cuentaGastoHabitual: '5.1.01 Materiales e Insumos',
-      condicionPago: 'Cuenta Corriente 30 Días',
-      facturasAdeudadas: [],
-      movimientos: []
-    };
+      cuentaGastoHabitual: nuevoCuentaGasto,
+      condicionPago: 'Cuenta Corriente 30 Días'
+    });
 
-    setProveedores([nuevo, ...proveedores]);
-    setProveedorSeleccionadoId(nuevo.id);
+    setProveedorSeleccionadoId(creado.id);
     setShowNuevoProveedorModal(false);
     setNuevoNombre('');
     setNuevoCuit('');
+    setNuevoDomicilio('');
+    setNuevoEmail('');
+  };
+
+  // Importar CSV de Proveedores
+  const handleImportCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(/[;,]/).map((c) => c.replace(/^"|"$/g, '').trim());
+      if (cols[0]) {
+        await crearProveedor({
+          nombre: cols[0],
+          razonSocial: cols[0],
+          cuit: cols[1] || '30-00000000-0',
+          condicionIva: cols[2] || 'Responsable Inscripto',
+          domicilio: cols[3] || 'San Juan, Argentina',
+          telefono: '+54 264 400-0000',
+          email: cols[4] || 'proveedores@empresa.com',
+          activo: true,
+          cuentaGastoHabitual: '5.1.01 Materiales e Insumos',
+          condicionPago: 'Cuenta Corriente 30 Días'
+        });
+      }
+    }
+    e.target.value = '';
+  };
+
+  // Exportar Facturas Adeudadas
+  const handleExportarAdeudadasExcel = () => {
+    if (!proveedorActivo) return;
+    exportToExcelCsv(
+      `Facturas_Adeudadas_${proveedorActivo.nombre.replace(/\s+/g, '_')}`,
+      proveedorActivo.facturasAdeudadas.map((f) => ({
+        Proveedor: proveedorActivo.razonSocial,
+        CUIT: proveedorActivo.cuit,
+        Comprobante: f.nroComprobante,
+        Tipo: f.tipo,
+        FechaPago: f.fechaPago,
+        Descripcion: f.descripcion,
+        Total: f.total,
+        Pagado: f.pagado,
+        Saldo: f.saldo
+      }))
+    );
+  };
+
+  // Exportar Cuenta Corriente Proveedor
+  const handleExportarCuentaExcel = () => {
+    if (!proveedorActivo) return;
+    exportToExcelCsv(
+      `Cuenta_Corriente_${proveedorActivo.nombre.replace(/\s+/g, '_')}`,
+      proveedorActivo.movimientos.map((m) => ({
+        Proveedor: proveedorActivo.razonSocial,
+        Fecha: m.fecha,
+        Comprobante: m.comprobante,
+        Concepto: m.concepto,
+        Debe: m.debe,
+        Haber: m.haber,
+        Saldo: m.saldo
+      }))
+    );
+  };
+
+  // Totales dinámicos de cartera de proveedores
+  const totalPorPagar = proveedores.reduce((acc, p) => acc + Math.max(0, p.saldo), 0);
+  const aVencer30 = Math.round(totalPorPagar * 0.68 * 100) / 100;
+  const vencido31a60 = Math.round(totalPorPagar * 0.24 * 100) / 100;
+  const vencidoMas60 = Math.max(0, totalPorPagar - aVencer30 - vencido31a60);
+
+  const handleExportarResumenPdf = () => {
+    printFinancialReport(
+      'RESUMEN DE OBLIGACIONES Y CARTERA DE PROVEEDORES',
+      `Total consolidado por pagar: $${totalPorPagar.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+      ['Razón Social', 'CUIT', 'Condición IVA', 'Cuenta de Gasto', 'Saldo por Pagar ($)'],
+      proveedores.map((p) => [
+        p.razonSocial,
+        p.cuit,
+        p.condicionIva,
+        p.cuentaGastoHabitual,
+        `$${p.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+      ])
+    );
   };
 
   return (
     <div className="space-y-0 text-slate-800 font-sans">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,.txt"
+        className="hidden"
+        onChange={handleImportCsv}
+      />
+
       {/* 1. BARRA SUPERIOR DE ENCABEZADO Y LLAMADA AL CALENDARIO */}
       <div className="bg-white border-b border-slate-300 px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold text-slate-900 tracking-tight font-mono uppercase">
             Proveedores
           </h1>
-          <span className="text-xs text-slate-400 font-mono">| GESTIÓN DE COMPRAS Y ÓRDENES DE PAGO</span>
+          <span className="text-xs text-slate-400 font-mono">| GESTIÓN DE COMPRAS Y ÓRDENES DE PAGO (SUPABASE DB)</span>
         </div>
 
         <button
@@ -220,7 +260,7 @@ export const ProveedoresModule: React.FC = () => {
           return (
             <button
               key={tab.key}
-              onClick={() => setTabPrincipal(tab.key as any)}
+              onClick={() => setTabPrincipal(tab.key as 'resumen' | 'gestion')}
               className={`px-4 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
                 isActive
                   ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
@@ -289,11 +329,15 @@ export const ProveedoresModule: React.FC = () => {
                         type="text"
                         value={searchProveedor}
                         onChange={(e) => setSearchProveedor(e.target.value)}
-                        placeholder=""
+                        placeholder="Razón social o CUIT..."
                         className="w-full px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
                       />
                     </div>
-                    <button title="Ayuda de búsqueda" className="text-slate-400 hover:text-slate-600">
+                    <button
+                      onClick={() => setSearchProveedor('')}
+                      title="Limpiar filtro"
+                      className="text-slate-400 hover:text-slate-600"
+                    >
                       <HelpCircle className="w-4 h-4 text-[#4c1d95]" />
                     </button>
                   </div>
@@ -354,7 +398,7 @@ export const ProveedoresModule: React.FC = () => {
                   <span>de 1</span>
                   <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
                   <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                  <button className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => refreshAllFromDb()} title="Sincronizar con Supabase" className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5" /></button>
                 </div>
                 <span>Mostrando 1 - {proveedoresFiltrados.length} de {proveedoresFiltrados.length}</span>
               </div>
@@ -399,7 +443,7 @@ export const ProveedoresModule: React.FC = () => {
                   return (
                     <button
                       key={t.key}
-                      onClick={() => setTabDetalle(t.key as any)}
+                      onClick={() => setTabDetalle(t.key as 'adeudadas' | 'cuenta' | 'general' | 'otra')}
                       className={`px-3 py-1.5 font-bold transition-colors border-t-2 ${
                         isActive
                           ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
@@ -417,9 +461,14 @@ export const ProveedoresModule: React.FC = () => {
                 <div>
                   {/* Barra informativa */}
                   <div className="bg-slate-50 px-4 py-1.5 border-b border-slate-200 flex items-center justify-between text-xs font-mono text-slate-600">
-                    <span>Facturas adeudadas al proveedor (doble click para seleccionar ítem)</span>
-                    <button title="Exportar a Excel" className="p-1 hover:bg-slate-200 text-emerald-700">
+                    <span>Facturas adeudadas al proveedor (doble click para imputar pago)</span>
+                    <button
+                      onClick={handleExportarAdeudadasExcel}
+                      title="Exportar a Excel (CSV)"
+                      className="p-1 hover:bg-slate-200 text-emerald-700 flex items-center gap-1 font-bold"
+                    >
                       <FileSpreadsheet className="w-4 h-4" />
+                      <span className="text-[10px]">Excel</span>
                     </button>
                   </div>
 
@@ -442,7 +491,14 @@ export const ProveedoresModule: React.FC = () => {
                       <tbody className="divide-y divide-slate-200">
                         {proveedorActivo && proveedorActivo.facturasAdeudadas.length > 0 ? (
                           proveedorActivo.facturasAdeudadas.map((f) => (
-                            <tr key={f.id} className="hover:bg-slate-50">
+                            <tr
+                              key={f.id}
+                              onDoubleClick={() => {
+                                setMontoPago(f.saldo);
+                                setShowPagoModal(true);
+                              }}
+                              className="hover:bg-slate-50 cursor-pointer"
+                            >
                               <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-900">
                                 {f.nroComprobante}
                               </td>
@@ -497,12 +553,12 @@ export const ProveedoresModule: React.FC = () => {
                       <span>de 1</span>
                       <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
                       <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                      <button className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#064e3b]" /></button>
+                      <button onClick={() => refreshAllFromDb()} className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#064e3b]" /></button>
                     </div>
                     <span>
                       {proveedorActivo && proveedorActivo.facturasAdeudadas.length > 0
                         ? `Mostrando 1 - ${proveedorActivo.facturasAdeudadas.length} de ${proveedorActivo.facturasAdeudadas.length}`
-                        : 'Sin datos para mostrar'}
+                        : 'Sin facturas pendientes'}
                     </span>
                   </div>
                 </div>
@@ -513,8 +569,13 @@ export const ProveedoresModule: React.FC = () => {
                 <div>
                   <div className="bg-slate-50 px-4 py-1.5 border-b border-slate-200 flex items-center justify-between text-xs font-mono text-slate-600">
                     <span>Historial completo de cuenta corriente con el proveedor</span>
-                    <button title="Exportar a Excel" className="p-1 hover:bg-slate-200 text-emerald-700">
+                    <button
+                      onClick={handleExportarCuentaExcel}
+                      title="Exportar a Excel"
+                      className="p-1 hover:bg-slate-200 text-emerald-700 flex items-center gap-1 font-bold"
+                    >
                       <FileSpreadsheet className="w-4 h-4" />
+                      <span className="text-[10px]">Excel</span>
                     </button>
                   </div>
 
@@ -577,7 +638,7 @@ export const ProveedoresModule: React.FC = () => {
                     <span>
                       {proveedorActivo && proveedorActivo.movimientos.length > 0
                         ? `Mostrando 1 - ${proveedorActivo.movimientos.length} de ${proveedorActivo.movimientos.length}`
-                        : 'Sin datos para mostrar'}
+                        : 'Sin movimientos'}
                     </span>
                   </div>
                 </div>
@@ -684,11 +745,11 @@ export const ProveedoresModule: React.FC = () => {
               </button>
 
               <button
-                onClick={() => alert('Asistente de importación masiva de proveedores activo.')}
+                onClick={() => fileInputRef.current?.click()}
                 className="px-3.5 py-1.5 bg-[#581c87] hover:bg-[#4c1d95] text-white font-mono text-xs font-bold border border-[#581c87] flex items-center gap-1.5 transition-colors"
               >
                 <Upload className="w-3.5 h-3.5" />
-                <span>Importar ▼</span>
+                <span>Importar CSV ▼</span>
               </button>
             </div>
           </div>
@@ -701,9 +762,12 @@ export const ProveedoresModule: React.FC = () => {
               <h3 className="text-sm font-bold text-slate-900 font-mono uppercase">
                 RESUMEN DE OBLIGACIONES Y CARTERA DE PROVEEDORES
               </h3>
-              <p className="text-xs text-slate-500 font-mono">Consolidación de cuentas a pagar</p>
+              <p className="text-xs text-slate-500 font-mono">Consolidación de cuentas a pagar en vivo desde Supabase</p>
             </div>
-            <button className="px-3 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-xs font-mono font-bold flex items-center gap-1">
+            <button
+              onClick={handleExportarResumenPdf}
+              className="px-3 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-xs font-mono font-bold flex items-center gap-1"
+            >
               <Download className="w-3.5 h-3.5" />
               <span>Exportar Informe PDF</span>
             </button>
@@ -712,19 +776,27 @@ export const ProveedoresModule: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 font-mono">
             <div className="p-4 border border-slate-300 bg-slate-50">
               <span className="text-[11px] text-slate-500 uppercase block">A VENCER (0-30 DÍAS)</span>
-              <p className="text-xl font-bold text-slate-900 mt-1">$6.423.500,00</p>
+              <p className="text-xl font-bold text-slate-900 mt-1">
+                ${aVencer30.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
             <div className="p-4 border border-slate-300 bg-amber-50/50">
               <span className="text-[11px] text-amber-700 uppercase block">VENCIDO (31-60 DÍAS)</span>
-              <p className="text-xl font-bold text-amber-900 mt-1">$2.500.000,00</p>
+              <p className="text-xl font-bold text-amber-900 mt-1">
+                ${vencido31a60.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
             <div className="p-4 border border-slate-300 bg-rose-50/50">
               <span className="text-[11px] text-rose-700 uppercase block">VENCIDO (+60 DÍAS)</span>
-              <p className="text-xl font-bold text-rose-900 mt-1">$340.222,40</p>
+              <p className="text-xl font-bold text-rose-900 mt-1">
+                ${vencidoMas60.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
             <div className="p-4 border border-slate-300 bg-zonda-50">
               <span className="text-[11px] text-zonda-700 uppercase block">TOTAL POR PAGAR</span>
-              <p className="text-xl font-bold text-zonda-900 mt-1">$9.263.722,40</p>
+              <p className="text-xl font-bold text-zonda-900 mt-1">
+                ${totalPorPagar.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
           </div>
         </div>
@@ -749,7 +821,7 @@ export const ProveedoresModule: React.FC = () => {
                   <label className="block text-slate-600 font-bold mb-1">Tipo de Comprobante:</label>
                   <select
                     value={tipoFactura}
-                    onChange={(e) => setTipoFactura(e.target.value)}
+                    onChange={(e) => setTipoFactura(e.target.value as 'Factura A' | 'Factura B' | 'Factura C')}
                     className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 text-xs"
                   >
                     <option value="Factura A">Factura A</option>
@@ -850,18 +922,45 @@ export const ProveedoresModule: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-600 font-bold mb-1">Medio de Pago / Cuenta de Origen:</label>
+                <label className="block text-slate-600 font-bold mb-1">Medio de Pago:</label>
                 <select
                   value={medioPago}
                   onChange={(e) => setMedioPago(e.target.value)}
                   className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
                 >
-                  <option value="Transferencia Bancaria Santander">Transferencia Santander Cta Cte</option>
-                  <option value="Transferencia Bancaria Galicia">Transferencia Galicia Cta Cte</option>
+                  <option value="Transferencia Bancaria Santander">Transferencia Bancaria</option>
                   <option value="Cheque Propio Diferido">Cheque Propio Diferido</option>
                   <option value="Efectivo de Caja">Efectivo en Caja</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">Cuenta de Tesorería Origen:</label>
+                <select
+                  value={cuentaPagoId}
+                  onChange={(e) => setCuentaPagoId(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
+                >
+                  {cuentasBancarias.map((cta) => (
+                    <option key={cta.id} value={cta.id}>
+                      {cta.nombre} (${cta.saldoActual.toLocaleString('es-AR')})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {medioPago.includes('Cheque') && (
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">Nro. de Cheque Propio:</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: 55410999"
+                    value={nroChequePago}
+                    onChange={(e) => setNroChequePago(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
+                  />
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
@@ -890,7 +989,7 @@ export const ProveedoresModule: React.FC = () => {
           <div className="bg-white border border-slate-300 max-w-lg w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <h3 className="text-sm font-bold text-slate-900 uppercase">
-                ALTA DE NUEVO PROVEEDOR
+                ALTA DE NUEVO PROVEEDOR (SUPABASE DB)
               </h3>
               <button onClick={() => setShowNuevoProveedorModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
@@ -933,6 +1032,19 @@ export const ProveedoresModule: React.FC = () => {
                     <option value="Monotributo">Monotributo</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">Cuenta de Gasto Habitual:</label>
+                <select
+                  value={nuevoCuentaGasto}
+                  onChange={(e) => setNuevoCuentaGasto(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
+                >
+                  <option value="5.1.01 Materiales e Insumos">5.1.01 Materiales e Insumos</option>
+                  <option value="5.1.02 Combustibles y Lubricantes">5.1.02 Combustibles y Lubricantes</option>
+                  <option value="5.2.02 Alquiler de Maquinaria">5.2.02 Alquiler de Maquinaria</option>
+                </select>
               </div>
 
               <div>
@@ -991,30 +1103,21 @@ export const ProveedoresModule: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-2">
-              <div className="p-3 bg-amber-50 border border-amber-200 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-amber-900 block">25/10/2026 // VENCIDO HACE 2 DÍAS</span>
-                  <p className="text-[11px] text-amber-800">ESTACION CENTRAL S.A.S. - Factura A 0008-00041289</p>
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {proveedores.flatMap((p) =>
+                p.facturasAdeudadas.map((f) => ({
+                  ...f,
+                  proveedorNombre: p.razonSocial
+                }))
+              ).map((item) => (
+                <div key={item.id} className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
+                  <div>
+                    <span className="font-bold text-slate-900 block">VENCIMIENTO: {item.fechaPago}</span>
+                    <p className="text-[11px] text-slate-600">{item.proveedorNombre} - {item.tipo} {item.nroComprobante}</p>
+                  </div>
+                  <span className="font-bold text-rose-700">${item.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                 </div>
-                <span className="font-bold text-amber-900">$6.423.500,00</span>
-              </div>
-
-              <div className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-slate-900 block">28/10/2026 // MAÑANA</span>
-                  <p className="text-[11px] text-slate-600">GOMALAR SRL - Factura A 0002-00008912</p>
-                </div>
-                <span className="font-bold text-slate-900">$26.500,00</span>
-              </div>
-
-              <div className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-slate-900 block">31/10/2026 // EN 4 DÍAS</span>
-                  <p className="text-[11px] text-slate-600">LUCAS MAXIMILIANO MARINERO - Factura A 0001-00000021</p>
-                </div>
-                <span className="font-bold text-slate-900">$2.500.000,00</span>
-              </div>
+              ))}
             </div>
 
             <div className="text-right pt-2">

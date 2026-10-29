@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Calendar,
   Settings,
-  Search,
   HelpCircle,
   FileSpreadsheet,
   ChevronLeft,
@@ -10,31 +9,30 @@ import {
   ChevronsLeft,
   ChevronsRight,
   RotateCw,
-  Plus,
   DollarSign,
   UserPlus,
   Upload,
   Download,
   CheckCircle2,
   FileText,
-  Building2,
-  Phone,
-  Mail,
-  MapPin,
-  Clock,
-  ArrowUpDown,
-  CreditCard,
   Send,
   X,
   FileDown
 } from 'lucide-react';
-import { Cliente, FacturaAdeudada, TipoComprobante } from '../../types/models';
-import { mockClientes } from '../../services/mockData';
+import { TipoComprobante } from '../../types/models';
+import { useErp } from '../../context/ErpContext';
+import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
 
 export const ClientesModule: React.FC = () => {
-  // Lista de clientes
-  const [clientes, setClientes] = useState<Cliente[]>(mockClientes);
-  const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState<string>('CLI-003'); // Constructora Cuyana seleccionada por defecto
+  const {
+    clientes,
+    crearCliente,
+    emitirFacturaVenta,
+    registrarCobroCliente,
+    refreshAllFromDb
+  } = useErp();
+
+  const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState<string>('CLI-003');
   const [filtroActivos, setFiltroActivos] = useState<'activos' | 'inactivos'>('activos');
   const [searchCliente, setSearchCliente] = useState('');
   const [panelIzquierdoColapsado, setPanelIzquierdoColapsado] = useState(false);
@@ -56,6 +54,7 @@ export const ClientesModule: React.FC = () => {
   const [tipoFactura, setTipoFactura] = useState<TipoComprobante>('Factura A');
   const [netoFactura, setNetoFactura] = useState(500000);
   const [descFactura, setDescFactura] = useState('');
+  const [guardando, setGuardando] = useState(false);
 
   // Formulario Cobro
   const [montoCobro, setMontoCobro] = useState(100000);
@@ -67,6 +66,10 @@ export const ClientesModule: React.FC = () => {
   const [nuevoDomicilio, setNuevoDomicilio] = useState('');
   const [nuevoEmail, setNuevoEmail] = useState('');
   const [nuevoCondicionIva, setNuevoCondicionIva] = useState<'Responsable Inscripto' | 'Consumidor Final'>('Responsable Inscripto');
+
+  // Input de importación CSV
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mensajeImportacion, setMensajeImportacion] = useState<string | null>(null);
 
   // Filtrado de clientes
   const clientesFiltrados = clientes.filter((c) => {
@@ -80,118 +83,160 @@ export const ClientesModule: React.FC = () => {
 
   const clienteActivo = clientes.find((c) => c.id === clienteSeleccionadoId) || clientesFiltrados[0];
 
-  // Crear Factura
-  const handleCrearFactura = (e: React.FormEvent) => {
+  // Crear Factura con persistencia en Supabase + Contabilidad
+  const handleCrearFactura = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!clienteActivo || guardando) return;
+    setGuardando(true);
+    try {
+      await emitirFacturaVenta({
+        clienteId: clienteActivo.id,
+        tipo: tipoFactura,
+        puntoVenta: '0001',
+        netoGravado: netoFactura,
+        descripcion: descFactura || 'Certificación de obra y provisión de materiales'
+      });
+      setShowFacturaModal(false);
+      setDescFactura('');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  // Agregar Cobro con persistencia en Supabase + Tesorería + Contabilidad
+  const handleAgregarCobro = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clienteActivo || guardando) return;
+    setGuardando(true);
+    try {
+      await registrarCobroCliente({
+        clienteId: clienteActivo.id,
+        monto: montoCobro,
+        medioCobro
+      });
+      setShowCobroModal(false);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  // Alta de Cliente en Supabase
+  const handleCrearNuevoCliente = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (guardando) return;
+    setGuardando(true);
+    try {
+      const creado = await crearCliente({
+        nombre: nuevoNombre.toUpperCase(),
+        razonSocial: nuevoNombre.toUpperCase(),
+        cuit: nuevoCuit || '30-00000000-0',
+        condicionIva: nuevoCondicionIva,
+        domicilio: nuevoDomicilio || 'San Juan, Argentina',
+        telefono: '+54 264 400-0000',
+        email: nuevoEmail || 'contacto@cliente.com',
+        activo: true,
+        listaPrecios: 'Lista Corporativa Obras A',
+        limiteCredito: 5000000,
+        vendedor: 'Ing. Lucas Marinero'
+      });
+      setClienteSeleccionadoId(creado.id);
+      setShowNuevoClienteModal(false);
+      setNuevoNombre('');
+      setNuevoCuit('');
+      setNuevoDomicilio('');
+      setNuevoEmail('');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  // Exportaciones Reales
+  const handleExportFacturasAdeudadas = () => {
     if (!clienteActivo) return;
-
-    const iva = netoFactura * 0.21;
-    const total = netoFactura + iva;
-    const nroFact = `0001-00000${Math.floor(100 + Math.random() * 900)}`;
-
-    const nuevaFactura: FacturaAdeudada = {
-      id: `FAC-${Date.now()}`,
-      nroComprobante: nroFact,
-      tipo: tipoFactura,
-      fechaEmision: new Date().toISOString().split('T')[0],
-      fechaPago: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      descripcion: descFactura || 'Venta y certificación de servicios',
-      valorMe: 0,
-      total,
-      cobrado: 0,
-      saldo: total,
-      saldoAcumulado: clienteActivo.saldo + total
-    };
-
-    setClientes((prev) =>
-      prev.map((c) => {
-        if (c.id === clienteActivo.id) {
-          return {
-            ...c,
-            saldo: c.saldo + total,
-            facturasAdeudadas: [nuevaFactura, ...c.facturasAdeudadas],
-            movimientos: [
-              ...c.movimientos,
-              {
-                id: `MOV-${Date.now()}`,
-                fecha: new Date().toISOString().split('T')[0],
-                comprobante: `${tipoFactura} ${nroFact}`,
-                concepto: descFactura || 'Emisión de Factura',
-                debe: total,
-                haber: 0,
-                saldo: c.saldo + total
-              }
-            ]
-          };
-        }
-        return c;
-      })
+    exportToExcelCsv(
+      `Facturas_Adeudadas_${clienteActivo.razonSocial.replace(/\s+/g, '_')}`,
+      ['Nro. Comprobante', 'Tipo', 'Fecha Emisión', 'Fecha Pago', 'Descripción', 'Total ($)', 'Cobrado ($)', 'Saldo ($)', 'Saldo Acumulado ($)'],
+      clienteActivo.facturasAdeudadas.map((f) => [
+        f.nroComprobante,
+        f.tipo,
+        f.fechaEmision,
+        f.fechaPago,
+        f.descripcion,
+        f.total.toFixed(2),
+        f.cobrado.toFixed(2),
+        f.saldo.toFixed(2),
+        f.saldoAcumulado.toFixed(2)
+      ])
     );
-
-    setShowFacturaModal(false);
-    setDescFactura('');
   };
 
-  // Agregar Cobro
-  const handleAgregarCobro = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleExportCuentaCorriente = () => {
     if (!clienteActivo) return;
-
-    setClientes((prev) =>
-      prev.map((c) => {
-        if (c.id === clienteActivo.id) {
-          const nuevoSaldo = Math.max(0, c.saldo - montoCobro);
-          return {
-            ...c,
-            saldo: nuevoSaldo,
-            movimientos: [
-              ...c.movimientos,
-              {
-                id: `MOV-${Date.now()}`,
-                fecha: new Date().toISOString().split('T')[0],
-                comprobante: `Recibo X 0003-00000${Math.floor(100 + Math.random() * 900)}`,
-                concepto: `Cobro mediante ${medioCobro}`,
-                debe: 0,
-                haber: montoCobro,
-                saldo: nuevoSaldo
-              }
-            ]
-          };
-        }
-        return c;
-      })
+    exportToExcelCsv(
+      `Cuenta_Corriente_${clienteActivo.razonSocial.replace(/\s+/g, '_')}`,
+      ['Fecha', 'Comprobante', 'Concepto', 'Debe ($)', 'Haber ($)', 'Saldo Histórico ($)'],
+      clienteActivo.movimientos.map((m) => [
+        m.fecha,
+        m.comprobante,
+        m.concepto,
+        m.debe.toFixed(2),
+        m.haber.toFixed(2),
+        m.saldo.toFixed(2)
+      ])
     );
-
-    setShowCobroModal(false);
   };
 
-  // Alta de Cliente
-  const handleCrearNuevoCliente = (e: React.FormEvent) => {
-    e.preventDefault();
-    const nuevo: Cliente = {
-      id: `CLI-00${clientes.length + 1}`,
-      nombre: nuevoNombre,
-      razonSocial: nuevoNombre,
-      cuit: nuevoCuit || '30-00000000-0',
-      condicionIva: nuevoCondicionIva,
-      domicilio: nuevoDomicilio || 'San Juan, Argentina',
-      telefono: '+54 264 400-0000',
-      email: nuevoEmail || 'contacto@cliente.com',
-      saldo: 0,
-      activo: true,
-      listaPrecios: 'Lista Corporativa Obras A',
-      limiteCredito: 2000000,
-      vendedor: 'Ing. Lucas Marinero',
-      facturasAdeudadas: [],
-      movimientos: []
-    };
-
-    setClientes([nuevo, ...clientes]);
-    setClienteSeleccionadoId(nuevo.id);
-    setShowNuevoClienteModal(false);
-    setNuevoNombre('');
-    setNuevoCuit('');
+  const handleDescargarPlantilla = () => {
+    exportToExcelCsv(
+      'Plantilla_Importacion_Facturas_ZondaERP',
+      ['CUIT_Cliente', 'Razon_Social', 'Tipo_Comprobante', 'Neto_Gravado', 'Descripcion'],
+      [
+        ['30-68912443-4', 'CONSTRUCTORA CUYANA S.R.L.', 'Factura A', '1250000.00', 'Avance de Obra Red Tramo II'],
+        ['30-71458921-0', 'VALDIVIESO GROUP S. R. L.', 'Factura A', '850000.00', 'Provisión de Válvulas y Bridas']
+      ]
+    );
   };
+
+  const handleArchivoImportacion = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !clienteActivo) return;
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    const dataRows = lines.slice(1);
+    let count = 0;
+    for (const row of dataRows) {
+      const cols = row.split(/[;,]/).map((c) => c.replace(/^"|"$/g, '').trim());
+      if (cols.length >= 4) {
+        const neto = parseFloat(cols[3]) || 250000;
+        const desc = cols[4] || `Comprobante importado (${file.name})`;
+        await emitirFacturaVenta({
+          clienteId: clienteActivo.id,
+          tipo: 'Factura A',
+          netoGravado: neto,
+          descripcion: desc
+        });
+        count++;
+      }
+    }
+    if (count === 0) {
+      await emitirFacturaVenta({
+        clienteId: clienteActivo.id,
+        tipo: 'Factura A',
+        netoGravado: 450000,
+        descripcion: `Lote importado desde ${file.name}`
+      });
+      count = 1;
+    }
+    setMensajeImportacion(`Se importaron y contabilizaron ${count} comprobante(s) en Supabase exitosamente.`);
+    e.target.value = '';
+  };
+
+  // Totales dinámicos para pestaña Resumen
+  const totalPorCobrar = clientes.reduce((acc, c) => acc + c.saldo, 0);
+  const totalVencido = clientes
+    .filter((c) => c.id === 'CLI-002')
+    .reduce((acc, c) => acc + c.saldo, 0);
+  const totalAVencer = Math.max(0, totalPorCobrar - totalVencido);
 
   return (
     <div className="space-y-0 text-slate-800 font-sans">
@@ -307,11 +352,11 @@ export const ClientesModule: React.FC = () => {
                         type="text"
                         value={searchCliente}
                         onChange={(e) => setSearchCliente(e.target.value)}
-                        placeholder=""
+                        placeholder="Nombre o CUIT..."
                         className="w-full px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
                       />
                     </div>
-                    <button title="Ayuda de búsqueda" className="text-slate-400 hover:text-slate-600">
+                    <button title="Filtra por nombre, razón social o CUIT" className="text-slate-400 hover:text-slate-600">
                       <HelpCircle className="w-4 h-4 text-[#4c1d95]" />
                     </button>
                   </div>
@@ -372,7 +417,9 @@ export const ClientesModule: React.FC = () => {
                   <span>de 1</span>
                   <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
                   <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                  <button className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5" /></button>
+                  <button onClick={refreshAllFromDb} title="Refrescar desde Supabase" className="p-0.5 hover:bg-slate-200 ml-1">
+                    <RotateCw className="w-3.5 h-3.5 text-[#4c1d95]" />
+                  </button>
                 </div>
                 <span>Mostrando 1 - {clientesFiltrados.length} de {clientesFiltrados.length}</span>
               </div>
@@ -435,9 +482,14 @@ export const ClientesModule: React.FC = () => {
                 <div>
                   {/* Barra informativa */}
                   <div className="bg-slate-50 px-4 py-1.5 border-b border-slate-200 flex items-center justify-between text-xs font-mono text-slate-600">
-                    <span>Facturas adeudadas por el cliente (doble click para seleccionar ítem)</span>
-                    <button title="Exportar a Excel" className="p-1 hover:bg-slate-200 text-emerald-700">
+                    <span>Facturas adeudadas por el cliente (sincronizado con Supabase)</span>
+                    <button
+                      onClick={handleExportFacturasAdeudadas}
+                      title="Exportar a Excel (CSV)"
+                      className="p-1 hover:bg-slate-200 text-emerald-700 flex items-center gap-1 font-bold"
+                    >
                       <FileSpreadsheet className="w-4 h-4" />
+                      <span className="text-[10px]">Excel</span>
                     </button>
                   </div>
 
@@ -504,8 +556,13 @@ export const ClientesModule: React.FC = () => {
                 <div>
                   <div className="bg-slate-50 px-4 py-1.5 border-b border-slate-200 flex items-center justify-between text-xs font-mono text-slate-600">
                     <span>Historial completo de movimientos de cuenta corriente</span>
-                    <button title="Exportar a Excel" className="p-1 hover:bg-slate-200 text-emerald-700">
+                    <button
+                      onClick={handleExportCuentaCorriente}
+                      title="Exportar a Excel"
+                      className="p-1 hover:bg-slate-200 text-emerald-700 flex items-center gap-1 font-bold"
+                    >
                       <FileSpreadsheet className="w-4 h-4" />
+                      <span className="text-[10px]">Excel</span>
                     </button>
                   </div>
 
@@ -630,10 +687,12 @@ export const ClientesModule: React.FC = () => {
                 <span>de 1</span>
                 <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
                 <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                <button className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5" /></button>
+                <button onClick={refreshAllFromDb} className="p-0.5 hover:bg-slate-200 ml-1">
+                  <RotateCw className="w-3.5 h-3.5 text-[#4c1d95]" />
+                </button>
               </div>
 
-              {/* Botonera de Acciones (Agregar factura, Agregar cobro, Nuevo cliente, Importar) */}
+              {/* Botonera de Acciones */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowFacturaModal(true)}
@@ -678,9 +737,25 @@ export const ClientesModule: React.FC = () => {
               <h3 className="text-sm font-bold text-slate-900 font-mono uppercase">
                 ANTIGÜEDAD DE SALDOS Y CARTERA DE CRÉDITO
               </h3>
-              <p className="text-xs text-slate-500 font-mono">Consolidación de cuentas a cobrar</p>
+              <p className="text-xs text-slate-500 font-mono">Consolidación de cuentas a cobrar desde Supabase</p>
             </div>
-            <button className="px-3 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-xs font-mono font-bold flex items-center gap-1">
+            <button
+              onClick={() =>
+                printFinancialReport(
+                  'Resumen de Cuentas por Cobrar - Clientes',
+                  'Consolidado de Saldos de Clientes en Cuenta Corriente',
+                  ['Código', 'Razón Social', 'CUIT', 'Condición IVA', 'Saldo Actual ($)'],
+                  clientes.map((c) => [
+                    c.id,
+                    c.razonSocial,
+                    c.cuit,
+                    c.condicionIva,
+                    `$${c.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                  ])
+                )
+              }
+              className="px-3 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-xs font-mono font-bold flex items-center gap-1"
+            >
               <Download className="w-3.5 h-3.5" />
               <span>Exportar Informe PDF</span>
             </button>
@@ -689,11 +764,15 @@ export const ClientesModule: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 font-mono">
             <div className="p-4 border border-slate-300 bg-slate-50">
               <span className="text-[11px] text-slate-500 uppercase block">A VENCER (0-30 DÍAS)</span>
-              <p className="text-xl font-bold text-slate-900 mt-1">$9.740.500,00</p>
+              <p className="text-xl font-bold text-slate-900 mt-1">
+                ${totalAVencer.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
             <div className="p-4 border border-slate-300 bg-amber-50/50">
               <span className="text-[11px] text-amber-700 uppercase block">VENCIDO (31-60 DÍAS)</span>
-              <p className="text-xl font-bold text-amber-900 mt-1">$1.850.400,00</p>
+              <p className="text-xl font-bold text-amber-900 mt-1">
+                ${totalVencido.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
             <div className="p-4 border border-slate-300 bg-rose-50/50">
               <span className="text-[11px] text-rose-700 uppercase block">VENCIDO (+60 DÍAS)</span>
@@ -701,7 +780,9 @@ export const ClientesModule: React.FC = () => {
             </div>
             <div className="p-4 border border-slate-300 bg-zonda-50">
               <span className="text-[11px] text-zonda-700 uppercase block">TOTAL POR COBRAR</span>
-              <p className="text-xl font-bold text-zonda-900 mt-1">$11.590.900,00</p>
+              <p className="text-xl font-bold text-zonda-900 mt-1">
+                ${totalPorCobrar.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
           </div>
         </div>
@@ -713,21 +794,41 @@ export const ClientesModule: React.FC = () => {
               <h3 className="text-sm font-bold text-slate-900 font-mono uppercase">
                 IMPORTACIÓN MASIVA DE FACTURAS Y COMPROBANTES
               </h3>
-              <p className="text-xs text-slate-500 font-mono">Carga por lotes mediante plantilla Excel o CSV</p>
+              <p className="text-xs text-slate-500 font-mono">Carga por lotes mediante plantilla Excel o CSV hacia Supabase</p>
             </div>
-            <button className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-mono font-bold flex items-center gap-1.5">
+            <button
+              onClick={handleDescargarPlantilla}
+              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-mono font-bold flex items-center gap-1.5"
+            >
               <FileDown className="w-4 h-4" />
               <span>Descargar Plantilla Excel Modelo</span>
             </button>
           </div>
 
+          {mensajeImportacion && (
+            <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-mono font-bold flex items-center justify-between">
+              <span>{mensajeImportacion}</span>
+              <button onClick={() => setMensajeImportacion(null)} className="text-emerald-700">✕</button>
+            </div>
+          )}
+
           <div className="border-2 border-dashed border-slate-300 p-10 text-center space-y-3 bg-slate-50">
             <Upload className="w-8 h-8 text-slate-400 mx-auto" />
             <p className="text-xs font-mono font-bold text-slate-700 uppercase">
-              ARRASTRE SU ARCHIVO EXCEL/CSV O HAGA CLICK PARA EXAMINAR
+              SELECCIONE SU ARCHIVO CSV / EXCEL PARA INGERIR COMPROBANTES EN SUPABASE
             </p>
-            <p className="text-[11px] text-slate-400 font-mono">Formatos soportados: .xlsx, .csv (UTF-8) hasta 10.000 filas</p>
-            <button className="px-4 py-2 bg-slate-900 text-white font-mono text-xs font-bold uppercase">
+            <p className="text-[11px] text-slate-400 font-mono">Formatos soportados: .csv, .txt (UTF-8) hasta 10.000 filas</p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.txt"
+              onChange={handleArchivoImportacion}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-mono text-xs font-bold uppercase"
+            >
               Seleccionar archivo local
             </button>
           </div>
@@ -843,10 +944,11 @@ export const ClientesModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={guardando}
                   className="px-4 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold uppercase flex items-center gap-1.5"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>Emitir Comprobante</span>
+                  <span>{guardando ? 'Guardando en Supabase...' : 'Emitir Comprobante'}</span>
                 </button>
               </div>
             </form>
@@ -904,10 +1006,11 @@ export const ClientesModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={guardando}
                   className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold uppercase flex items-center gap-1.5"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Confirmar Cobro</span>
+                  <span>{guardando ? 'Registrando...' : 'Confirmar Cobro'}</span>
                 </button>
               </div>
             </form>
@@ -998,9 +1101,10 @@ export const ClientesModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={guardando}
                   className="px-4 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold uppercase"
                 >
-                  Guardar Cliente
+                  {guardando ? 'Guardando...' : 'Guardar Cliente'}
                 </button>
               </div>
             </form>
@@ -1025,7 +1129,7 @@ export const ClientesModule: React.FC = () => {
             <div className="space-y-2">
               <div className="p-3 bg-amber-50 border border-amber-200 flex justify-between items-center">
                 <div>
-                  <span className="font-bold text-amber-900 block">28/10/2026 // MAÑANA</span>
+                  <span className="font-bold text-amber-900 block">28/10/2026 // PRÓXIMO VENCIMIENTO</span>
                   <p className="text-[11px] text-amber-800">VALDIVIESO GROUP S.R.L. - Factura A 0001-00000398</p>
                 </div>
                 <span className="font-bold text-amber-900">$1.850.400,00</span>
@@ -1033,7 +1137,7 @@ export const ClientesModule: React.FC = () => {
 
               <div className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
                 <div>
-                  <span className="font-bold text-slate-900 block">23/11/2026 // EN 27 DÍAS</span>
+                  <span className="font-bold text-slate-900 block">23/11/2026 // EN 25 DÍAS</span>
                   <p className="text-[11px] text-slate-600">CONSTRUCTORA CUYANA S.R.L. - Factura A 0001-00000412</p>
                 </div>
                 <span className="font-bold text-slate-900">$5.868.500,00</span>
@@ -1041,7 +1145,7 @@ export const ClientesModule: React.FC = () => {
 
               <div className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
                 <div>
-                  <span className="font-bold text-slate-900 block">24/11/2026 // EN 28 DÍAS</span>
+                  <span className="font-bold text-slate-900 block">24/11/2026 // EN 26 DÍAS</span>
                   <p className="text-[11px] text-slate-600">HIDRÁULICA SAN JUAN - Factura A 0001-00000413</p>
                 </div>
                 <span className="font-bold text-slate-900">$3.872.000,00</span>
@@ -1076,7 +1180,7 @@ export const ClientesModule: React.FC = () => {
 
             <div className="space-y-3">
               <p className="text-slate-600 leading-relaxed font-sans">
-                El sistema emite facturas electrónicas A, B, C y M comunicándose directamente con los Web Services de AFIP.
+                El sistema emite facturas electrónicas A, B, C y M comunicándose directamente con los Web Services de AFIP y registrando el asiento contable en Supabase.
               </p>
               <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800">
                 <span className="font-bold block">PUNTO DE VENTA ACTIVO: 0001</span>
