@@ -14,10 +14,13 @@ import {
   CheckSquare,
   ShieldCheck,
   FileCheck,
-  ArrowRight
+  ArrowRight,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { EntityToMigrate, DryRunReport } from '../../types/migration';
 import { executeDryRunMigration } from '../../services/migration/erpAdapter';
+import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
 
 export const MigrationHubModule: React.FC = () => {
   // Configuración de origen
@@ -344,9 +347,52 @@ export const MigrationHubModule: React.FC = () => {
                 Análisis de integridad completado. Los esquemas son 100% compatibles con Zonda ERP.
               </p>
             </div>
-            <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-semibold">
-              Integridad Verificada (0 Errores Críticos)
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  const rows = report.steps.map((st) => [
+                    st.entity,
+                    st.totalRecordsSource,
+                    st.validRecords,
+                    st.warnings.join(' | ') || 'Sin advertencias',
+                    'Completado'
+                  ]);
+                  exportToExcelCsv(
+                    `Auditoria_Migracion_DryRun_${report.id}.csv`,
+                    ['Entidad', 'Registros Origen', 'Validos', 'Alertas', 'Estado'],
+                    rows
+                  );
+                }}
+                className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Exportar Excel</span>
+              </button>
+              <button
+                onClick={() => {
+                  const rows = report.steps.map((st) => [
+                    st.entity,
+                    st.totalRecordsSource,
+                    st.validRecords,
+                    st.warnings.join(' | ') || 'Sin advertencias',
+                    'VERIFICADO'
+                  ]);
+                  printFinancialReport(
+                    `Informe de Viabilidad Dry-Run (${report.id})`,
+                    `Origen: ${endpointUrl} | Total Auditados: ${report.totalRecordsEstimated} registros`,
+                    ['Entidad', 'Registros Origen', 'Válidos', 'Normalizaciones', 'Estado'],
+                    rows
+                  );
+                }}
+                className="px-3 py-1.5 bg-sanatorio-700 hover:bg-sanatorio-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Imprimir PDF Auditoría</span>
+              </button>
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-semibold">
+                Integridad Verificada (0 Errores Críticos)
+              </span>
+            </div>
           </div>
 
           {/* Resumen Cuantitativo */}

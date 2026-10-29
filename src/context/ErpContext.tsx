@@ -122,6 +122,7 @@ interface ErpContextValue {
   }) => Promise<CuentaBancaria>;
   editarCuentaBancaria: (id: string, cambios: Partial<CuentaBancaria>) => Promise<void>;
   conciliarCuentaBancaria: (id: string) => Promise<void>;
+  depositarCheque: (chequeId: string, cuentaDestinoId?: string) => Promise<void>;
   registrarMovimientoTesoreria: (params: {
     cuentaId: string;
     tipo: string;
@@ -1343,6 +1344,79 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLastSync(new Date().toLocaleTimeString('es-AR'));
   };
 
+  const depositarCheque = async (chequeId: string, cuentaDestinoId?: string) => {
+    const cheque = cheques.find((c) => c.id === chequeId);
+    if (!cheque || cheque.estado === 'Depositado') return;
+
+    const targetCuenta =
+      cuentasBancarias.find((c) => c.id === cuentaDestinoId) ||
+      cuentasBancarias.find((c) => c.tipoCuenta === 'Cuenta Corriente') ||
+      cuentasBancarias[0];
+
+    const chequeActualizado: Cheque = {
+      ...cheque,
+      estado: 'Depositado'
+    };
+
+    setCheques((prev) => prev.map((c) => (c.id === chequeId ? chequeActualizado : c)));
+
+    await supabase.from('erp_cheques').upsert({
+      id: chequeActualizado.id,
+      tipo: chequeActualizado.tipo,
+      numero: chequeActualizado.numero,
+      banco_emisor: chequeActualizado.bancoEmisor,
+      librador: chequeActualizado.librador,
+      cuit_librador: chequeActualizado.cuitLibrador,
+      fecha_emision: chequeActualizado.fechaEmision,
+      fecha_pago: chequeActualizado.fechaPago,
+      importe: chequeActualizado.importe,
+      estado: chequeActualizado.estado,
+      updated_at: new Date().toISOString()
+    });
+
+    if (targetCuenta) {
+      await registrarMovimientoTesoreria({
+        cuentaId: targetCuenta.id,
+        tipo: 'DEP',
+        clienteProveedor: cheque.librador,
+        descripcion: `Depósito Cheque #${cheque.numero} (${cheque.bancoEmisor})`,
+        ingresos: cheque.importe,
+        egresos: 0,
+        nroCheque: cheque.numero
+      });
+    }
+
+    const hoy = new Date().toISOString().split('T')[0];
+    const nextAsientoNum =
+      asientosContables.length > 0 ? Math.max(...asientosContables.map((a) => a.numero)) + 1 : 4100;
+
+    await impactarAsientoContable(
+      {
+        numero: nextAsientoNum,
+        fecha: hoy,
+        concepto: `Depósito Bancario Cheque #${cheque.numero} - ${cheque.librador}`,
+        tipoOrigen: 'Tesorería',
+        renglones: [
+          {
+            cuentaCodigo: '1.1.01',
+            cuentaNombre: targetCuenta ? targetCuenta.nombre : 'Caja y Bancos',
+            debe: cheque.importe,
+            haber: 0
+          },
+          {
+            cuentaCodigo: '1.1.01.03',
+            cuentaNombre: 'Valores a Depositar (Cartera)',
+            debe: 0,
+            haber: cheque.importe
+          }
+        ],
+        totalDebe: cheque.importe,
+        totalHaber: cheque.importe
+      },
+      'DEP'
+    );
+  };
+
   // ==========================================
   // 4. CONTABILIDAD
   // ==========================================
@@ -1828,6 +1902,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         crearCuentaBancaria,
         editarCuentaBancaria,
         conciliarCuentaBancaria,
+        depositarCheque,
         registrarMovimientoTesoreria,
         actualizarCuentaContable,
         agregarCuentaContable,

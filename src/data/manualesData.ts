@@ -659,6 +659,66 @@ npx supabase functions deploy mercadopago-webhook --project-ref dtjmckbrofevgfqb
 npx supabase functions deploy arca-wsfe --project-ref dtjmckbrofevgfqbkzli --no-verify-jwt`
       }
     ]
+  },
+  {
+    id: 'migracion',
+    codigo: 'MAN-11',
+    titulo: 'Centro de Migración ERP (Simulador Dry-Run & Normalización)',
+    subtitulo: 'Auditoría previa de esquemas, validación Módulo 11 de CUITs y cuadre de asientos desde sistemas externos',
+    moduloRelacionado: '08 - Centro de Migración',
+    tablasSupabase: [
+      'erp_clientes',
+      'erp_proveedores',
+      'erp_comprobantes_venta',
+      'erp_comprobantes_compra',
+      'erp_plan_cuentas',
+      'erp_asientos_contables'
+    ],
+    resumenEjecutivo:
+      'El Centro de Migración ERP permite auditar y validar lotes de datos provenientes de otros sistemas contables (Colppy, Tango, Bejerman, etc.) en modalidad Dry-Run protegida antes de volcarlos a producción, verificando integridad referencial, CUITs y balance de partida doble.',
+    funcionesPrincipales: [
+      'Configuración de Gateway Endpoint y credenciales del ERP de origen.',
+      'Selección granular de las 9 entidades maestras a auditar (Clientes, Proveedores, Facturas, Plan de Cuentas, Asientos, Cheques, Bancos, Inventario).',
+      'Motor de validación Módulo 11 de CUIT/CUIL y normalización de tipos de datos a TypeScript/PostgreSQL.',
+      'Exportación del Informe de Viabilidad Dry-Run en Excel (.CSV) y PDF oficial de auditoría.'
+    ],
+    pasosOperativos: [
+      {
+        numero: 1,
+        titulo: 'Seleccionar las Entidades a Auditar',
+        descripcion:
+          'Marcá o desmarcá las tarjetas de las entidades que deseás evaluar (Maestro de Clientes, Proveedores, Facturas de Venta/Compra, Plan de Cuentas, Asientos Contables, Cheques, Cajas y Bancos, Artículos y Stock).',
+        accionClave: 'Casillas de selección de entidades.',
+        impactoContableODb: 'Prepara el lote de validación sin alterar las tablas productivas.'
+      },
+      {
+        numero: 2,
+        titulo: 'Ejecutar Simulación Dry-Run (Sandbox)',
+        descripcion:
+          'Presioná el botón "Ejecutar Simulación Dry-Run (Sandbox)". El sistema recorrerá las entidades seleccionadas verificando esquemas y mostrará una barra de progreso en tiempo real.',
+        accionClave: 'Botón "Ejecutar Simulación Dry-Run (Sandbox)".',
+        impactoContableODb: 'Genera el Informe de Viabilidad con el detalle de registros válidos y reglas de transformación aplicadas.'
+      },
+      {
+        numero: 3,
+        titulo: 'Exportar el Informe de Viabilidad en PDF o Excel',
+        descripcion:
+          'Una vez finalizado el análisis, utilizá los botones "Exportar Excel" o "Imprimir PDF Auditoría" para resguardar el dictamen técnico de compatibilidad.',
+        accionClave: 'Botones "Exportar Excel" / "Imprimir PDF Auditoría".',
+        impactoContableODb: 'Descarga el reporte auditable con las reglas de mapeo ERP Origen -> Zonda ERP.'
+      }
+    ],
+    reglasDeNegocioYValidaciones: [
+      'La simulación Dry-Run se ejecuta de forma aislada y nunca sobrescribe registros existentes sin confirmación.',
+      'Todos los importes monetarios del sistema origen son normalizados a numeric(15,2) y las fechas a formato ISO-8601 (YYYY-MM-DD).'
+    ],
+    preguntasFrecuentes: [
+      {
+        pregunta: '¿Qué pasa si quiero importar clientes, proveedores o stock reales ahora mismo desde un archivo?',
+        respuesta:
+          'Podés usar el botón "Importar CSV" disponible directamente dentro de los módulos 02 - Clientes y Ventas, 03 - Proveedores y Compras y 06 - Inventario y Stock.'
+      }
+    ]
   }
 ];
 

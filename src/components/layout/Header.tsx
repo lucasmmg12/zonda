@@ -39,6 +39,7 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
     if (m.includes('contabil')) return 'contabilidad';
     if (m.includes('inventar')) return 'inventario';
     if (m.includes('sueldo')) return 'sueldos';
+    if (m.includes('migrac')) return 'migracion';
     if (m.includes('config')) return 'arca';
     return 'dashboard';
   };

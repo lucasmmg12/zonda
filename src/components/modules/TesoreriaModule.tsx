@@ -28,6 +28,7 @@ export const TesoreriaModule: React.FC = () => {
     crearCuentaBancaria,
     editarCuentaBancaria,
     conciliarCuentaBancaria,
+    depositarCheque,
     registrarMovimientoTesoreria,
     refreshAllFromDb
   } = useErp();
@@ -1036,16 +1037,39 @@ export const TesoreriaModule: React.FC = () => {
                 </div>
               </div>
 
-              <div className="max-h-48 overflow-y-auto border border-slate-200 divide-y divide-slate-200">
+              <div className="max-h-56 overflow-y-auto border border-slate-200 divide-y divide-slate-200">
                 {cheques.map((ch) => (
-                  <div key={ch.id} className="p-2.5 flex justify-between items-center bg-white">
+                  <div key={ch.id} className="p-2.5 flex justify-between items-center bg-white hover:bg-slate-50">
                     <div>
                       <span className="font-bold text-slate-900">#{ch.numero} - {ch.bancoEmisor}</span>
                       <p className="text-[10px] text-slate-500">{ch.librador} | Cobro: {ch.fechaPago}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end gap-1">
                       <span className="font-bold text-slate-900 block">${ch.importe.toLocaleString('es-AR')}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 border border-slate-300">{ch.estado}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 border font-bold ${
+                            ch.estado === 'Depositado'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : ch.estado === 'En Cartera'
+                              ? 'bg-amber-50 text-amber-800 border-amber-300'
+                              : 'bg-slate-100 text-slate-700 border-slate-300'
+                          }`}
+                        >
+                          {ch.estado}
+                        </span>
+                        {ch.estado === 'En Cartera' && (
+                          <button
+                            onClick={async () => {
+                              await depositarCheque(ch.id, cuentaSeleccionadaId);
+                            }}
+                            className="px-2 py-0.5 bg-[#064e3b] hover:bg-emerald-800 text-white text-[10px] font-bold uppercase"
+                            title="Depositar Cheque en la Cuenta Bancaria Activa"
+                          >
+                            Depositar
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
