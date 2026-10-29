@@ -16,7 +16,7 @@ export function buildAfipRg4892QrUrl(
   empresa: EmpresaConfig
 ): { afipQrUrl: string; qrImageSrc: string; base64Payload: string } {
   const partes = factura.nroComprobante.split('-');
-  const ptoVta = parseInt(partes[0] || empresa.puntosVenta?.[0] || '1', 10) || 1;
+  const ptoVta = parseInt(partes[0] || empresa.puntosVenta?.[0]?.numero || '1', 10) || 1;
   const nroCmp = parseInt(partes[1] || '415', 10) || 415;
 
   const tipoCmpMap: Record<string, number> = {
