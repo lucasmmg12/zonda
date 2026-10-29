@@ -53,9 +53,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className={`bg-white border-r border-slate-300 flex flex-col justify-between transition-all duration-200 z-20 select-none ${
-        collapsed ? 'w-16' : 'w-64'
-      }`}
+      className={`bg-white border-r border-slate-300 flex flex-col justify-between transition-all duration-200 z-20 select-none ${collapsed ? 'w-16' : 'w-64'
+        }`}
     >
       <div>
         {/* Cabecera del Sidebar */}
@@ -94,11 +93,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.key}
                 onClick={() => onSelectModule(item.key)}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-sans transition-all text-left border ${
-                  isActive
+                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-sans transition-all text-left border ${isActive
                     ? 'bg-black text-white border-black border-l-4 border-l-[#047857] font-bold'
                     : 'text-slate-800 hover:text-black hover:bg-emerald-50/50 border-transparent hover:border-slate-200 font-semibold'
-                }`}
+                  }`}
                 title={collapsed ? item.label : undefined}
               >
                 <div className="flex items-center gap-2 shrink-0">
@@ -113,11 +111,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span className="truncate uppercase tracking-tight text-[11px] font-semibold">{item.label}</span>
                     {item.badge && (
                       <span
-                        className={`text-[9px] px-1 py-0.2 font-sans font-bold uppercase ${
-                          isActive
+                        className={`text-[9px] px-1 py-0.2 font-sans font-bold uppercase ${isActive
                             ? 'bg-[#064e3b] text-white border border-[#047857]'
                             : 'bg-slate-100 text-slate-700 border border-slate-300'
-                        }`}
+                          }`}
                       >
                         [{item.badge}]
                       </span>

@@ -20,6 +20,7 @@ import {
 import type { CuentaContable } from '../../types/models';
 import { useErp } from '../../context/ErpContext';
 import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
+import { generateLibroIvaDigitalRg4597, downloadTxtFile } from '../../utils/afipLibroIvaDigital';
 
 function flattenCuentasContables(nodes: CuentaContable[]): CuentaContable[] {
   const result: CuentaContable[] = [];
@@ -36,13 +37,16 @@ export const ContabilidadModule: React.FC = () => {
   const {
     planDeCuentas,
     asientosContables,
+    facturasVenta,
+    facturasCompra,
     actualizarCuentaContable,
     agregarCuentaContable,
     registrarAsientoManual,
     refreshAllFromDb
   } = useErp();
 
-  const [tabPrincipal, setTabPrincipal] = useState<'plan' | 'diario'>('plan');
+  const [tabPrincipal, setTabPrincipal] = useState<'plan' | 'diario' | 'iva_digital'>('plan');
+  const datosLibroIva = generateLibroIvaDigitalRg4597(facturasVenta, facturasCompra);
   const [codigoSeleccionado, setCodigoSeleccionado] = useState<string>('1.1.01');
 
   // Estados de expansión de carpetas (pre-expandido para ver cuentas operativas de inmediato)
@@ -379,6 +383,16 @@ export const ContabilidadModule: React.FC = () => {
         >
           Libro Diario General ({asientosContables.length} asientos)
         </button>
+        <button
+          onClick={() => setTabPrincipal('iva_digital')}
+          className={`px-4 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
+            tabPrincipal === 'iva_digital'
+              ? 'bg-white border-t-[#064e3b] text-[#064e3b] border-x border-slate-300 -mb-[1px] z-10'
+              : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          Libro IVA Digital ARCA / AFIP (RG 4597 .TXT)
+        </button>
       </div>
 
       {tabPrincipal === 'plan' ? (
@@ -714,7 +728,7 @@ export const ContabilidadModule: React.FC = () => {
             </div>
           </div>
         </div>
-      ) : (
+      ) : tabPrincipal === 'diario' ? (
         /* PESTAÑA: LIBRO DIARIO GENERAL */
         <div className="bg-white border border-slate-300 border-t-0 p-6 space-y-4 font-mono">
           <div className="flex items-center justify-between pb-3 border-b border-slate-200">
@@ -784,6 +798,117 @@ export const ContabilidadModule: React.FC = () => {
                 </table>
               </div>
             ))}
+          </div>
+        </div>
+      ) : (
+        /* PESTAÑA: LIBRO DE IVA DIGITAL AFIP / ARCA (RG 4597) */
+        <div className="bg-white border border-slate-300 border-t-0 p-6 space-y-6 font-mono text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase">
+                LIBRO DE IVA DIGITAL ARCA / AFIP — RESOLUCIÓN GENERAL N° 4597 (VENTAS Y COMPRAS)
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Generador automático de archivos posicionales .TXT (Comprobantes y Alícuotas) y Posición Mensual F.2002
+              </p>
+            </div>
+            <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold text-[11px]">
+              ESQUEMA RG 4597 VERIFICADO ({facturasVenta.length} Ventas / {facturasCompra.length} Compras)
+            </span>
+          </div>
+
+          {/* Posición Mensual de IVA F.2002 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 border border-slate-300 bg-slate-50">
+              <span className="text-[10px] font-bold text-slate-500 uppercase block">
+                IVA DÉBITO FISCAL (VENTAS)
+              </span>
+              <p className="text-xl font-bold text-rose-700 mt-1">
+                ${datosLibroIva.resumenPosicionIva.totalIvaDebitoFiscal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </p>
+              <span className="text-[10px] text-slate-500 block mt-1">
+                Base Neta Ventas: ${datosLibroIva.resumenPosicionIva.totalVentasNeto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+
+            <div className="p-4 border border-slate-300 bg-slate-50">
+              <span className="text-[10px] font-bold text-slate-500 uppercase block">
+                IVA CRÉDITO FISCAL (COMPRAS)
+              </span>
+              <p className="text-xl font-bold text-emerald-700 mt-1">
+                ${datosLibroIva.resumenPosicionIva.totalIvaCreditoFiscal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </p>
+              <span className="text-[10px] text-slate-500 block mt-1">
+                Base Neta Compras: ${datosLibroIva.resumenPosicionIva.totalComprasNeto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+
+            <div className="p-4 border-2 border-[#064e3b] bg-emerald-50/50">
+              <span className="text-[10px] font-bold text-[#064e3b] uppercase block">
+                SALDO TÉCNICO F.2002 ({datosLibroIva.resumenPosicionIva.saldoTecnicoIva >= 0 ? 'A INGRESAR A ARCA' : 'A FAVOR CONTRIBUYENTE'})
+              </span>
+              <p className="text-xl font-bold text-slate-900 mt-1">
+                ${Math.abs(datosLibroIva.resumenPosicionIva.saldoTecnicoIva).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </p>
+              <span className="text-[10px] text-emerald-800 font-bold block mt-1">
+                Calculado en tiempo real desde Supabase
+              </span>
+            </div>
+          </div>
+
+          {/* Botonera de Descarga Oficial .TXT RG 4597 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <button
+              onClick={() => downloadTxtFile('LIBRO_IVA_DIGITAL_VENTAS_CBTE.txt', datosLibroIva.ventasCbteTxt)}
+              className="p-3 bg-[#064e3b] hover:bg-emerald-800 text-white font-bold text-left space-y-1 transition-colors"
+            >
+              <span className="text-[10px] text-emerald-200 block uppercase">Archivo 1 — 266 Posiciones</span>
+              <span className="text-xs block">Descargar VENTAS_CBTE.TXT</span>
+            </button>
+
+            <button
+              onClick={() => downloadTxtFile('LIBRO_IVA_DIGITAL_VENTAS_ALICUOTAS.txt', datosLibroIva.ventasAlicuotasTxt)}
+              className="p-3 bg-[#064e3b] hover:bg-emerald-800 text-white font-bold text-left space-y-1 transition-colors"
+            >
+              <span className="text-[10px] text-emerald-200 block uppercase">Archivo 2 — 62 Posiciones</span>
+              <span className="text-xs block">Descargar VENTAS_ALICUOTAS.TXT</span>
+            </button>
+
+            <button
+              onClick={() => downloadTxtFile('LIBRO_IVA_DIGITAL_COMPRAS_CBTE.txt', datosLibroIva.comprasCbteTxt)}
+              className="p-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-left space-y-1 transition-colors"
+            >
+              <span className="text-[10px] text-slate-300 block uppercase">Archivo 3 — 325 Posiciones</span>
+              <span className="text-xs block">Descargar COMPRAS_CBTE.TXT</span>
+            </button>
+
+            <button
+              onClick={() => downloadTxtFile('LIBRO_IVA_DIGITAL_COMPRAS_ALICUOTAS.txt', datosLibroIva.comprasAlicuotasTxt)}
+              className="p-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-left space-y-1 transition-colors"
+            >
+              <span className="text-[10px] text-slate-300 block uppercase">Archivo 4 — 84 Posiciones</span>
+              <span className="text-xs block">Descargar COMPRAS_ALICUOTAS.TXT</span>
+            </button>
+          </div>
+
+          {/* Vista Previa de los Registros Posicionales */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <span className="font-bold text-slate-800 uppercase block">
+                Vista Previa: LIBRO_IVA_DIGITAL_VENTAS_CBTE.TXT
+              </span>
+              <pre className="p-3 bg-slate-950 text-emerald-400 text-[10px] overflow-x-auto border border-slate-800 leading-relaxed">
+                {datosLibroIva.ventasCbteTxt || 'Sin registros de ventas'}
+              </pre>
+            </div>
+            <div className="space-y-1.5">
+              <span className="font-bold text-slate-800 uppercase block">
+                Vista Previa: LIBRO_IVA_DIGITAL_COMPRAS_CBTE.TXT
+              </span>
+              <pre className="p-3 bg-slate-950 text-amber-300 text-[10px] overflow-x-auto border border-slate-800 leading-relaxed">
+                {datosLibroIva.comprasCbteTxt || 'Sin registros de compras'}
+              </pre>
+            </div>
           </div>
         </div>
       )}

@@ -127,3 +127,4 @@
    - `Datos generales`, `Datos Impositivos` (CUIT, Condición IVA, IIBB, Punto de Venta), `Clientes/Proveedores`, `Talonarios`, `Integraciones AFIP & Mercado Pago`, `Portal Clientes`, `Tesorería` y `Centros de Costos`.
 2. **Panel de Orquestación ARCA + Mercado Pago + Monitor de Webhooks:**
    - Guardado persistente en `erp_integraciones_config` y visor en vivo de los eventos recibidos en `erp_webhooks_log`.
+

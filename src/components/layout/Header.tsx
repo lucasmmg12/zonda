@@ -5,6 +5,7 @@ import { getAfipConfig } from '../../services/afip/afipWsClient';
 import { getMercadoPagoConfig } from '../../services/mercadopago/mercadoPagoClient';
 import { ConexionesManagerModal } from '../modals/ConexionesManagerModal';
 import { ManualesCentroAyudaModal } from '../modals/ManualesCentroAyudaModal';
+import { RoleAuthModal, getActiveOperator, OperadorProfile } from '../modals/RoleAuthModal';
 import { useErp } from '../../context/ErpContext';
 import type { ModuleKey } from './Sidebar';
 
@@ -30,6 +31,8 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
   const [modalConexionesOpen, setModalConexionesOpen] = useState(false);
   const [tabModal, setTabModal] = useState<'afip' | 'mercadopago'>('afip');
   const [modalManualesOpen, setModalManualesOpen] = useState(false);
+  const [modalRolesOpen, setModalRolesOpen] = useState(false);
+  const [operadorActual, setOperadorActual] = useState<OperadorProfile>(getActiveOperator());
 
   const mapModuleToManualId = (mod: string): string => {
     const m = mod.toLowerCase();
@@ -303,16 +306,24 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           )}
         </div>
 
-        {/* Perfil Usuario Operador */}
-        <div className="flex items-center gap-2 pl-2 border-l border-slate-300">
+        {/* Perfil Usuario Operador (Control de Acceso RBAC) */}
+        <button
+          onClick={() => setModalRolesOpen(true)}
+          title="Cambiar Operador / Control de Roles y Permisos (RBAC)"
+          className="flex items-center gap-2 pl-2 border-l border-slate-300 hover:bg-slate-100 pr-2 py-1 transition-colors"
+        >
           <div className="w-7 h-7 bg-[#064e3b] text-white flex items-center justify-center font-bold text-[11px] border border-black">
-            LM
+            {operadorActual.nombre.slice(0, 2).toUpperCase()}
           </div>
           <div className="hidden md:block text-left">
-            <p className="text-[11px] font-bold text-black leading-tight uppercase">L. MARINERO</p>
-            <p className="text-[9px] text-[#064e3b] font-bold tracking-wider">ADMIN // GROW LABS</p>
+            <p className="text-[11px] font-bold text-black leading-tight uppercase truncate max-w-[140px]">
+              {operadorActual.nombre}
+            </p>
+            <p className="text-[9px] text-[#064e3b] font-bold tracking-wider uppercase">
+              {operadorActual.rol}
+            </p>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Modal Centralizado de Conexiones */}
@@ -327,6 +338,14 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
         isOpen={modalManualesOpen}
         onClose={() => setModalManualesOpen(false)}
         initialManualId={mapModuleToManualId(activeModule)}
+      />
+
+      {/* Modal de Control de Acceso y Roles (RBAC) */}
+      <RoleAuthModal
+        isOpen={modalRolesOpen}
+        onClose={() => setModalRolesOpen(false)}
+        operadorActual={operadorActual}
+        onSelectOperador={(op) => setOperadorActual(op)}
       />
     </header>
   );

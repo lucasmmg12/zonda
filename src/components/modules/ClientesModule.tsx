@@ -22,10 +22,14 @@ import {
 import { TipoComprobante } from '../../types/models';
 import { useErp } from '../../context/ErpContext';
 import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
+import { printAfipElectronicInvoice } from '../../utils/afipQrInvoicePrint';
+import { sendInvoiceViaWhatsApp } from '../../utils/whatsappSender';
 
 export const ClientesModule: React.FC = () => {
   const {
+    empresa,
     clientes,
+    facturasVenta,
     crearCliente,
     emitirFacturaVenta,
     registrarCobroCliente,
@@ -506,7 +510,8 @@ export const ClientesModule: React.FC = () => {
                           <th className="py-2 px-3 border-r border-slate-200 text-right">Total</th>
                           <th className="py-2 px-3 border-r border-slate-200 text-right">Cobrado</th>
                           <th className="py-2 px-3 border-r border-slate-200 text-right">Saldo</th>
-                          <th className="py-2 px-3 text-right">Saldo acumulado</th>
+                          <th className="py-2 px-3 border-r border-slate-200 text-right">Saldo acumulado</th>
+                          <th className="py-2 px-3 text-center">Acciones ARCA / WhatsApp</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
@@ -533,14 +538,57 @@ export const ClientesModule: React.FC = () => {
                               <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-rose-700">
                                 ${f.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                               </td>
-                              <td className="py-2 px-3 text-right font-bold text-slate-900">
+                              <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-slate-900">
                                 ${f.saldoAcumulado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="py-2 px-3 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() =>
+                                      printAfipElectronicInvoice({
+                                        nroComprobante: f.nroComprobante,
+                                        tipo: f.tipo,
+                                        fechaEmision: f.fechaEmision,
+                                        fechaVencimiento: f.fechaPago,
+                                        clienteNombre: clienteActivo.razonSocial,
+                                        clienteCuit: clienteActivo.cuit,
+                                        clienteCondicionIva: clienteActivo.condicionIva,
+                                        clienteDomicilio: clienteActivo.domicilio,
+                                        descripcion: f.descripcion,
+                                        total: f.total,
+                                        empresa
+                                      })
+                                    }
+                                    className="px-2 py-0.5 bg-slate-900 hover:bg-slate-700 text-white text-[10px] font-bold uppercase"
+                                    title="Imprimir Factura Electrónica Oficial con Código QR ARCA RG 4892"
+                                  >
+                                    PDF QR ARCA
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      sendInvoiceViaWhatsApp({
+                                        telefonoCliente: clienteActivo.telefono,
+                                        clienteNombre: clienteActivo.razonSocial,
+                                        nroComprobante: f.nroComprobante,
+                                        tipoComprobante: f.tipo,
+                                        importeTotal: f.saldo > 0 ? f.saldo : f.total,
+                                        vencimientoPago: f.fechaPago,
+                                        linkMercadoPago: `https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=ZONDA-${f.nroComprobante}`,
+                                        empresaNombre: empresa.razonSocial
+                                      })
+                                    }
+                                    className="px-2 py-0.5 bg-[#064e3b] hover:bg-emerald-800 text-white text-[10px] font-bold uppercase"
+                                    title="Enviar Comprobante y Link de Pago por WhatsApp al Cliente"
+                                  >
+                                    WhatsApp
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={9} className="py-16 text-center text-slate-400 font-mono text-xs">
+                            <td colSpan={10} className="py-16 text-center text-slate-400 font-mono text-xs">
                               Sin facturas adeudadas para este cliente
                             </td>
                           </tr>
@@ -851,13 +899,90 @@ export const ClientesModule: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div className="p-4 border border-slate-300 bg-slate-50">
-              <span className="text-slate-500 text-[10px] block">Comprobantes Cobrados este Mes:</span>
-              <p className="text-lg font-bold text-slate-900 mt-1">14 cobranzas acreditadas</p>
+              <span className="text-slate-500 text-[10px] block">Comprobantes Emitidos con CAE & Link Online:</span>
+              <p className="text-lg font-bold text-slate-900 mt-1">{facturasVenta.length} comprobantes activos</p>
             </div>
             <div className="p-4 border border-slate-300 bg-slate-50">
-              <span className="text-slate-500 text-[10px] block">Acreditación Directa:</span>
-              <p className="text-lg font-bold text-slate-900 mt-1">Banco Santander Río Cta Cte</p>
+              <span className="text-slate-500 text-[10px] block">Acreditación Directa Webhook IPN:</span>
+              <p className="text-lg font-bold text-slate-900 mt-1">Banco Santander Río Cta Cte + Libro Diario</p>
             </div>
+          </div>
+
+          <div className="border border-slate-300 overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse font-mono">
+              <thead>
+                <tr className="bg-slate-100 border-b border-slate-300 text-[11px] font-bold text-slate-700">
+                  <th className="py-2 px-3">Comprobante</th>
+                  <th className="py-2 px-3">Cliente / CUIT</th>
+                  <th className="py-2 px-3">CAE ARCA</th>
+                  <th className="py-2 px-3 text-right">Total ($)</th>
+                  <th className="py-2 px-3 text-center">Acciones Digitales (QR ARCA / WhatsApp / Link MP)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {facturasVenta.map((fv) => (
+                  <tr key={fv.id} className="hover:bg-slate-50">
+                    <td className="py-2 px-3 font-bold text-slate-900">
+                      {fv.tipo} {fv.puntoVenta}-{fv.numero}
+                    </td>
+                    <td className="py-2 px-3">
+                      <span className="font-bold block text-slate-800">{fv.clienteNombre}</span>
+                      <span className="text-[10px] text-slate-500">CUIT: {fv.clienteCuit}</span>
+                    </td>
+                    <td className="py-2 px-3 text-emerald-800 font-bold">{fv.cae}</td>
+                    <td className="py-2 px-3 text-right font-bold text-slate-900">
+                      ${fv.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-2 px-3 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() =>
+                            printAfipElectronicInvoice({
+                              nroComprobante: `${fv.puntoVenta}-${fv.numero}`,
+                              tipo: fv.tipo,
+                              fechaEmision: fv.fechaEmision,
+                              fechaVencimiento: fv.fechaVencimiento,
+                              clienteNombre: fv.clienteNombre,
+                              clienteCuit: fv.clienteCuit,
+                              clienteCondicionIva: fv.condicionIva,
+                              descripcion: `Comprobante Electrónico ${fv.tipo} ${fv.puntoVenta}-${fv.numero}`,
+                              netoGravado: fv.netoGravado,
+                              iva21: fv.iva21,
+                              total: fv.total,
+                              cae: fv.cae,
+                              caeVencimiento: fv.caeVencimiento,
+                              empresa
+                            })
+                          }
+                          className="px-2.5 py-1 bg-slate-900 hover:bg-slate-700 text-white text-[10px] font-bold uppercase"
+                        >
+                          Imprimir Factura QR ARCA
+                        </button>
+                        <button
+                          onClick={() => {
+                            const cliMatch = clientes.find((c) => c.cuit === fv.clienteCuit);
+                            sendInvoiceViaWhatsApp({
+                              telefonoCliente: cliMatch?.telefono || '2644220000',
+                              clienteNombre: fv.clienteNombre,
+                              nroComprobante: `${fv.puntoVenta}-${fv.numero}`,
+                              tipoComprobante: fv.tipo,
+                              importeTotal: fv.total,
+                              cae: fv.cae,
+                              vencimientoPago: fv.fechaVencimiento,
+                              linkMercadoPago: `https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=ZONDA-${fv.puntoVenta}-${fv.numero}`,
+                              empresaNombre: empresa.razonSocial
+                            });
+                          }}
+                          className="px-2.5 py-1 bg-[#064e3b] hover:bg-emerald-800 text-white text-[10px] font-bold uppercase"
+                        >
+                          Enviar por WhatsApp
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

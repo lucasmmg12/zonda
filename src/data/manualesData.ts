@@ -719,6 +719,64 @@ npx supabase functions deploy arca-wsfe --project-ref dtjmckbrofevgfqbkzli --no-
           'Podés usar el botón "Importar CSV" disponible directamente dentro de los módulos 02 - Clientes y Ventas, 03 - Proveedores y Compras y 06 - Inventario y Stock.'
       }
     ]
+  },
+  {
+    id: 'corporativo',
+    codigo: 'MAN-12',
+    titulo: 'Libro IVA Digital RG 4597, Factura QR ARCA RG 4892, WhatsApp y Roles RBAC',
+    subtitulo: 'Guía de las funciones corporativas avanzadas de facturación reglamentaria, impuestos y control de acceso',
+    moduloRelacionado: 'Funciones Corporativas Avanzadas',
+    tablasSupabase: [
+      'erp_comprobantes_venta',
+      'erp_comprobantes_compra',
+      'erp_webhooks_log'
+    ],
+    resumenEjecutivo:
+      'Incluye las 4 herramientas corporativas de cumplimiento fiscal y automatización comercial: Impresión de Factura Electrónica con Código QR Oficial de ARCA (RG 4892), Envío en 1 clic por WhatsApp con link de pago Mercado Pago, Exportador posicional .TXT del Libro de IVA Digital (RG 4597) y Control de Roles Operativos (RBAC).',
+    funcionesPrincipales: [
+      'Impresión de Factura A/B/C Original/Duplicado con Código QR Base64 verificable en https://www.afip.gob.ar/fe/qr/.',
+      'Envío directo de comprobantes, CAE y link de cobro Mercado Pago por WhatsApp (BuilderBot API / Wa.me).',
+      'Generación de los 4 archivos .TXT oficiales del Libro de IVA Digital RG 4597 (Ventas Comprobantes, Ventas Alícuotas, Compras Comprobantes y Compras Alícuotas) + Posición Mensual de IVA F.2002.',
+      'Cambio de Perfil y Control de Acceso Basado en Roles (Administrador, Contador, Tesorería, Facturación) desde la esquina superior derecha del Header.'
+    ],
+    pasosOperativos: [
+      {
+        numero: 1,
+        titulo: 'Imprimir Factura con QR Oficial ARCA (RG 4892) o Enviar por WhatsApp',
+        descripcion:
+          'Ingresá a "02 - Clientes y Ventas", seleccioná un cliente (o abrí la pestaña "Mercado Pago / Cobros Online") y hacé clic en "PDF QR ARCA" para imprimir la factura reglamentaria o en "WhatsApp" para enviarla con el link de pago al celular del cliente.',
+        accionClave: 'Botones "PDF QR ARCA" y "WhatsApp" en cada factura.',
+        impactoContableODb: 'Genera el QR con el JSON Base64 oficial de ARCA y registra el envío en public.erp_webhooks_log.'
+      },
+      {
+        numero: 2,
+        titulo: 'Descargar los 4 archivos .TXT del Libro de IVA Digital (RG 4597)',
+        descripcion:
+          'Ingresá a "05 - Contabilidad y Libros", abrí la tercera pestaña "Libro IVA Digital ARCA / AFIP (RG 4597 .TXT)", revisá la Posición Mensual F.2002 (Débito vs. Crédito Fiscal) y descargá los 4 archivos posicionales listos para subir al Portal IVA de ARCA.',
+        accionClave: 'Pestaña "Libro IVA Digital ARCA / AFIP (RG 4597 .TXT)".',
+        impactoContableODb: 'Lee en tiempo real erp_comprobantes_venta y erp_comprobantes_compra.'
+      },
+      {
+        numero: 3,
+        titulo: 'Cambiar de Operador / Rol Activo (RBAC)',
+        descripcion:
+          'Hacé clic sobre el perfil del operador en la esquina superior derecha de la barra superior para abrir el gestor de roles (Administrador General, Contador / Auditoría, Tesorería y Finanzas, Facturación y Ventas).',
+        accionClave: 'Botón de Perfil Operador en la esquina superior derecha del Header.',
+        impactoContableODb: 'Audita cada cambio de sesión en public.erp_webhooks_log (origen AUTH_RBAC).'
+      }
+    ],
+    reglasDeNegocioYValidaciones: [
+      'El Código QR de la factura codifica en Base64 el JSON exigido por la RG 4892 (ver, fecha, cuit, ptoVta, tipoCmp, nroCmp, importe, moneda, ctz, tipoDocRec, nroDocRec, tipoCodAut="E", codAut=CAE).',
+      'Los archivos del Libro de IVA Digital cumplen la longitud posicional exacta de AFIP: 266 caracteres (Ventas Cbte), 62 caracteres (Ventas Alícuotas), 325 caracteres (Compras Cbte) y 84 caracteres (Compras Alícuotas).'
+    ],
+    preguntasFrecuentes: [
+      {
+        pregunta: '¿Cómo conecto el envío automático de WhatsApp sin abrir WhatsApp Web?',
+        respuesta:
+          'Descomentá la variable VITE_WHATSAPP_API_URL en tu archivo .env apuntando a tu instancia de BuilderBot Cloud; el sistema enviará el POST automáticamente y usará WhatsApp Web como respaldo.'
+      }
+    ]
   }
 ];
+
 
