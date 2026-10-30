@@ -98,7 +98,7 @@ export const DashboardModule: React.FC = () => {
               SYS // TABLERO EJECUTIVO
             </span>
             <span className="text-xs text-[#1f5e41] font-semibold">
-              PERÍODO: 2026.10 // SUPABASE LIVE
+              PERÍODO: 2026.10
             </span>
           </div>
           <h2 className="text-lg font-bold text-[#042f22] tracking-tight mt-1 uppercase">
@@ -421,9 +421,6 @@ export const DashboardModule: React.FC = () => {
               <h3 className="text-xs font-bold text-slate-900 font-mono uppercase">
                 [SALDOS // CAJAS Y BANCOS]
               </h3>
-              <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 border border-emerald-200">
-                SUPABASE LIVE
-              </span>
             </div>
 
             <div className="space-y-2 max-h-[260px] overflow-y-auto">

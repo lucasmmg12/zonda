@@ -10,7 +10,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  ShieldAlert,
   ShieldCheck,
   Lock,
   BadgeDollarSign
@@ -153,8 +152,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Espacio Central del Sidebar: Logo Grow Labs contenido en un círculo sin bordes */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-2">
+      {/* Espacio Inferior del Sidebar: Logo Grow Labs contenido en un círculo sin bordes */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-4">
         {!collapsed ? (
           <div className="logo-circle w-28 h-28 bg-emerald-50/75 flex items-center justify-center overflow-hidden p-4 transition-transform hover:scale-105">
             <img
@@ -173,23 +172,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
       </div>
-
-      {/* Indicador Técnico de Base de Datos Productiva */}
-      {!collapsed ? (
-        <div className="p-3 m-2 bg-emerald-50/70 border border-emerald-300 border-l-4 border-l-[#064e3b] text-slate-800">
-          <div className="flex items-center gap-1.5 text-[#064e3b] font-mono font-bold text-[10px] uppercase mb-1">
-            <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-            <span>SUPABASE DB // EN VIVO</span>
-          </div>
-          <p className="text-[10px] font-mono text-slate-600 leading-tight">
-            PERSISTENCIA POSTGRESQL TRANSACCIONAL Y PARTIDA DOBLE ACTIVA (14 TABLAS).
-          </p>
-        </div>
-      ) : (
-        <div className="p-2 text-center border-t border-slate-300 bg-emerald-50" title="Supabase DB en Vivo">
-          <ShieldAlert className="w-4 h-4 text-[#064e3b] mx-auto" />
-        </div>
-      )}
     </aside>
   );
 };
