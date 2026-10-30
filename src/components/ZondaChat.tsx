@@ -1233,8 +1233,7 @@ export const ZondaChat: React.FC = () => {
                 </div>
               </form>
             )}
-            <div className="flex items-center justify-between text-[10px] text-[#357a59] mt-1.5 px-0.5">
-              <span>Zonda IA • Conectado a Supabase PostgreSQL</span>
+            <div className="flex items-center justify-end text-[10px] text-[#357a59] mt-1.5 px-0.5">
               <button
                 type="button"
                 onClick={() => setMessages([{ role: 'assistant', content: contextualGreeting }])}
