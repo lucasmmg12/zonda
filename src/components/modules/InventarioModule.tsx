@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Calendar,
   FileSpreadsheet,
@@ -37,6 +37,41 @@ export const InventarioModule: React.FC = () => {
 
   // Pestañas de detalle (Panel derecho)
   const [tabDetalle, setTabDetalle] = useState<'movimientos' | 'general'>('movimientos');
+
+  // Escuchar selección directa desde el Buscador Global del Header
+  useEffect(() => {
+    const applySearchTarget = (target: any) => {
+      if (!target || target.modulo !== 'inventario') return;
+      if (target.entityId && inventario.some((i) => i.id === target.entityId)) {
+        setTabPrincipal('items');
+        setArticuloSeleccionadoId(target.entityId);
+        setSearch('');
+        setTabDetalle('movimientos');
+      } else if (target.queryHint) {
+        setTabPrincipal('items');
+        setSearch(target.queryHint);
+      }
+      try {
+        sessionStorage.removeItem('zonda_global_search_target');
+      } catch {
+        // ignore
+      }
+    };
+
+    try {
+      const stored = sessionStorage.getItem('zonda_global_search_target');
+      if (stored) applySearchTarget(JSON.parse(stored));
+    } catch {
+      // ignore
+    }
+
+    const handler = (e: Event) => {
+      const custom = e as CustomEvent;
+      applySearchTarget(custom.detail);
+    };
+    window.addEventListener('zonda_global_search_select', handler);
+    return () => window.removeEventListener('zonda_global_search_select', handler);
+  }, [inventario]);
 
   // Modales
   const [showAgregarModal, setShowAgregarModal] = useState(false);

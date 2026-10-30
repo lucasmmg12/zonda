@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Calendar,
   HelpCircle,
@@ -60,6 +60,41 @@ export const ProveedoresModule: React.FC = () => {
 
   // Pestañas de detalle del proveedor (Panel derecho)
   const [tabDetalle, setTabDetalle] = useState<'adeudadas' | 'cuenta' | 'general' | 'otra'>('adeudadas');
+
+  // Escuchar selección directa desde el Buscador Global del Header
+  useEffect(() => {
+    const applySearchTarget = (target: any) => {
+      if (!target || target.modulo !== 'proveedores') return;
+      if (target.entityId && proveedores.some((p) => p.id === target.entityId)) {
+        setTabPrincipal('gestion');
+        setProveedorSeleccionadoId(target.entityId);
+        setSearchProveedor('');
+        setTabDetalle('adeudadas');
+      } else if (target.queryHint) {
+        setTabPrincipal('gestion');
+        setSearchProveedor(target.queryHint);
+      }
+      try {
+        sessionStorage.removeItem('zonda_global_search_target');
+      } catch {
+        // ignore
+      }
+    };
+
+    try {
+      const stored = sessionStorage.getItem('zonda_global_search_target');
+      if (stored) applySearchTarget(JSON.parse(stored));
+    } catch {
+      // ignore
+    }
+
+    const handler = (e: Event) => {
+      const custom = e as CustomEvent;
+      applySearchTarget(custom.detail);
+    };
+    window.addEventListener('zonda_global_search_select', handler);
+    return () => window.removeEventListener('zonda_global_search_select', handler);
+  }, [proveedores]);
 
   // Modales
   const [showFacturaModal, setShowFacturaModal] = useState(false);

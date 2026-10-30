@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Calendar,
   Settings,
@@ -47,6 +47,41 @@ export const ClientesModule: React.FC = () => {
 
   // Pestañas de detalle del cliente (Panel derecho)
   const [tabDetalle, setTabDetalle] = useState<'adeudadas' | 'cuenta' | 'general' | 'otra'>('adeudadas');
+
+  // Escuchar selección directa desde el Buscador Global del Header
+  useEffect(() => {
+    const applySearchTarget = (target: any) => {
+      if (!target || target.modulo !== 'clientes') return;
+      if (target.entityId && clientes.some((c) => c.id === target.entityId)) {
+        setTabPrincipal('gestion');
+        setClienteSeleccionadoId(target.entityId);
+        setSearchCliente('');
+        setTabDetalle('adeudadas');
+      } else if (target.queryHint) {
+        setTabPrincipal('gestion');
+        setSearchCliente(target.queryHint);
+      }
+      try {
+        sessionStorage.removeItem('zonda_global_search_target');
+      } catch {
+        // ignore
+      }
+    };
+
+    try {
+      const stored = sessionStorage.getItem('zonda_global_search_target');
+      if (stored) applySearchTarget(JSON.parse(stored));
+    } catch {
+      // ignore
+    }
+
+    const handler = (e: Event) => {
+      const custom = e as CustomEvent;
+      applySearchTarget(custom.detail);
+    };
+    window.addEventListener('zonda_global_search_select', handler);
+    return () => window.removeEventListener('zonda_global_search_select', handler);
+  }, [clientes]);
 
   // Modales
   const [showFacturaModal, setShowFacturaModal] = useState(false);
