@@ -1052,12 +1052,6 @@ export const ZondaChat: React.FC = () => {
             <div className="flex-1 min-w-0">
               <h4 className="text-white font-extrabold text-sm flex items-center gap-1.5 tracking-tight">
                 <span>Zonda</span>
-                <span className="text-[9px] font-bold bg-emerald-400/20 text-emerald-200 border border-emerald-300/30 px-1.5 py-0.5 uppercase">
-                  Copiloto ERP
-                </span>
-                <span className="text-[9px] font-bold bg-emerald-500 text-white px-1.5 py-0.5 uppercase">
-                  ONLINE
-                </span>
               </h4>
               <p className="text-emerald-100 text-[10px] truncate font-medium">
                 📍 {moduleLabel}
