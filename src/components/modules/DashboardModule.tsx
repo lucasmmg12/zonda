@@ -18,8 +18,7 @@ export const DashboardModule: React.FC = () => {
     facturasCompra,
     cuentasBancarias,
     cheques,
-    setActiveModule,
-    lastSync
+    setActiveModule
   } = useErp();
 
   const [mostrarGuia, setMostrarGuia] = useState(true);
@@ -114,11 +113,6 @@ export const DashboardModule: React.FC = () => {
             <Compass className="w-3.5 h-3.5 text-emerald-300" />
             <span>{mostrarGuia ? '[ - ] OCULTAR GUÍA' : '[ + ] VER INSTRUCCIONES'}</span>
           </button>
-
-          <div className="text-right hidden sm:block">
-            <p className="text-[10px] text-[#357a59] uppercase font-semibold">SINCRONIZACIÓN SUPABASE</p>
-            <p className="text-xs font-bold text-[#064e3b]">{lastSync} // 100% CUADRADO</p>
-          </div>
         </div>
       </div>
 
