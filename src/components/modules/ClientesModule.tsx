@@ -1258,7 +1258,7 @@ export const ClientesModule: React.FC = () => {
                 </div>
               </div>
 
-              {/* MEDIO DE COBRO PACTADO + INSTRUCTIVO 2 PASOS */}
+              {/* MEDIO DE COBRO PACTADO + INSTRUCTIVO 2 PASOS DESPLEGABLE */}
               <div className="p-3 bg-emerald-50/80 border border-emerald-300 space-y-2">
                 <div>
                   <label className="block text-[#042f22] font-bold mb-1">
@@ -1276,9 +1276,15 @@ export const ClientesModule: React.FC = () => {
                     <option value="Efectivo en Caja Central">Efectivo en Caja Central</option>
                   </select>
                 </div>
-                <p className="text-[10px] text-slate-700 font-sans leading-snug">
-                  <strong>Paso 1:</strong> Al emitir esta factura el importe queda <strong>PENDIENTE</strong> en Cuenta Corriente. <strong>Paso 2:</strong> Luego pulsá <strong>&ldquo;Agregar cobro&rdquo;</strong> para registrar el ingreso real del pago en Tesorería.
-                </p>
+                <details className="group border-t border-emerald-200 pt-1.5">
+                  <summary className="font-mono text-[10px] font-bold text-[#042f22] uppercase flex items-center justify-between cursor-pointer select-none list-none">
+                    <span>¿Cómo se registra y se cobra esta factura?</span>
+                    <span className="group-open:rotate-180 transition-transform">▼</span>
+                  </summary>
+                  <p className="text-[10px] text-slate-700 font-sans leading-snug pt-1.5">
+                    <strong>Paso 1:</strong> Al emitir esta factura el importe queda <strong>PENDIENTE</strong> en Cuenta Corriente. <strong>Paso 2:</strong> Luego pulsá <strong>&ldquo;Agregar cobro&rdquo;</strong> para registrar el ingreso real del pago en Tesorería.
+                  </p>
+                </details>
               </div>
 
               <div>

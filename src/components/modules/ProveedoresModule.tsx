@@ -926,19 +926,26 @@ export const ProveedoresModule: React.FC = () => {
               </button>
             </div>
 
-            {/* GUÍA EXPLICATIVA PARA EL USUARIO: CÓMO FUNCIONA EL PAGO */}
-            <div className="p-3 bg-emerald-50/90 border-l-4 border-l-[#064e3b] border border-emerald-200 text-xs space-y-1.5">
-              <div className="font-mono font-bold text-[#042f22] uppercase flex items-center gap-1.5">
-                <HelpCircle className="w-4 h-4 text-[#064e3b] shrink-0" />
-                <span>Importante: ¿Cómo se registra y se saca el pago?</span>
+            {/* GUÍA EXPLICATIVA DESPLEGABLE PARA EL USUARIO: CÓMO FUNCIONA EL PAGO */}
+            <details className="group bg-emerald-50/90 border-l-4 border-l-[#064e3b] border border-emerald-200 text-xs">
+              <summary className="px-3 py-2 font-mono font-bold text-[#042f22] uppercase flex items-center justify-between cursor-pointer select-none list-none hover:bg-emerald-100/60 transition-colors">
+                <div className="flex items-center gap-1.5">
+                  <HelpCircle className="w-4 h-4 text-[#064e3b] shrink-0" />
+                  <span>Importante: ¿Cómo se registra y se saca el pago?</span>
+                </div>
+                <span className="text-[10px] text-[#064e3b] font-bold group-open:rotate-180 transition-transform">
+                  ▼
+                </span>
+              </summary>
+              <div className="px-3 pb-3 pt-1.5 border-t border-emerald-200/80 space-y-1.5">
+                <p className="text-[11px] text-slate-700 leading-relaxed">
+                  <strong>1. En esta ventana (Agregar Factura):</strong> Elegís el <strong>Medio de Pago Pactado</strong> con el proveedor, pero <strong>de acá NO sale el dinero de Caja/Bancos</strong>. La factura queda cargada como <strong>PENDIENTE</strong> en <em>Facturas adeudadas</em>.
+                </p>
+                <p className="text-[11px] text-slate-700 leading-relaxed">
+                  <strong>2. Para sacar el pago de Tesorería:</strong> Una vez cargada la factura, hacé clic en el botón <strong>&ldquo;$ Agregar pago&rdquo;</strong> (abajo) o en el botón <strong>&ldquo;Sacar Pago&rdquo;</strong> de la factura adeudada para emitir la Orden de Pago y descontar el dinero.
+                </p>
               </div>
-              <p className="text-[11px] text-slate-700 leading-relaxed">
-                <strong>1. En esta ventana (Agregar Factura):</strong> Elegís el <strong>Medio de Pago Pactado</strong> con el proveedor, pero <strong>de acá NO sale el dinero de Caja/Bancos</strong>. La factura queda cargada como <strong>PENDIENTE</strong> en <em>Facturas adeudadas</em>.
-              </p>
-              <p className="text-[11px] text-slate-700 leading-relaxed">
-                <strong>2. Para sacar el pago de Tesorería:</strong> Una vez cargada la factura, hacé clic en el botón <strong>&ldquo;$ Agregar pago&rdquo;</strong> (abajo) o en el botón <strong>&ldquo;Sacar Pago&rdquo;</strong> de la factura adeudada para emitir la Orden de Pago y descontar el dinero.
-              </p>
-            </div>
+            </details>
 
             <form onSubmit={handleCrearFactura} className="space-y-3.5 font-mono text-xs">
               <div className="grid grid-cols-2 gap-3">
