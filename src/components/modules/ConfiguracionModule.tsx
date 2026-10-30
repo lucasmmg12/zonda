@@ -19,10 +19,28 @@ import {
 import type { AfipWsConfig, MercadoPagoConfig } from '../../types/models';
 import { getAfipConfig, saveAfipConfig, probarConexionAfip, generarInstruccionesOpenSsl, DEFAULT_ARCA_FUNCTION_URL } from '../../services/afip/afipWsClient';
 import { getMercadoPagoConfig, saveMercadoPagoConfig, probarConexionMercadoPago, crearPreferenciaMercadoPago, simularWebhookPagoMercadoPago, DEFAULT_MP_WEBHOOK_URL } from '../../services/mercadopago/mercadoPagoClient';
+import { ConexionesManagerModal } from '../modals/ConexionesManagerModal';
 import { useErp } from '../../context/ErpContext';
 
 export const ConfiguracionModule: React.FC = () => {
-  const { empresa, empresaExtra, guardarConfiguracionEmpresa, clientes, registrarCobroCliente } = useErp();
+  const {
+    empresa,
+    empresaExtra,
+    guardarConfiguracionEmpresa,
+    clientes,
+    registrarCobroCliente,
+    dbStatus,
+    lastSync,
+    refreshAllFromDb
+  } = useErp();
+
+  const [modalConexionesOpen, setModalConexionesOpen] = useState(false);
+  const [tabModalConexion, setTabModalConexion] = useState<'afip' | 'mercadopago'>('afip');
+
+  const abrirModalConexiones = (targetTab: 'afip' | 'mercadopago') => {
+    setTabModalConexion(targetTab);
+    setModalConexionesOpen(true);
+  };
 
   // Pestaña activa superior
   const [tabActiva, setTabActiva] = useState<
@@ -164,22 +182,70 @@ export const ConfiguracionModule: React.FC = () => {
 
   return (
     <div className="space-y-0 text-slate-800 font-sans">
-      {/* 1. BARRA SUPERIOR DE ENCABEZADO Y LLAMADA AL CALENDARIO */}
-      <div className="bg-white border-b border-slate-300 px-4 py-2.5 flex items-center justify-between">
+      {/* 1. BARRA SUPERIOR DE ENCABEZADO Y CONEXIONES (Supabase | ARCA | Mercado Pago) */}
+      <div className="bg-white border-b border-emerald-800/25 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight uppercase">
+          <h1 className="text-lg font-extrabold text-[#042f22] tracking-tight uppercase">
             Configuración de la Empresa
           </h1>
-          <span className="text-xs text-slate-500 font-medium">| PARÁMETROS FISCALES, TALONARIOS Y AFIP (SUPABASE DB)</span>
+          <span className="text-xs text-[#357a59] font-medium hidden md:inline">
+            | PARÁMETROS FISCALES, TALONARIOS Y CONEXIONES CLOUD
+          </span>
         </div>
 
-        <button
-          onClick={() => setNotificacion('Calendario impositivo sincronizado: IVA 18/11, IIBB San Juan 20/11, F.931 12/11.')}
-          className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>Calendario de vencimientos</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Barra Segmentada Unificada contenida en Configuración: Supabase | ARCA | Mercado Pago */}
+          <div className="flex items-center h-8 border border-emerald-800/25 bg-emerald-50/30 divide-x divide-emerald-800/20 whitespace-nowrap">
+            {/* Supabase */}
+            <button
+              type="button"
+              onClick={refreshAllFromDb}
+              title={`Base de Datos Supabase PostgreSQL (Última sincr.: ${lastSync}). Click para refrescar.`}
+              className="h-full px-3 flex items-center gap-1.5 text-[11px] font-bold text-[#064e3b] hover:bg-emerald-50 transition-colors whitespace-nowrap"
+            >
+              {dbStatus === 'sincronizando' ? (
+                <RefreshCw className="w-3 h-3 animate-spin text-[#047857]" />
+              ) : (
+                <span className="w-2 h-2 bg-[#16a34a] inline-block"></span>
+              )}
+              <span>Supabase</span>
+            </button>
+
+            {/* ARCA */}
+            <button
+              type="button"
+              onClick={() => abrirModalConexiones('afip')}
+              title="Configurar o verificar Web Services de ARCA (ex-AFIP)"
+              className="h-full px-3 flex items-center gap-1.5 text-[11px] font-bold text-[#064e3b] hover:bg-emerald-50 transition-colors whitespace-nowrap"
+            >
+              <span
+                className={`w-2 h-2 inline-block ${
+                  afipConfig.estadoConexion === 'conectado' ? 'bg-[#16a34a]' : 'bg-emerald-600/50'
+                }`}
+              ></span>
+              <span>ARCA</span>
+            </button>
+
+            {/* Mercado Pago */}
+            <button
+              type="button"
+              onClick={() => abrirModalConexiones('mercadopago')}
+              title="Configurar o verificar pasarela Mercado Pago (Checkout Pro y QR)"
+              className="h-full px-3 flex items-center gap-1.5 text-[11px] font-bold text-[#064e3b] hover:bg-emerald-50 transition-colors whitespace-nowrap"
+            >
+              <CreditCard className="w-3 h-3 text-[#047857]" />
+              <span>Mercado Pago</span>
+            </button>
+          </div>
+
+          <button
+            onClick={() => setNotificacion('Calendario impositivo sincronizado: IVA 18/11, IIBB San Juan 20/11, F.931 12/11.')}
+            className="h-8 px-3.5 bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Calendario de vencimientos</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. PESTAÑAS PRINCIPALES DEL MÓDULO */}
@@ -1163,6 +1229,13 @@ export const ConfiguracionModule: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* MODAL CENTRALIZADO DE CONEXIONES (ARCA / MERCADO PAGO / WEBHOOKS) */}
+      <ConexionesManagerModal
+        isOpen={modalConexionesOpen}
+        onClose={() => setModalConexionesOpen(false)}
+        defaultTab={tabModalConexion}
+      />
     </div>
   );
 };

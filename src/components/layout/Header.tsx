@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Search, CreditCard, Database, RefreshCw, X, BookOpen } from 'lucide-react';
-import { EmpresaConfig, AfipWsConfig, MercadoPagoConfig } from '../../types/models';
-import { getAfipConfig } from '../../services/afip/afipWsClient';
-import { getMercadoPagoConfig } from '../../services/mercadopago/mercadoPagoClient';
-import { ConexionesManagerModal } from '../modals/ConexionesManagerModal';
+import { Bell, Search, X, BookOpen } from 'lucide-react';
+import { EmpresaConfig } from '../../types/models';
 import { ManualesCentroAyudaModal } from '../modals/ManualesCentroAyudaModal';
 import { RoleAuthModal, getActiveOperator, OperadorProfile } from '../modals/RoleAuthModal';
 import { useErp } from '../../context/ErpContext';
@@ -16,9 +13,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
   const {
-    dbStatus,
     lastSync,
-    refreshAllFromDb,
     setActiveModule,
     clientes,
     proveedores,
@@ -26,10 +21,6 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
     empleados
   } = useErp();
 
-  const [afipConfig, setAfipConfig] = useState<AfipWsConfig>(getAfipConfig());
-  const [mpConfig, setMpConfig] = useState<MercadoPagoConfig>(getMercadoPagoConfig());
-  const [modalConexionesOpen, setModalConexionesOpen] = useState(false);
-  const [tabModal, setTabModal] = useState<'afip' | 'mercadopago'>('afip');
   const [modalManualesOpen, setModalManualesOpen] = useState(false);
   const [modalRolesOpen, setModalRolesOpen] = useState(false);
   const [operadorActual, setOperadorActual] = useState<OperadorProfile>(getActiveOperator());
@@ -52,29 +43,16 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
   const [showNotif, setShowNotif] = useState(false);
 
   useEffect(() => {
-    const handleUpdate = () => {
-      setAfipConfig(getAfipConfig());
-      setMpConfig(getMercadoPagoConfig());
-    };
     const handleUserUpdate = () => {
       setOperadorActual(getActiveOperator());
     };
 
-    window.addEventListener('afip_config_updated', handleUpdate);
-    window.addEventListener('mercadopago_config_updated', handleUpdate);
     window.addEventListener('zonda_usuarios_updated', handleUserUpdate);
 
     return () => {
-      window.removeEventListener('afip_config_updated', handleUpdate);
-      window.removeEventListener('mercadopago_config_updated', handleUpdate);
       window.removeEventListener('zonda_usuarios_updated', handleUserUpdate);
     };
   }, []);
-
-  const abrirModalConexiones = (targetTab: 'afip' | 'mercadopago') => {
-    setTabModal(targetTab);
-    setModalConexionesOpen(true);
-  };
 
   // Resultados de búsqueda rápida global
   const q = globalQuery.trim().toLowerCase();
@@ -211,47 +189,6 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           )}
         </div>
 
-        {/* Barra Segmentada Unificada: Supabase | ARCA | Mercado Pago */}
-        <div className="hidden sm:flex items-center h-8 border border-emerald-800/25 bg-white divide-x divide-emerald-800/20 whitespace-nowrap">
-          {/* Supabase */}
-          <button
-            onClick={refreshAllFromDb}
-            title={`Base de Datos Supabase PostgreSQL (Última sincr.: ${lastSync}). Click para refrescar.`}
-            className="h-full px-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#064e3b] hover:bg-emerald-50 transition-colors whitespace-nowrap"
-          >
-            {dbStatus === 'sincronizando' ? (
-              <RefreshCw className="w-3 h-3 animate-spin text-[#047857]" />
-            ) : (
-              <span className="w-2 h-2 bg-[#16a34a] inline-block"></span>
-            )}
-            <span>Supabase</span>
-          </button>
-
-          {/* ARCA */}
-          <button
-            onClick={() => abrirModalConexiones('afip')}
-            title="Configurar o verificar Web Services de ARCA (ex-AFIP)"
-            className="h-full px-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#064e3b] hover:bg-emerald-50 transition-colors whitespace-nowrap"
-          >
-            <span
-              className={`w-2 h-2 inline-block ${
-                afipConfig.estadoConexion === 'conectado' ? 'bg-[#16a34a]' : 'bg-emerald-600/50'
-              }`}
-            ></span>
-            <span>ARCA</span>
-          </button>
-
-          {/* Mercado Pago */}
-          <button
-            onClick={() => abrirModalConexiones('mercadopago')}
-            title="Configurar o verificar pasarela Mercado Pago (Checkout Pro y QR)"
-            className="h-full px-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#064e3b] hover:bg-emerald-50 transition-colors whitespace-nowrap"
-          >
-            <CreditCard className="w-3 h-3 text-[#047857]" />
-            <span>Mercado Pago</span>
-          </button>
-        </div>
-
         {/* Botón Manuales Compacto en 1 Línea */}
         <button
           onClick={() => setModalManualesOpen(true)}
@@ -305,13 +242,6 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           </span>
         </button>
       </div>
-
-      {/* Modal Centralizado de Conexiones */}
-      <ConexionesManagerModal
-        isOpen={modalConexionesOpen}
-        onClose={() => setModalConexionesOpen(false)}
-        defaultTab={tabModal}
-      />
 
       {/* Modal Centralizado de Manuales e Instrucciones */}
       <ManualesCentroAyudaModal
