@@ -15,6 +15,7 @@ import type {
   LiquidacionPeriodo,
   FacturaAdeudada,
   FacturaAdeudadaProveedor,
+  ChequeAsociadoFactura,
   MovimientoTesoreria,
   MovimientoMayor,
   TipoComprobante,
@@ -119,6 +120,7 @@ interface ErpContextValue {
     cuentaGasto?: string;
     medioPagoPactado?: string;
     fechaVencimiento?: string;
+    cantidadCuotas?: number;
     itemsInventarioAsociados?: {
       articuloAsociadoId: string;
       codigoProveedor: string;
@@ -133,6 +135,19 @@ interface ErpContextValue {
     medioPago: string;
     cuentaBancariaId?: string;
     nroCheque?: string;
+    facturaId?: string;
+    facturaNro?: string;
+    cantidadCuotas?: number;
+    chequesEmitidos?: {
+      numero: string;
+      bancoEmisor: string;
+      fechaPago: string;
+      importe: number;
+      tipo: 'Cheque Propio Diferido' | 'Cheque Terceros (Cartera)';
+      chequeCarteraId?: string;
+      cuotaNro?: number;
+      totalCuotas?: number;
+    }[];
   }) => Promise<void>;
 
   // Acciones Tesorería
@@ -1176,6 +1191,9 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       fechaPago: vto,
       descripcion: params.descripcion || 'Provisión de materiales e insumos operativos',
       medioPagoPactado: medioPactado,
+      cantidadCuotas: params.cantidadCuotas || 1,
+      cuotasPagadas: 0,
+      chequesAsociados: [],
       valorMe: 0,
       total,
       pagado: 0,
@@ -1290,6 +1308,19 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     medioPago: string;
     cuentaBancariaId?: string;
     nroCheque?: string;
+    facturaId?: string;
+    facturaNro?: string;
+    cantidadCuotas?: number;
+    chequesEmitidos?: {
+      numero: string;
+      bancoEmisor: string;
+      fechaPago: string;
+      importe: number;
+      tipo: 'Cheque Propio Diferido' | 'Cheque Terceros (Cartera)';
+      chequeCarteraId?: string;
+      cuotaNro?: number;
+      totalCuotas?: number;
+    }[];
   }) => {
     const proveedor = proveedores.find((p) => p.id === params.proveedorId);
     if (!proveedor) return;
@@ -1298,21 +1329,107 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const nroOp = `0001-00000${Math.floor(150 + Math.random() * 800)}`;
     const nuevoSaldoPrv = Math.max(0, Number((proveedor.saldo - params.monto).toFixed(2)));
 
+    // Identificar la factura objetivo (si se indicó facturaId, o la primera con saldo > 0)
+    const facturaObjetivo =
+      (params.facturaId && proveedor.facturasAdeudadas.find((f) => f.id === params.facturaId)) ||
+      proveedor.facturasAdeudadas.find((f) => f.saldo > 0);
+
+    const facturaRefId = facturaObjetivo?.id || params.facturaId || `FP-${Date.now()}`;
+    const facturaRefNro =
+      params.facturaNro ||
+      (facturaObjetivo ? `${facturaObjetivo.tipo} ${facturaObjetivo.nroComprobante}` : 'Pago a Cuenta');
+
+    // Construir lista de cheques asociados si se paga con 1 o varios cheques
+    const listaChequesInput =
+      params.chequesEmitidos && params.chequesEmitidos.length > 0
+        ? params.chequesEmitidos
+        : params.medioPago.toLowerCase().includes('cheque')
+        ? [
+            {
+              numero: params.nroCheque || `0000${Math.floor(4922 + Math.random() * 1000)}`,
+              bancoEmisor: 'Banco Santander',
+              fechaPago: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              importe: params.monto,
+              tipo: 'Cheque Propio Diferido' as const,
+              cuotaNro: 1,
+              totalCuotas: params.cantidadCuotas || 1
+            }
+          ]
+        : [];
+
+    const chequesAsociadosNuevos: ChequeAsociadoFactura[] = listaChequesInput.map((ch, idx) => ({
+      id: ch.chequeCarteraId || `CHQ-${Date.now()}-${idx}`,
+      numero: ch.numero,
+      bancoEmisor: ch.bancoEmisor,
+      fechaEmision: hoy,
+      fechaPago: ch.fechaPago,
+      importe: Number(ch.importe),
+      tipo: ch.tipo || 'Cheque Propio Diferido',
+      estado: 'Entregado a Proveedor',
+      cuotaNro: ch.cuotaNro || idx + 1,
+      totalCuotas: ch.totalCuotas || params.cantidadCuotas || listaChequesInput.length,
+      facturaId: facturaRefId,
+      facturaNro: facturaRefNro,
+      proveedorId: proveedor.id,
+      proveedorNombre: proveedor.razonSocial
+    }));
+
     let montoRestante = params.monto;
+
+    // Primero imputar a la factura seleccionada (si existe) y luego al resto en orden
+    const ordenFacturas = params.facturaId
+      ? [
+          ...proveedor.facturasAdeudadas.filter((f) => f.id === params.facturaId),
+          ...proveedor.facturasAdeudadas.filter((f) => f.id !== params.facturaId)
+        ]
+      : proveedor.facturasAdeudadas;
+
+    const mapActualizadas = new Map<string, FacturaAdeudadaProveedor>();
+
+    for (const f of ordenFacturas) {
+      if (montoRestante <= 0 || f.saldo <= 0) {
+        mapActualizadas.set(f.id, f);
+        continue;
+      }
+      const imputado = Math.min(f.saldo, montoRestante);
+      montoRestante = Number((montoRestante - imputado).toFixed(2));
+      const nuevoSaldoFac = Number((f.saldo - imputado).toFixed(2));
+      const esFacturaPrincipal = f.id === facturaRefId;
+
+      const totalCuotasFac =
+        (esFacturaPrincipal && params.cantidadCuotas) ||
+        f.cantidadCuotas ||
+        (chequesAsociadosNuevos.length > 1 ? chequesAsociadosNuevos.length : 1);
+
+      const cuotasYaPagadas =
+        (f.cuotasPagadas || 0) + (esFacturaPrincipal ? Math.max(1, chequesAsociadosNuevos.length) : 1);
+
+      const chequesDeEstaFactura = esFacturaPrincipal
+        ? [...(f.chequesAsociados || []), ...chequesAsociadosNuevos]
+        : f.chequesAsociados || [];
+
+      mapActualizadas.set(f.id, {
+        ...f,
+        pagado: Number((f.pagado + imputado).toFixed(2)),
+        saldo: nuevoSaldoFac,
+        saldoAcumulado: nuevoSaldoPrv,
+        cantidadCuotas: totalCuotasFac,
+        cuotasPagadas: Math.min(totalCuotasFac, cuotasYaPagadas),
+        chequesAsociados: chequesDeEstaFactura
+      });
+    }
+
+    // Mantener facturas con saldo > 0 O facturas que tengan cheques diferidos asociados en seguimiento
     const nuevasAdeudadas = proveedor.facturasAdeudadas
-      .map((f) => {
-        if (montoRestante <= 0 || f.saldo <= 0) return f;
-        const imputado = Math.min(f.saldo, montoRestante);
-        montoRestante = Number((montoRestante - imputado).toFixed(2));
-        const nuevoSaldoFac = Number((f.saldo - imputado).toFixed(2));
-        return {
-          ...f,
-          pagado: Number((f.pagado + imputado).toFixed(2)),
-          saldo: nuevoSaldoFac,
-          saldoAcumulado: nuevoSaldoPrv
-        };
-      })
-      .filter((f) => f.saldo > 0);
+      .map((f) => mapActualizadas.get(f.id) || f)
+      .filter((f) => f.saldo > 0 || (f.chequesAsociados && f.chequesAsociados.length > 0));
+
+    const detalleChequesTexto =
+      chequesAsociadosNuevos.length > 0
+        ? ` [Factura: ${facturaRefNro} · ${chequesAsociadosNuevos.length} Cheque(s): ${chequesAsociadosNuevos
+            .map((c) => `#${c.numero} (${c.bancoEmisor}) Vto ${c.fechaPago} $${c.importe.toLocaleString('es-AR')}`)
+            .join(' | ')}]`
+        : ` [Factura: ${facturaRefNro}]`;
 
     const proveedorActualizado: Proveedor = {
       ...proveedor,
@@ -1324,7 +1441,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `MP-${Date.now()}`,
           fecha: hoy,
           comprobante: `OP ${nroOp}`,
-          concepto: `Orden de Pago mediante ${params.medioPago}`,
+          concepto: `Orden de Pago mediante ${params.medioPago}${detalleChequesTexto}`,
           debe: params.monto,
           haber: 0,
           saldo: nuevoSaldoPrv
@@ -1367,39 +1484,55 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cuentaId: targetCuentaId,
       tipo: 'PAG',
       clienteProveedor: proveedor.razonSocial,
-      descripcion: `Orden de Pago ${nroOp} (${params.medioPago})`,
+      descripcion: `Orden de Pago ${nroOp} (${params.medioPago})${detalleChequesTexto}`,
       ingresos: 0,
       egresos: params.monto,
-      nroCheque: params.nroCheque
+      nroCheque:
+        chequesAsociadosNuevos.length > 0
+          ? chequesAsociadosNuevos.map((c) => c.numero).join(', ')
+          : params.nroCheque
     });
 
-    // Si es Cheque Propio Diferido, agregarlo a erp_cheques
-    if (params.medioPago.toLowerCase().includes('cheque')) {
-      const nuevoCheque: Cheque = {
-        id: `CHQ-${Date.now()}`,
-        tipo: 'Cheque Propio Diferido',
-        numero: params.nroCheque || `0000${Math.floor(4922 + Math.random() * 1000)}`,
-        bancoEmisor: 'Banco Santander',
-        librador: empresa.razonSocial,
-        cuitLibrador: empresa.cuit,
-        fechaEmision: hoy,
-        fechaPago: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        importe: params.monto,
-        estado: 'Entregado a Proveedor'
-      };
-      setCheques((prev) => [nuevoCheque, ...prev]);
-      await supabase.from('erp_cheques').upsert({
-        id: nuevoCheque.id,
-        tipo: nuevoCheque.tipo,
-        numero: nuevoCheque.numero,
-        banco_emisor: nuevoCheque.bancoEmisor,
-        librador: nuevoCheque.librador,
-        cuit_librador: nuevoCheque.cuitLibrador,
-        fecha_emision: nuevoCheque.fechaEmision,
-        fecha_pago: nuevoCheque.fechaPago,
-        importe: nuevoCheque.importe,
-        estado: nuevoCheque.estado
+    // Si hay 1 o varios cheques emitidos/endosados, guardarlos todos en erp_cheques y vincularlos a factura + proveedor
+    if (chequesAsociadosNuevos.length > 0) {
+      const nuevosChequesErp: Cheque[] = chequesAsociadosNuevos.map((ch) => ({
+        id: ch.id,
+        tipo: ch.tipo,
+        numero: ch.numero,
+        bancoEmisor: ch.bancoEmisor,
+        librador: ch.tipo === 'Cheque Propio Diferido' ? empresa.razonSocial : proveedor.razonSocial,
+        cuitLibrador: ch.tipo === 'Cheque Propio Diferido' ? empresa.cuit : proveedor.cuit,
+        fechaEmision: ch.fechaEmision,
+        fechaPago: ch.fechaPago,
+        importe: ch.importe,
+        estado: 'Entregado a Proveedor',
+        proveedorId: proveedor.id,
+        proveedorNombre: proveedor.razonSocial,
+        facturaId: ch.facturaId,
+        facturaNro: ch.facturaNro,
+        cuotaNro: ch.cuotaNro,
+        totalCuotas: ch.totalCuotas
+      }));
+
+      setCheques((prev) => {
+        const idsActualizados = new Set(nuevosChequesErp.map((c) => c.id));
+        return [...nuevosChequesErp, ...prev.filter((c) => !idsActualizados.has(c.id))];
       });
+
+      await supabase.from('erp_cheques').upsert(
+        nuevosChequesErp.map((nuevoCheque) => ({
+          id: nuevoCheque.id,
+          tipo: nuevoCheque.tipo,
+          numero: nuevoCheque.numero,
+          banco_emisor: nuevoCheque.bancoEmisor,
+          librador: nuevoCheque.librador,
+          cuit_librador: nuevoCheque.cuitLibrador,
+          fecha_emision: nuevoCheque.fechaEmision,
+          fecha_pago: nuevoCheque.fechaPago,
+          importe: nuevoCheque.importe,
+          estado: nuevoCheque.estado
+        }))
+      );
     }
 
     // Impactar Asiento Contable

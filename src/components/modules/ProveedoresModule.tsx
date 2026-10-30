@@ -36,6 +36,7 @@ export const ProveedoresModule: React.FC = () => {
   const {
     proveedores,
     cuentasBancarias,
+    cheques,
     planDeCuentas,
     inventario,
     crearProveedor,
@@ -224,23 +225,137 @@ export const ProveedoresModule: React.FC = () => {
     proveedorNombre: string;
   } | null>(null);
 
-  // Formulario Pago
+  // Formulario Pago (con soporte para Cuotas y Múltiples Cheques atados a Factura y Proveedor)
+  const [facturaPagoId, setFacturaPagoId] = useState<string>('');
+  const [cantidadCuotasPago, setCantidadCuotasPago] = useState<number>(1);
   const [montoPago, setMontoPago] = useState(150000);
   const [medioPago, setMedioPago] = useState('Transferencia Bancaria Santander');
   const [cuentaPagoId, setCuentaPagoId] = useState('CTA-01');
   const [nroChequePago, setNroChequePago] = useState('');
+  const [chequesPagoList, setChequesPagoList] = useState<
+    {
+      id: string;
+      numero: string;
+      bancoEmisor: string;
+      fechaPago: string;
+      importe: number;
+      tipo: 'Cheque Propio Diferido' | 'Cheque Terceros (Cartera)';
+      chequeCarteraId?: string;
+      cuotaNro: number;
+      totalCuotas: number;
+    }[]
+  >([]);
 
-  // Helper para abrir el modal de Pago (Paso 2) pre-cargando el medio de pago elegido en la factura
-  const abrirModalPagoConMedio = (monto: number, medioElegido?: string) => {
+  const generarPlanChequesEnCuotas = (cantCuotas: number, montoTotalBase?: number) => {
+    const base = montoTotalBase !== undefined ? montoTotalBase : montoPago;
+    const n = Math.max(1, cantCuotas);
+    setCantidadCuotasPago(n);
+    const importePorCuota = Number((base / n).toFixed(2));
+    const baseNumCheque = 55410100 + Math.floor(Math.random() * 800);
+
+    const generados = Array.from({ length: n }).map((_, idx) => {
+      const fechaVto = new Date(Date.now() + (idx + 1) * 30 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split('T')[0];
+      const imp =
+        idx === n - 1
+          ? Number((base - importePorCuota * (n - 1)).toFixed(2))
+          : importePorCuota;
+      return {
+        id: `CHQ-ROW-${Date.now()}-${idx}`,
+        numero: String(baseNumCheque + idx),
+        bancoEmisor: 'Banco Santander',
+        fechaPago: fechaVto,
+        importe: imp,
+        tipo: 'Cheque Propio Diferido' as const,
+        cuotaNro: idx + 1,
+        totalCuotas: n
+      };
+    });
+
+    setChequesPagoList(generados);
+    const suma = Number(generados.reduce((acc, c) => acc + c.importe, 0).toFixed(2));
+    setMontoPago(suma);
+  };
+
+  const agregarChequeAlPago = () => {
+    const nextIdx = chequesPagoList.length + 1;
+    const fechaVto = new Date(Date.now() + nextIdx * 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0];
+    const nuevo = {
+      id: `CHQ-ROW-${Date.now()}-${nextIdx}`,
+      numero: String(55410500 + nextIdx),
+      bancoEmisor: 'Banco Santander',
+      fechaPago: fechaVto,
+      importe: Number((montoPago / Math.max(1, nextIdx)).toFixed(2)),
+      tipo: 'Cheque Propio Diferido' as const,
+      cuotaNro: nextIdx,
+      totalCuotas: nextIdx
+    };
+    const nuevaLista = [...chequesPagoList, nuevo].map((c, idx, arr) => ({
+      ...c,
+      cuotaNro: idx + 1,
+      totalCuotas: arr.length
+    }));
+    setCantidadCuotasPago(nuevaLista.length);
+    setChequesPagoList(nuevaLista);
+    setMontoPago(Number(nuevaLista.reduce((acc, c) => acc + c.importe, 0).toFixed(2)));
+  };
+
+  const actualizarChequePago = (
+    idRow: string,
+    cambios: Partial<{
+      numero: string;
+      bancoEmisor: string;
+      fechaPago: string;
+      importe: number;
+      tipo: 'Cheque Propio Diferido' | 'Cheque Terceros (Cartera)';
+      chequeCarteraId?: string;
+    }>
+  ) => {
+    const nuevaLista = chequesPagoList.map((c) => (c.id === idRow ? { ...c, ...cambios } : c));
+    setChequesPagoList(nuevaLista);
+    setMontoPago(Number(nuevaLista.reduce((acc, c) => acc + Number(c.importe || 0), 0).toFixed(2)));
+  };
+
+  const eliminarChequePago = (idRow: string) => {
+    const filtrada = chequesPagoList
+      .filter((c) => c.id !== idRow)
+      .map((c, idx, arr) => ({
+        ...c,
+        cuotaNro: idx + 1,
+        totalCuotas: arr.length
+      }));
+    setChequesPagoList(filtrada);
+    setCantidadCuotasPago(Math.max(1, filtrada.length));
+    if (filtrada.length > 0) {
+      setMontoPago(Number(filtrada.reduce((acc, c) => acc + Number(c.importe || 0), 0).toFixed(2)));
+    }
+  };
+
+  // Helper para abrir el modal de Pago (Paso 2) pre-cargando la factura, el medio de pago y los cheques
+  const abrirModalPagoConMedio = (monto: number, medioElegido?: string, facturaIdPreseleccionada?: string) => {
     const medio = medioElegido || medioPagoFactura || 'Transferencia Bancaria Santander';
-    setMontoPago(Number(monto.toFixed(2)));
+    const montoRedondeado = Number(monto.toFixed(2));
+    setMontoPago(montoRedondeado);
     setMedioPago(medio);
+    const idFac =
+      facturaIdPreseleccionada ||
+      proveedorActivo?.facturasAdeudadas.find((f) => f.saldo > 0)?.id ||
+      '';
+    setFacturaPagoId(idFac);
+
     if (medio.toLowerCase().includes('santander')) {
       setCuentaPagoId('CTA-02');
     } else if (medio.toLowerCase().includes('galicia')) {
       setCuentaPagoId('CTA-04');
+    } else if (medio.toLowerCase().includes('cheque')) {
+      setCuentaPagoId('CTA-02');
+      generarPlanChequesEnCuotas(1, montoRedondeado);
     } else {
       setCuentaPagoId('CTA-01');
+      setChequesPagoList([]);
     }
     setShowPagoModal(true);
   };
@@ -319,22 +434,30 @@ export const ProveedoresModule: React.FC = () => {
     setDescFactura('');
   };
 
-  // Agregar Pago en Supabase + Tesorería + Contabilidad (Paso 2: Saca el dinero de Tesorería)
+  // Agregar Pago en Supabase + Tesorería + Contabilidad (Paso 2: Saca el dinero de Tesorería, soporta Cuotas y Múltiples Cheques)
   const handleAgregarPago = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!proveedorActivo) return;
+
+    const facSeleccionada = proveedorActivo.facturasAdeudadas.find((f) => f.id === facturaPagoId);
+    const usaCheques = medioPago.toLowerCase().includes('cheque') || chequesPagoList.length > 0;
 
     await registrarPagoProveedor({
       proveedorId: proveedorActivo.id,
       monto: montoPago,
       medioPago,
       cuentaBancariaId: cuentaPagoId,
-      nroCheque: nroChequePago || undefined
+      nroCheque: nroChequePago || undefined,
+      facturaId: facturaPagoId || undefined,
+      facturaNro: facSeleccionada ? `${facSeleccionada.tipo} ${facSeleccionada.nroComprobante}` : undefined,
+      cantidadCuotas: cantidadCuotasPago,
+      chequesEmitidos: usaCheques && chequesPagoList.length > 0 ? chequesPagoList : undefined
     });
 
     setAvisoFacturaPendiente(null);
     setShowPagoModal(false);
     setNroChequePago('');
+    setChequesPagoList([]);
   };
 
   // Alta de Proveedor en Supabase
@@ -757,7 +880,9 @@ export const ProveedoresModule: React.FC = () => {
                           proveedorActivo.facturasAdeudadas.map((f) => (
                             <tr
                               key={f.id}
-                              onDoubleClick={() => abrirModalPagoConMedio(f.saldo, f.medioPagoPactado)}
+                              onDoubleClick={() => {
+                                if (f.saldo > 0) abrirModalPagoConMedio(f.saldo, f.medioPagoPactado, f.id);
+                              }}
                               className="hover:bg-slate-50 cursor-pointer"
                             >
                               <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-900">
@@ -765,41 +890,68 @@ export const ProveedoresModule: React.FC = () => {
                               </td>
                               <td className="py-2 px-3 border-r border-slate-200 text-slate-700">{f.tipo}</td>
                               <td className="py-2 px-3 border-r border-slate-200 text-slate-700">{f.fechaPago}</td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-slate-600 font-sans text-[11px] truncate max-w-xs">
-                                {f.descripcion}
+                              <td className="py-2 px-3 border-r border-slate-200 text-slate-600 font-sans text-[11px] max-w-xs">
+                                <div className="truncate">{f.descripcion}</div>
+                                {f.chequesAsociados && f.chequesAsociados.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {f.chequesAsociados.map((ch) => (
+                                      <span
+                                        key={ch.id}
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold bg-indigo-50 text-indigo-900 border border-indigo-200"
+                                        title={`Cheque #${ch.numero} (${ch.bancoEmisor}) · Vence: ${ch.fechaPago} · $${ch.importe.toLocaleString('es-AR')}`}
+                                      >
+                                        🏦 Chq #{ch.numero} · Vto {ch.fechaPago} (${ch.importe.toLocaleString('es-AR')})
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </td>
                               <td className="py-2 px-3 border-r border-slate-200">
                                 <div className="flex flex-col gap-0.5">
                                   <span className="text-[10px] font-bold text-[#042f22]">
                                     {f.medioPagoPactado || 'Transferencia Bancaria Santander'}
                                   </span>
-                                  <span className="inline-block w-fit text-[9px] font-bold uppercase px-1.5 py-0.2 bg-amber-100 text-amber-800 border border-amber-300">
-                                    PENDIENTE DE SALIDA
-                                  </span>
+                                  {f.saldo > 0 ? (
+                                    <span className="inline-block w-fit text-[9px] font-bold uppercase px-1.5 py-0.2 bg-amber-100 text-amber-800 border border-amber-300">
+                                      {f.pagado > 0
+                                        ? `PAGO PARCIAL EN CUOTAS (${f.cuotasPagadas || 1}/${f.cantidadCuotas || 2})`
+                                        : 'PENDIENTE DE SALIDA'}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-block w-fit text-[9px] font-bold uppercase px-1.5 py-0.2 bg-indigo-100 text-indigo-800 border border-indigo-300">
+                                      CUBIERTA CON {f.chequesAsociados?.length || 1} CHEQUE(S) DIFERIDOS
+                                    </span>
+                                  )}
                                 </div>
                               </td>
                               <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-slate-900">
                                 ${f.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                               </td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-right text-emerald-700">
+                              <td className="py-2 px-3 border-r border-slate-200 text-right text-emerald-700 font-bold">
                                 ${f.pagado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                               </td>
                               <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-rose-700">
                                 ${f.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                               </td>
                               <td className="py-2 px-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    abrirModalPagoConMedio(f.saldo, f.medioPagoPactado);
-                                  }}
-                                  className="px-2.5 py-1 bg-[#064e3b] hover:bg-[#047857] text-white text-[10px] font-bold uppercase inline-flex items-center gap-1"
-                                  title="Abrir ventana Agregar Pago con este monto y medio de pago"
-                                >
-                                  <DollarSign className="w-3 h-3" />
-                                  <span>Sacar Pago</span>
-                                </button>
+                                {f.saldo > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      abrirModalPagoConMedio(f.saldo, f.medioPagoPactado, f.id);
+                                    }}
+                                    className="px-2.5 py-1 bg-[#064e3b] hover:bg-[#047857] text-white text-[10px] font-bold uppercase inline-flex items-center gap-1"
+                                    title="Pagar total, en cuotas o con varios cheques"
+                                  >
+                                    <DollarSign className="w-3 h-3" />
+                                    <span>Sacar Pago / Cheques</span>
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-emerald-700 uppercase">
+                                    ✓ Cheques Emitidos
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           ))
@@ -840,6 +992,112 @@ export const ProveedoresModule: React.FC = () => {
                         : 'Sin facturas pendientes'}
                     </span>
                   </div>
+
+                  {/* PANEL DE SEGUIMIENTO DE CHEQUES Y FECHAS DE VENCIMIENTO ATADOS A FACTURAS Y PROVEEDOR */}
+                  {(() => {
+                    const chequesDeEsteProveedor = [
+                      ...(proveedorActivo?.facturasAdeudadas.flatMap((f) =>
+                        (f.chequesAsociados || []).map((ch) => ({
+                          ...ch,
+                          facturaNro: ch.facturaNro || `${f.tipo} ${f.nroComprobante}`,
+                          proveedorNombre: ch.proveedorNombre || proveedorActivo?.razonSocial || ''
+                        }))
+                      ) || []),
+                      ...cheques.filter(
+                        (c) =>
+                          c.estado === 'Entregado a Proveedor' &&
+                          (c.proveedorId === proveedorActivo?.id ||
+                            c.proveedorNombre === proveedorActivo?.razonSocial)
+                      )
+                    ].filter((ch, idx, arr) => arr.findIndex((x) => x.numero === ch.numero) === idx);
+
+                    return (
+                      <div className="border-t-2 border-indigo-200 bg-indigo-50/35 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                          <div>
+                            <h5 className="text-xs font-extrabold text-indigo-950 uppercase flex items-center gap-1.5">
+                              <span>🏦 Seguimiento de Cheques y Vencimientos Atados a Facturas ({proveedorActivo?.razonSocial})</span>
+                            </h5>
+                            <p className="text-[10px] text-slate-600">
+                              Control de cheques entregados en cuotas o pagos múltiples, vinculados a cada factura y proveedor.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold text-[10px]">
+                              {chequesDeEsteProveedor.length} cheque(s) asociados
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setShowCalendarioModal(true)}
+                              className="px-2.5 py-1 bg-[#064e3b] hover:bg-[#042f22] text-white font-bold text-[10px] uppercase flex items-center gap-1"
+                            >
+                              <Calendar className="w-3 h-3" />
+                              <span>Ver en Calendario</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {chequesDeEsteProveedor.length === 0 ? (
+                          <div className="p-2.5 bg-white border border-slate-200 text-[11px] text-slate-500">
+                            Aún no hay cheques asociados a facturas de este proveedor. Al pulsar <strong>«Sacar Pago / Cheques»</strong> podés dividir cualquier factura en cuotas o pagar con múltiples cheques diferidos.
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto bg-white border border-indigo-200">
+                            <table className="w-full text-left text-[11px] border-collapse">
+                              <thead>
+                                <tr className="bg-indigo-100/70 text-indigo-950 font-bold border-b border-indigo-200">
+                                  <th className="py-1.5 px-2.5 border-r border-indigo-200">N° Cheque</th>
+                                  <th className="py-1.5 px-2.5 border-r border-indigo-200">Banco Emisor</th>
+                                  <th className="py-1.5 px-2.5 border-r border-indigo-200">Tipo</th>
+                                  <th className="py-1.5 px-2.5 border-r border-indigo-200">Factura Asociada</th>
+                                  <th className="py-1.5 px-2.5 border-r border-indigo-200">Proveedor</th>
+                                  <th className="py-1.5 px-2.5 border-r border-indigo-200 text-center">Cuota</th>
+                                  <th className="py-1.5 px-2.5 border-r border-indigo-200">Fecha Vencimiento</th>
+                                  <th className="py-1.5 px-2.5 border-r border-indigo-200 text-right">Importe ($)</th>
+                                  <th className="py-1.5 px-2.5 text-center">Estado</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-200">
+                                {chequesDeEsteProveedor.map((ch) => (
+                                  <tr key={ch.id} className="hover:bg-indigo-50/40">
+                                    <td className="py-1.5 px-2.5 border-r border-slate-200 font-extrabold text-indigo-950">
+                                      #{ch.numero}
+                                    </td>
+                                    <td className="py-1.5 px-2.5 border-r border-slate-200 font-semibold text-slate-800">
+                                      {ch.bancoEmisor}
+                                    </td>
+                                    <td className="py-1.5 px-2.5 border-r border-slate-200 text-[10px] text-slate-600">
+                                      {ch.tipo}
+                                    </td>
+                                    <td className="py-1.5 px-2.5 border-r border-slate-200 font-bold text-[#064e3b]">
+                                      {ch.facturaNro || 'Factura Asociada'}
+                                    </td>
+                                    <td className="py-1.5 px-2.5 border-r border-slate-200 font-semibold text-slate-800">
+                                      {ch.proveedorNombre || proveedorActivo?.razonSocial}
+                                    </td>
+                                    <td className="py-1.5 px-2.5 border-r border-slate-200 text-center font-bold text-slate-700">
+                                      {ch.cuotaNro ? `Cuota ${ch.cuotaNro}/${ch.totalCuotas || ch.cuotaNro}` : '1/1'}
+                                    </td>
+                                    <td className="py-1.5 px-2.5 border-r border-slate-200 font-extrabold text-amber-800">
+                                      📅 {ch.fechaPago}
+                                    </td>
+                                    <td className="py-1.5 px-2.5 border-r border-slate-200 text-right font-extrabold text-slate-900">
+                                      ${ch.importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="py-1.5 px-2.5 text-center">
+                                      <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold text-[9px] uppercase">
+                                        {ch.estado}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -1580,13 +1838,13 @@ export const ProveedoresModule: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: AGREGAR PAGO A PROVEEDOR (PASO 2: DESEMBOLSO REAL DE TESORERÍA) */}
+      {/* MODAL: AGREGAR PAGO A PROVEEDOR (CON SOPORTE DE CUOTAS Y MÚLTIPLES CHEQUES ATADOS A FACTURA Y PROVEEDOR) */}
       {showPagoModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-300 max-w-md w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-300 max-w-3xl w-full p-6 shadow-2xl space-y-4 font-mono text-xs my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <h3 className="text-sm font-bold text-slate-900 uppercase">
-                AGREGAR PAGO // {proveedorActivo?.razonSocial}
+                AGREGAR PAGO / CUOTAS Y CHEQUES // {proveedorActivo?.razonSocial}
               </h3>
               <button onClick={() => setShowPagoModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
@@ -1594,67 +1852,265 @@ export const ProveedoresModule: React.FC = () => {
             </div>
 
             <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-950 font-sans">
-              <strong>Desembolso Efectivo:</strong> Desde aquí se <strong>saca el pago</strong> descontando el dinero de la Cuenta de Tesorería elegida y cancelando la deuda pendiente del proveedor.
+              <strong>Desembolso Efectivo, Cuotas y Cheques:</strong> Elegí la factura a cancelar, dividila en cuotas si corresponde y asociá <strong>uno o varios cheques</strong> con sus respectivas fechas de vencimiento. Cada cheque queda atado a la factura, al proveedor y al Calendario de Vencimientos.
             </div>
 
             <form onSubmit={handleAgregarPago} className="space-y-4">
-              <div>
-                <label className="block text-slate-600 font-bold mb-1">Monto a Pagar ($ ARS):</label>
-                <input
-                  type="number"
-                  required
-                  step="0.01"
-                  value={montoPago}
-                  onChange={(e) => setMontoPago(parseFloat(e.target.value) || 0)}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-slate-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-600 font-bold mb-1">Medio de Pago:</label>
-                <select
-                  value={medioPago}
-                  onChange={(e) => setMedioPago(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-[#042f22]"
-                >
-                  <option value="Transferencia Bancaria Santander">Transferencia Bancaria Santander</option>
-                  <option value="Transferencia Bancaria Galicia">Transferencia Bancaria Galicia</option>
-                  <option value="Cheque Propio Diferido">Cheque Propio Diferido</option>
-                  <option value="Efectivo de Caja">Efectivo en Caja</option>
-                  <option value="Mercado Pago / Transferencia CVU">Mercado Pago / Transferencia CVU</option>
-                  <option value="Cuenta Corriente a 30 Días">Cancelación de Cuenta Corriente</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-600 font-bold mb-1">Cuenta de Tesorería Origen:</label>
-                <select
-                  value={cuentaPagoId}
-                  onChange={(e) => setCuentaPagoId(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
-                >
-                  {cuentasBancarias.map((cta) => (
-                    <option key={cta.id} value={cta.id}>
-                      {cta.nombre} (${cta.saldoActual.toLocaleString('es-AR')})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {medioPago.includes('Cheque') && (
+              {/* Selección de Factura a Pagar y Modalidad de Cuotas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 border border-slate-200">
                 <div>
-                  <label className="block text-slate-600 font-bold mb-1">Nro. de Cheque Propio:</label>
-                  <input
-                    type="text"
-                    placeholder="Ej: 55410999"
-                    value={nroChequePago}
-                    onChange={(e) => setNroChequePago(e.target.value)}
+                  <label className="block text-slate-700 font-bold mb-1">1. Factura Adeudada a Imputar:</label>
+                  <select
+                    value={facturaPagoId}
+                    onChange={(e) => {
+                      const idSel = e.target.value;
+                      setFacturaPagoId(idSel);
+                      const facObj = proveedorActivo?.facturasAdeudadas.find((f) => f.id === idSel);
+                      if (facObj && facObj.saldo > 0) {
+                        setMontoPago(facObj.saldo);
+                        if (medioPago.toLowerCase().includes('cheque')) {
+                          generarPlanChequesEnCuotas(cantidadCuotasPago, facObj.saldo);
+                        }
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 font-bold text-slate-900"
+                  >
+                    <option value="">-- Imputación Automática (Más antigua) --</option>
+                    {proveedorActivo?.facturasAdeudadas
+                      .filter((f) => f.saldo > 0)
+                      .map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.tipo} {f.nroComprobante} — Saldo: ${f.saldo.toLocaleString('es-AR')} (Vto: {f.fechaPago})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">2. Plan de Cuotas / Cantidad de Cheques:</label>
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={cantidadCuotasPago}
+                      onChange={(e) => {
+                        const cant = Number(e.target.value) || 1;
+                        setCantidadCuotasPago(cant);
+                        const facObj = proveedorActivo?.facturasAdeudadas.find((f) => f.id === facturaPagoId);
+                        const baseSaldo = facObj?.saldo || montoPago;
+                        if (medioPago.toLowerCase().includes('cheque') || cant > 1) {
+                          setMedioPago('Cheque Propio Diferido');
+                          generarPlanChequesEnCuotas(cant, baseSaldo);
+                        }
+                      }}
+                      className="flex-1 px-2.5 py-1.5 bg-white border border-slate-300 font-bold text-[#042f22]"
+                    >
+                      <option value={1}>1 Pago / 1 Cheque (Total)</option>
+                      <option value={2}>2 Cuotas / 2 Cheques (30 y 60 días)</option>
+                      <option value={3}>3 Cuotas / 3 Cheques (30, 60 y 90 días)</option>
+                      <option value={4}>4 Cuotas / 4 Cheques (30 a 120 días)</option>
+                      <option value={6}>6 Cuotas / 6 Cheques</option>
+                      <option value={12}>12 Cuotas / 12 Cheques</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">Medio de Pago:</label>
+                  <select
+                    value={medioPago}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setMedioPago(val);
+                      if (val.toLowerCase().includes('cheque') && chequesPagoList.length === 0) {
+                        generarPlanChequesEnCuotas(cantidadCuotasPago, montoPago);
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-[#042f22]"
+                  >
+                    <option value="Cheque Propio Diferido">Cheque Propio Diferido (1 o Varios Cheques)</option>
+                    <option value="Endoso de Cheques en Cartera">Endoso de Cheques en Cartera</option>
+                    <option value="Transferencia Bancaria Santander">Transferencia Bancaria Santander</option>
+                    <option value="Transferencia Bancaria Galicia">Transferencia Bancaria Galicia</option>
+                    <option value="Efectivo de Caja">Efectivo en Caja</option>
+                    <option value="Mercado Pago / Transferencia CVU">Mercado Pago / Transferencia CVU</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">Cuenta de Tesorería Origen:</label>
+                  <select
+                    value={cuentaPagoId}
+                    onChange={(e) => setCuentaPagoId(e.target.value)}
                     className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
+                  >
+                    {cuentasBancarias.map((cta) => (
+                      <option key={cta.id} value={cta.id}>
+                        {cta.nombre} (${cta.saldoActual.toLocaleString('es-AR')})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">Monto Total Orden de Pago ($ ARS):</label>
+                  <input
+                    type="number"
+                    required
+                    step="0.01"
+                    value={montoPago}
+                    onChange={(e) => setMontoPago(parseFloat(e.target.value) || 0)}
+                    className="w-full px-2.5 py-1.5 bg-emerald-50 border border-emerald-400 font-extrabold text-[#042f22]"
                   />
+                </div>
+              </div>
+
+              {/* GRILLA INTERACTIVA DE MÚLTIPLES CHEQUES Y FECHAS DE VENCIMIENTO ATADOS A LA FACTURA */}
+              {(medioPago.toLowerCase().includes('cheque') || chequesPagoList.length > 0) && (
+                <div className="border-2 border-indigo-200 bg-indigo-50/40 p-3 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[11px] font-extrabold text-indigo-950 uppercase block">
+                        🏦 Desglose de Cheques y Vencimientos Atados a la Factura ({chequesPagoList.length} cheque/s)
+                      </span>
+                      <span className="text-[10px] text-slate-600 font-sans">
+                        Podés pagar una misma factura con varios cheques propios diferidos o endosar cheques de cartera.
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const facObj = proveedorActivo?.facturasAdeudadas.find((f) => f.id === facturaPagoId);
+                          generarPlanChequesEnCuotas(
+                            Math.max(2, cantidadCuotasPago),
+                            facObj?.saldo || montoPago
+                          );
+                        }}
+                        className="px-2.5 py-1 bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-[10px] uppercase"
+                      >
+                        ⚡ Dividir en {Math.max(2, cantidadCuotasPago)} Cheques
+                      </button>
+                      <button
+                        type="button"
+                        onClick={agregarChequeAlPago}
+                        className="px-2.5 py-1 bg-[#064e3b] hover:bg-[#042f22] text-white font-bold text-[10px] uppercase flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Agregar otro Cheque</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto bg-white border border-indigo-200">
+                    <table className="w-full text-left text-[11px] border-collapse">
+                      <thead>
+                        <tr className="bg-indigo-100/80 text-indigo-950 font-bold border-b border-indigo-200">
+                          <th className="py-1.5 px-2 border-r border-indigo-200 w-16 text-center">Cuota</th>
+                          <th className="py-1.5 px-2 border-r border-indigo-200">Origen del Cheque</th>
+                          <th className="py-1.5 px-2 border-r border-indigo-200">N° Cheque</th>
+                          <th className="py-1.5 px-2 border-r border-indigo-200">Banco Emisor</th>
+                          <th className="py-1.5 px-2 border-r border-indigo-200">Fecha Vencimiento</th>
+                          <th className="py-1.5 px-2 border-r border-indigo-200 text-right">Importe ($ ARS)</th>
+                          <th className="py-1.5 px-2 text-center w-10"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {chequesPagoList.map((ch) => (
+                          <tr key={ch.id} className="hover:bg-slate-50">
+                            <td className="py-1.5 px-2 border-r border-slate-200 text-center font-bold text-indigo-900">
+                              {ch.cuotaNro}/{ch.totalCuotas}
+                            </td>
+                            <td className="py-1.5 px-2 border-r border-slate-200">
+                              <select
+                                value={ch.chequeCarteraId || 'PROPIO'}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === 'PROPIO') {
+                                    actualizarChequePago(ch.id, {
+                                      tipo: 'Cheque Propio Diferido',
+                                      chequeCarteraId: undefined
+                                    });
+                                  } else {
+                                    const chqCartera = cheques.find((c) => c.id === val);
+                                    if (chqCartera) {
+                                      actualizarChequePago(ch.id, {
+                                        tipo: 'Cheque Terceros (Cartera)',
+                                        chequeCarteraId: chqCartera.id,
+                                        numero: chqCartera.numero,
+                                        bancoEmisor: chqCartera.bancoEmisor,
+                                        fechaPago: chqCartera.fechaPago,
+                                        importe: chqCartera.importe
+                                      });
+                                    }
+                                  }
+                                }}
+                                className="w-full p-1 bg-slate-50 border border-slate-300 text-[10px] font-bold"
+                              >
+                                <option value="PROPIO">Cheque Propio Diferido (Emitir)</option>
+                                {cheques
+                                  .filter((c) => c.estado === 'En Cartera')
+                                  .map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      Endosar Cartera #{c.numero} ({c.bancoEmisor} · ${c.importe.toLocaleString('es-AR')})
+                                    </option>
+                                  ))}
+                              </select>
+                            </td>
+                            <td className="py-1.5 px-2 border-r border-slate-200">
+                              <input
+                                type="text"
+                                value={ch.numero}
+                                onChange={(e) => actualizarChequePago(ch.id, { numero: e.target.value })}
+                                className="w-24 p-1 bg-white border border-slate-300 font-bold"
+                              />
+                            </td>
+                            <td className="py-1.5 px-2 border-r border-slate-200">
+                              <input
+                                type="text"
+                                value={ch.bancoEmisor}
+                                onChange={(e) => actualizarChequePago(ch.id, { bancoEmisor: e.target.value })}
+                                className="w-32 p-1 bg-white border border-slate-300"
+                              />
+                            </td>
+                            <td className="py-1.5 px-2 border-r border-slate-200">
+                              <input
+                                type="date"
+                                value={ch.fechaPago}
+                                onChange={(e) => actualizarChequePago(ch.id, { fechaPago: e.target.value })}
+                                className="p-1 bg-amber-50 border border-amber-300 font-bold text-amber-950"
+                              />
+                            </td>
+                            <td className="py-1.5 px-2 border-r border-slate-200 text-right">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={ch.importe}
+                                onChange={(e) =>
+                                  actualizarChequePago(ch.id, { importe: parseFloat(e.target.value) || 0 })
+                                }
+                                className="w-28 p-1 bg-white border border-slate-300 text-right font-extrabold text-slate-900"
+                              />
+                            </td>
+                            <td className="py-1.5 px-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => eliminarChequePago(ch.id)}
+                                className="text-slate-400 hover:text-rose-600"
+                                title="Quitar este cheque"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowPagoModal(false)}
@@ -1667,7 +2123,10 @@ export const ProveedoresModule: React.FC = () => {
                   className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold uppercase flex items-center gap-1.5"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Emitir Orden de Pago</span>
+                  <span>
+                    Emitir Orden de Pago
+                    {chequesPagoList.length > 0 ? ` (${chequesPagoList.length} Cheque/s)` : ''}
+                  </span>
                 </button>
               </div>
             </form>

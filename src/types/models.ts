@@ -45,6 +45,23 @@ export interface Cliente {
   movimientos: CuentaClienteMovimiento[];
 }
 
+export interface ChequeAsociadoFactura {
+  id: string;
+  numero: string;
+  bancoEmisor: string;
+  fechaEmision: string;
+  fechaPago: string; // Fecha de vencimiento / cobro del cheque
+  importe: number;
+  tipo: 'Cheque Propio Diferido' | 'Cheque Terceros (Cartera)';
+  estado: 'En Cartera' | 'Depositado' | 'Cobrado' | 'Entregado a Proveedor' | 'Rechazado';
+  cuotaNro?: number;
+  totalCuotas?: number;
+  facturaId?: string;
+  facturaNro?: string;
+  proveedorId?: string;
+  proveedorNombre?: string;
+}
+
 export interface FacturaAdeudadaProveedor {
   id: string;
   nroComprobante: string;
@@ -53,6 +70,9 @@ export interface FacturaAdeudadaProveedor {
   fechaPago: string;
   descripcion: string;
   medioPagoPactado?: string;
+  cantidadCuotas?: number;
+  cuotasPagadas?: number;
+  chequesAsociados?: ChequeAsociadoFactura[];
   valorMe: number;
   total: number;
   pagado: number;
@@ -161,6 +181,12 @@ export interface Cheque {
   fechaPago: string;
   importe: number;
   estado: 'En Cartera' | 'Depositado' | 'Cobrado' | 'Entregado a Proveedor' | 'Rechazado';
+  proveedorId?: string;
+  proveedorNombre?: string;
+  facturaId?: string;
+  facturaNro?: string;
+  cuotaNro?: number;
+  totalCuotas?: number;
 }
 
 export interface MovimientoMayor {
