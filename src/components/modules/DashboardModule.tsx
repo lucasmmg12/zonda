@@ -92,15 +92,7 @@ export const DashboardModule: React.FC = () => {
         </svg>
 
         <div className="relative z-10">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-[#064e3b] bg-emerald-50 px-2 py-0.5 border border-emerald-300">
-              SYS // TABLERO EJECUTIVO
-            </span>
-            <span className="text-xs text-[#1f5e41] font-semibold">
-              PERÍODO: 2026.10
-            </span>
-          </div>
-          <h2 className="text-lg font-bold text-[#042f22] tracking-tight mt-1 uppercase">
+          <h2 className="text-lg font-bold text-[#042f22] tracking-tight uppercase">
             CONSOLA DE CONTROL CONTABLE Y AUDITORÍA FINANCIERA
           </h2>
         </div>
