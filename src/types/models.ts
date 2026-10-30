@@ -9,6 +9,7 @@ export interface FacturaAdeudada {
   fechaEmision: string;
   fechaPago: string;
   descripcion: string;
+  medioCobroPactado?: string;
   valorMe: number;
   total: number;
   cobrado: number;
@@ -51,6 +52,7 @@ export interface FacturaAdeudadaProveedor {
   fechaEmision: string;
   fechaPago: string;
   descripcion: string;
+  medioPagoPactado?: string;
   valorMe: number;
   total: number;
   pagado: number;
@@ -119,6 +121,7 @@ export interface ComprobanteCompra {
   retencionIIBB: number;
   total: number;
   estadoPago: 'Pendiente' | 'Pagado Parcial' | 'Pagado Total';
+  medioPagoPactado?: string;
 }
 
 export interface MovimientoTesoreria {

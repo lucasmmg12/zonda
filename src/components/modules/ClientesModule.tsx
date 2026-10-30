@@ -68,6 +68,7 @@ export const ClientesModule: React.FC = () => {
   // Formulario Cobro
   const [montoCobro, setMontoCobro] = useState(100000);
   const [medioCobro, setMedioCobro] = useState('Transferencia Bancaria Santander');
+  const [medioCobroFactura, setMedioCobroFactura] = useState('Transferencia Bancaria Santander');
 
   // Formulario Nuevo Cliente
   const [nuevoNombre, setNuevoNombre] = useState('');
@@ -102,6 +103,19 @@ export const ClientesModule: React.FC = () => {
       const iva105Calc = alicuotaIvaSelect === '10.5' ? Number((netoFactura * 0.105).toFixed(2)) : 0;
       const iva27Calc = alicuotaIvaSelect === '27' ? Number((netoFactura * 0.27).toFixed(2)) : 0;
 
+      const totalCalc = Number(
+        (
+          netoFactura +
+          noGravadoExentoFactura +
+          iva21Calc +
+          iva105Calc +
+          iva27Calc +
+          percepcionIIBBFactura +
+          percepcionIvaFactura +
+          impuestosInternosFactura
+        ).toFixed(2)
+      );
+
       await emitirFacturaVenta({
         clienteId: clienteActivo.id,
         tipo: tipoFactura,
@@ -114,8 +128,11 @@ export const ClientesModule: React.FC = () => {
         percepcionIIBB: percepcionIIBBFactura,
         percepcionIva: percepcionIvaFactura,
         impuestosInternos: impuestosInternosFactura,
-        descripcion: descFactura || 'Certificación de obra y provisión de materiales'
+        descripcion: descFactura || 'Certificación de obra y provisión de materiales',
+        medioCobroPactado: medioCobroFactura
       });
+      setMontoCobro(totalCalc);
+      setMedioCobro(medioCobroFactura);
       setShowFacturaModal(false);
       setDescFactura('');
       setNoGravadoExentoFactura(0);
@@ -1239,6 +1256,29 @@ export const ClientesModule: React.FC = () => {
                   <label className="block text-slate-600 font-bold mb-1">Punto de Venta:</label>
                   <input type="text" readOnly value="0001 (Electrónico)" className="w-full px-2.5 py-1.5 bg-slate-100 border border-slate-300 text-slate-500" />
                 </div>
+              </div>
+
+              {/* MEDIO DE COBRO PACTADO + INSTRUCTIVO 2 PASOS */}
+              <div className="p-3 bg-emerald-50/80 border border-emerald-300 space-y-2">
+                <div>
+                  <label className="block text-[#042f22] font-bold mb-1">
+                    Medio de Pago / Cobro Pactado (Queda Pendiente):
+                  </label>
+                  <select
+                    value={medioCobroFactura}
+                    onChange={(e) => setMedioCobroFactura(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-emerald-400 font-bold text-[#042f22] text-xs"
+                  >
+                    <option value="Transferencia Bancaria Santander">Transferencia Santander Cta Cte</option>
+                    <option value="Transferencia Bancaria Galicia">Transferencia Galicia Cta Cte</option>
+                    <option value="Cheque de Terceros">Cheque de Terceros a Depositar</option>
+                    <option value="Mercado Pago (Link / QR)">Mercado Pago (Link / QR)</option>
+                    <option value="Efectivo en Caja Central">Efectivo en Caja Central</option>
+                  </select>
+                </div>
+                <p className="text-[10px] text-slate-700 font-sans leading-snug">
+                  <strong>Paso 1:</strong> Al emitir esta factura el importe queda <strong>PENDIENTE</strong> en Cuenta Corriente. <strong>Paso 2:</strong> Luego pulsá <strong>&ldquo;Agregar cobro&rdquo;</strong> para registrar el ingreso real del pago en Tesorería.
+                </p>
               </div>
 
               <div>

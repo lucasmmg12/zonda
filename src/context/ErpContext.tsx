@@ -98,6 +98,7 @@ interface ErpContextValue {
     cae?: string;
     caeVencimiento?: string;
     descripcion: string;
+    medioCobroPactado?: string;
   }) => Promise<void>;
   registrarCobroCliente: (params: {
     clienteId: string;
@@ -116,6 +117,8 @@ interface ErpContextValue {
     netoGravado: number;
     descripcion: string;
     cuentaGasto?: string;
+    medioPagoPactado?: string;
+    fechaVencimiento?: string;
   }) => Promise<void>;
   registrarPagoProveedor: (params: {
     proveedorId: string;
@@ -688,6 +691,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     cae?: string;
     caeVencimiento?: string;
     descripcion: string;
+    medioCobroPactado?: string;
   }) => {
     const cliente = clientes.find((c) => c.id === params.clienteId);
     if (!cliente) return;
@@ -731,6 +735,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       fechaEmision: hoy,
       fechaPago: vto,
       descripcion: params.descripcion || 'Certificación de obras y provisión de materiales',
+      medioCobroPactado: params.medioCobroPactado || 'Transferencia Bancaria Santander',
       valorMe: 0,
       total,
       cobrado: 0,
@@ -1022,15 +1027,18 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     netoGravado: number;
     descripcion: string;
     cuentaGasto?: string;
+    medioPagoPactado?: string;
+    fechaVencimiento?: string;
   }) => {
     const proveedor = proveedores.find((p) => p.id === params.proveedorId);
     if (!proveedor) return;
 
     const hoy = new Date().toISOString().split('T')[0];
-    const vto = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const vto = params.fechaVencimiento || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const nroFact = `0001-000${Math.floor(10000 + Math.random() * 89999)}`;
     const iva = Number((params.netoGravado * 0.21).toFixed(2));
     const total = Number((params.netoGravado + iva).toFixed(2));
+    const medioPactado = params.medioPagoPactado || 'Transferencia Bancaria Santander';
 
     const nuevaFacturaAdeudada: FacturaAdeudadaProveedor = {
       id: `FP-${Date.now()}`,
@@ -1039,6 +1047,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       fechaEmision: hoy,
       fechaPago: vto,
       descripcion: params.descripcion || 'Provisión de materiales e insumos operativos',
+      medioPagoPactado: medioPactado,
       valorMe: 0,
       total,
       pagado: 0,
@@ -1056,7 +1065,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `MP-${Date.now()}`,
           fecha: hoy,
           comprobante: `${params.tipo} ${nroFact}`,
-          concepto: params.descripcion || 'Registro de Factura de Compra',
+          concepto: `${params.descripcion || 'Registro de Factura de Compra'} [Medio previsto: ${medioPactado} · PENDIENTE DE PAGO]`,
           debe: 0,
           haber: total,
           saldo: Number((proveedor.saldo + total).toFixed(2))
@@ -1078,7 +1087,8 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       retencionIva: 0,
       retencionIIBB: 0,
       total,
-      estadoPago: 'Pendiente'
+      estadoPago: 'Pendiente',
+      medioPagoPactado: medioPactado
     };
 
     setProveedores((prev) => prev.map((p) => (p.id === proveedor.id ? proveedorActualizado : p)));

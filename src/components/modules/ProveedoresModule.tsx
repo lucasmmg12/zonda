@@ -51,12 +51,38 @@ export const ProveedoresModule: React.FC = () => {
   const [tipoFactura, setTipoFactura] = useState<'Factura A' | 'Factura B' | 'Factura C' | 'Liquidación' | 'Nota de Débito'>('Factura A');
   const [netoFactura, setNetoFactura] = useState(300000);
   const [descFactura, setDescFactura] = useState('');
+  const [medioPagoFactura, setMedioPagoFactura] = useState('Transferencia Bancaria Santander');
+  const [fechaVtoFactura, setFechaVtoFactura] = useState(
+    () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  );
+
+  // Aviso interactivo post-carga de factura (Paso 1 -> Paso 2)
+  const [avisoFacturaPendiente, setAvisoFacturaPendiente] = useState<{
+    total: number;
+    medioPactado: string;
+    proveedorNombre: string;
+  } | null>(null);
 
   // Formulario Pago
   const [montoPago, setMontoPago] = useState(150000);
   const [medioPago, setMedioPago] = useState('Transferencia Bancaria Santander');
-  const [cuentaPagoId, setCuentaPagoId] = useState('CTA-001');
+  const [cuentaPagoId, setCuentaPagoId] = useState('CTA-01');
   const [nroChequePago, setNroChequePago] = useState('');
+
+  // Helper para abrir el modal de Pago (Paso 2) pre-cargando el medio de pago elegido en la factura
+  const abrirModalPagoConMedio = (monto: number, medioElegido?: string) => {
+    const medio = medioElegido || medioPagoFactura || 'Transferencia Bancaria Santander';
+    setMontoPago(Number(monto.toFixed(2)));
+    setMedioPago(medio);
+    if (medio.toLowerCase().includes('santander')) {
+      setCuentaPagoId('CTA-02');
+    } else if (medio.toLowerCase().includes('galicia')) {
+      setCuentaPagoId('CTA-04');
+    } else {
+      setCuentaPagoId('CTA-01');
+    }
+    setShowPagoModal(true);
+  };
 
   // Formulario Nuevo Proveedor
   const [nuevoNombre, setNuevoNombre] = useState('');
@@ -81,24 +107,37 @@ export const ProveedoresModule: React.FC = () => {
   const proveedorActivo =
     proveedores.find((p) => p.id === proveedorSeleccionadoId) || proveedoresFiltrados[0];
 
-  // Crear Factura Compra en Supabase + Contabilidad
+  // Crear Factura Compra en Supabase + Contabilidad (Paso 1: Queda Pendiente de Pago)
   const handleCrearFactura = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!proveedorActivo) return;
+
+    const totalCalculado = Number((netoFactura * 1.21).toFixed(2));
 
     await registrarFacturaCompra({
       proveedorId: proveedorActivo.id,
       tipo: tipoFactura,
       netoGravado: netoFactura,
       descripcion: descFactura || 'Provisión de insumos operativos',
-      cuentaGasto: proveedorActivo.cuentaGastoHabitual
+      cuentaGasto: proveedorActivo.cuentaGastoHabitual,
+      medioPagoPactado: medioPagoFactura,
+      fechaVencimiento: fechaVtoFactura
+    });
+
+    // Pre-configurar el formulario de pago con el monto y medio elegido para el Paso 2
+    setMontoPago(totalCalculado);
+    setMedioPago(medioPagoFactura);
+    setAvisoFacturaPendiente({
+      total: totalCalculado,
+      medioPactado: medioPagoFactura,
+      proveedorNombre: proveedorActivo.razonSocial
     });
 
     setShowFacturaModal(false);
     setDescFactura('');
   };
 
-  // Agregar Pago en Supabase + Tesorería + Contabilidad
+  // Agregar Pago en Supabase + Tesorería + Contabilidad (Paso 2: Saca el dinero de Tesorería)
   const handleAgregarPago = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!proveedorActivo) return;
@@ -111,6 +150,7 @@ export const ProveedoresModule: React.FC = () => {
       nroCheque: nroChequePago || undefined
     });
 
+    setAvisoFacturaPendiente(null);
     setShowPagoModal(false);
     setNroChequePago('');
   };
@@ -459,18 +499,60 @@ export const ProveedoresModule: React.FC = () => {
               {/* CONTENIDO DE LA PESTAÑA: FACTURAS ADEUDADAS AL PROVEEDOR */}
               {tabDetalle === 'adeudadas' && (
                 <div>
-                  {/* Barra informativa */}
-                  <div className="bg-slate-50 px-4 py-1.5 border-b border-slate-200 flex items-center justify-between text-xs font-mono text-slate-600">
-                    <span>Facturas adeudadas al proveedor (doble click para imputar pago)</span>
+                  {/* Instructivo Permanente de Flujo en 2 Pasos (Cargar Factura Pendiente -> Sacar Pago) */}
+                  <div className="bg-emerald-50/80 px-4 py-2.5 border-b border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+                    <div className="flex flex-wrap items-center gap-2 text-[#042f22]">
+                      <span className="px-2 py-0.5 bg-[#042f22] text-white font-bold text-[10px] uppercase">
+                        CÓMO REGISTRAR Y PAGAR
+                      </span>
+                      <span>
+                        <strong>Paso 1:</strong> En <strong>&ldquo;Agregar factura&rdquo;</strong> elegís el medio de pago previsto y la factura queda <strong>PENDIENTE</strong> (no descuenta caja).
+                      </span>
+                      <span className="text-emerald-700 font-bold">&rarr;</span>
+                      <span>
+                        <strong>Paso 2:</strong> Usá <strong>&ldquo;$ Agregar pago&rdquo;</strong> o el botón <strong>&ldquo;$ Sacar Pago&rdquo;</strong> de la tabla para debitar el dinero de Tesorería.
+                      </span>
+                    </div>
                     <button
                       onClick={handleExportarAdeudadasExcel}
                       title="Exportar a Excel (CSV)"
-                      className="p-1 hover:bg-slate-200 text-emerald-700 flex items-center gap-1 font-bold"
+                      className="p-1 hover:bg-emerald-100 text-emerald-800 flex items-center gap-1 font-bold shrink-0"
                     >
                       <FileSpreadsheet className="w-4 h-4" />
                       <span className="text-[10px]">Excel</span>
                     </button>
                   </div>
+
+                  {/* Banner interactivo cuando el usuario acaba de cargar una factura (Paso 1 completado -> Invitación a Paso 2) */}
+                  {avisoFacturaPendiente && (
+                    <div className="bg-amber-50 border-b-2 border-amber-300 px-4 py-3 flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-amber-950 uppercase block">
+                          ✓ PASO 1 COMPLETADO: FACTURA REGISTRADA COMO PENDIENTE (${avisoFacturaPendiente.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })})
+                        </span>
+                        <p className="text-[11px] text-amber-900 font-sans">
+                          Medio de pago pactado: <strong>{avisoFacturaPendiente.medioPactado}</strong>. El dinero <strong>aún no salió de Tesorería</strong>. Para desembolsar el pago ahora o cuando corresponda, ejecutá el <strong>Paso 2</strong>:
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => abrirModalPagoConMedio(avisoFacturaPendiente.total, avisoFacturaPendiente.medioPactado)}
+                          className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+                        >
+                          <DollarSign className="w-3.5 h-3.5" />
+                          <span>Paso 2: Sacar Pago Ahora (${avisoFacturaPendiente.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAvisoFacturaPendiente(null)}
+                          className="px-2 py-1 text-amber-800 hover:bg-amber-100 font-bold text-xs"
+                        >
+                          Dejar Pendiente
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Grilla de Facturas Adeudadas */}
                   <div className="overflow-x-auto min-h-[360px]">
@@ -481,11 +563,11 @@ export const ProveedoresModule: React.FC = () => {
                           <th className="py-2 px-3 border-r border-slate-200">Tipo</th>
                           <th className="py-2 px-3 border-r border-slate-200">Fecha pago</th>
                           <th className="py-2 px-3 border-r border-slate-200">Descripción</th>
-                          <th className="py-2 px-3 border-r border-slate-200 text-right">Valor ME</th>
+                          <th className="py-2 px-3 border-r border-slate-200">Medio de Pago Pactado</th>
                           <th className="py-2 px-3 border-r border-slate-200 text-right">Total</th>
                           <th className="py-2 px-3 border-r border-slate-200 text-right">Pagado</th>
-                          <th className="py-2 px-3 border-r border-slate-200 text-right">Saldo</th>
-                          <th className="py-2 px-3 text-right">Saldo acumulado</th>
+                          <th className="py-2 px-3 border-r border-slate-200 text-right">Saldo Pendiente</th>
+                          <th className="py-2 px-3 text-center">Acción (Paso 2)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
@@ -493,10 +575,7 @@ export const ProveedoresModule: React.FC = () => {
                           proveedorActivo.facturasAdeudadas.map((f) => (
                             <tr
                               key={f.id}
-                              onDoubleClick={() => {
-                                setMontoPago(f.saldo);
-                                setShowPagoModal(true);
-                              }}
+                              onDoubleClick={() => abrirModalPagoConMedio(f.saldo, f.medioPagoPactado)}
                               className="hover:bg-slate-50 cursor-pointer"
                             >
                               <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-900">
@@ -507,8 +586,15 @@ export const ProveedoresModule: React.FC = () => {
                               <td className="py-2 px-3 border-r border-slate-200 text-slate-600 font-sans text-[11px] truncate max-w-xs">
                                 {f.descripcion}
                               </td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-right text-slate-400">
-                                {f.valorMe > 0 ? `$${f.valorMe.toFixed(2)}` : '-'}
+                              <td className="py-2 px-3 border-r border-slate-200">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-[10px] font-bold text-[#042f22]">
+                                    {f.medioPagoPactado || 'Transferencia Bancaria Santander'}
+                                  </span>
+                                  <span className="inline-block w-fit text-[9px] font-bold uppercase px-1.5 py-0.2 bg-amber-100 text-amber-800 border border-amber-300">
+                                    PENDIENTE DE SALIDA
+                                  </span>
+                                </div>
                               </td>
                               <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-slate-900">
                                 ${f.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
@@ -519,8 +605,19 @@ export const ProveedoresModule: React.FC = () => {
                               <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-rose-700">
                                 ${f.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                               </td>
-                              <td className="py-2 px-3 text-right font-bold text-slate-900">
-                                ${f.saldoAcumulado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                              <td className="py-2 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    abrirModalPagoConMedio(f.saldo, f.medioPagoPactado);
+                                  }}
+                                  className="px-2.5 py-1 bg-[#064e3b] hover:bg-[#047857] text-white text-[10px] font-bold uppercase inline-flex items-center gap-1"
+                                  title="Abrir ventana Agregar Pago con este monto y medio de pago"
+                                >
+                                  <DollarSign className="w-3 h-3" />
+                                  <span>Sacar Pago</span>
+                                </button>
                               </td>
                             </tr>
                           ))
@@ -722,23 +819,32 @@ export const ProveedoresModule: React.FC = () => {
             <div className="bg-[#ecfdf5]/30 border-t border-slate-300 px-4 py-2 flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setShowFacturaModal(true)}
-                className="px-3.5 py-1.5 bg-[#ecfdf5] hover:bg-[#ddd6fe] text-[#581c87] font-mono text-xs font-bold border border-[#c4b5fd] flex items-center gap-1.5 transition-colors"
+                title="Paso 1: Cargar factura y elegir medio de pago pactado (queda pendiente en cuenta corriente)"
+                className="px-3.5 py-1.5 bg-[#ecfdf5] hover:bg-emerald-100 text-[#042f22] font-mono text-xs font-bold border border-emerald-400 flex items-center gap-1.5 transition-colors"
               >
-                <FileText className="w-3.5 h-3.5 text-[#581c87]" />
-                <span>Agregar factura ▼</span>
+                <FileText className="w-3.5 h-3.5 text-[#064e3b]" />
+                <span>1° Agregar factura (Pendiente) ▼</span>
               </button>
 
               <button
-                onClick={() => setShowPagoModal(true)}
-                className="px-3.5 py-1.5 bg-[#ecfdf5] hover:bg-[#ddd6fe] text-[#581c87] font-mono text-xs font-bold border border-[#c4b5fd] flex items-center gap-1.5 transition-colors"
+                onClick={() => {
+                  const primeraPendiente = proveedorActivo?.facturasAdeudadas?.[0];
+                  if (primeraPendiente) {
+                    abrirModalPagoConMedio(primeraPendiente.saldo, primeraPendiente.medioPagoPactado);
+                  } else {
+                    setShowPagoModal(true);
+                  }
+                }}
+                title="Paso 2: Sacar el pago de Tesorería para cancelar facturas pendientes"
+                className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-950 font-mono text-xs font-bold border border-amber-400 flex items-center gap-1.5 transition-colors"
               >
-                <DollarSign className="w-3.5 h-3.5 text-[#581c87]" />
-                <span>Agregar pago</span>
+                <DollarSign className="w-3.5 h-3.5 text-amber-800" />
+                <span>2° Agregar pago (Sacar Pago)</span>
               </button>
 
               <button
                 onClick={() => setShowNuevoProveedorModal(true)}
-                className="px-3.5 py-1.5 bg-[#581c87] hover:bg-[#064e3b] text-white font-mono text-xs font-bold border border-[#581c87] flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
               >
                 <UserPlus className="w-3.5 h-3.5" />
                 <span>Nuevo proveedor</span>
@@ -746,7 +852,7 @@ export const ProveedoresModule: React.FC = () => {
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3.5 py-1.5 bg-[#581c87] hover:bg-[#064e3b] text-white font-mono text-xs font-bold border border-[#581c87] flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Importar CSV ▼</span>
@@ -802,20 +908,39 @@ export const ProveedoresModule: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: AGREGAR FACTURA DE COMPRA */}
+      {/* MODAL: AGREGAR FACTURA DE COMPRA (PASO 1: QUEDA PENDIENTE CON MEDIO DE PAGO PACTADO) */}
       {showFacturaModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-300 max-w-lg w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-white border border-slate-300 max-w-xl w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <h3 className="text-sm font-bold text-slate-900 font-mono uppercase">
-                AGREGAR FACTURA // {proveedorActivo?.razonSocial}
-              </h3>
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300">
+                  PASO 1 DE 2 · DEVENGAMIENTO DE FACTURA (QUEDA PENDIENTE DE PAGO)
+                </span>
+                <h3 className="text-sm font-bold text-slate-900 font-mono uppercase mt-1">
+                  AGREGAR FACTURA // {proveedorActivo?.razonSocial}
+                </h3>
+              </div>
               <button onClick={() => setShowFacturaModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCrearFactura} className="space-y-4 font-mono text-xs">
+            {/* GUÍA EXPLICATIVA PARA EL USUARIO: CÓMO FUNCIONA EL PAGO */}
+            <div className="p-3 bg-emerald-50/90 border-l-4 border-l-[#064e3b] border border-emerald-200 text-xs space-y-1.5">
+              <div className="font-mono font-bold text-[#042f22] uppercase flex items-center gap-1.5">
+                <HelpCircle className="w-4 h-4 text-[#064e3b] shrink-0" />
+                <span>Importante: ¿Cómo se registra y se saca el pago?</span>
+              </div>
+              <p className="text-[11px] text-slate-700 leading-relaxed">
+                <strong>1. En esta ventana (Agregar Factura):</strong> Elegís el <strong>Medio de Pago Pactado</strong> con el proveedor, pero <strong>de acá NO sale el dinero de Caja/Bancos</strong>. La factura queda cargada como <strong>PENDIENTE</strong> en <em>Facturas adeudadas</em>.
+              </p>
+              <p className="text-[11px] text-slate-700 leading-relaxed">
+                <strong>2. Para sacar el pago de Tesorería:</strong> Una vez cargada la factura, hacé clic en el botón <strong>&ldquo;$ Agregar pago&rdquo;</strong> (abajo) o en el botón <strong>&ldquo;Sacar Pago&rdquo;</strong> de la factura adeudada para emitir la Orden de Pago y descontar el dinero.
+              </p>
+            </div>
+
+            <form onSubmit={handleCrearFactura} className="space-y-3.5 font-mono text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-600 font-bold mb-1">Tipo de Comprobante:</label>
@@ -832,6 +957,45 @@ export const ProveedoresModule: React.FC = () => {
                 <div>
                   <label className="block text-slate-600 font-bold mb-1">Cuenta de Imputación:</label>
                   <input type="text" readOnly value={proveedorActivo?.cuentaGastoHabitual || '5.1.01 Materiales'} className="w-full px-2.5 py-1.5 bg-slate-100 border border-slate-300 text-slate-500" />
+                </div>
+              </div>
+
+              {/* NUEVO: SELECTOR DE MEDIO DE PAGO PACTADO + FECHA DE VENCIMIENTO */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-amber-50/60 border border-amber-200">
+                <div>
+                  <label className="block text-[#042f22] font-bold mb-1">
+                    Medio de Pago Pactado (Queda Pendiente):
+                  </label>
+                  <select
+                    value={medioPagoFactura}
+                    onChange={(e) => setMedioPagoFactura(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-emerald-400 font-bold text-[#042f22] text-xs"
+                  >
+                    <option value="Transferencia Bancaria Santander">Transferencia Bancaria Santander</option>
+                    <option value="Transferencia Bancaria Galicia">Transferencia Bancaria Galicia</option>
+                    <option value="Cheque Propio Diferido">Cheque Propio Diferido</option>
+                    <option value="Efectivo de Caja">Efectivo en Caja</option>
+                    <option value="Mercado Pago / Transferencia CVU">Mercado Pago / Transferencia CVU</option>
+                    <option value="Cuenta Corriente a 30 Días">Cuenta Corriente a 30 Días</option>
+                  </select>
+                  <span className="text-[10px] text-amber-800 block mt-1 font-sans">
+                    * No descuenta saldo ahora. Se pre-cargará al pulsar &ldquo;Agregar pago&rdquo;.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Fecha de Vencimiento del Pago:
+                  </label>
+                  <input
+                    type="date"
+                    value={fechaVtoFactura}
+                    onChange={(e) => setFechaVtoFactura(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 text-xs font-bold"
+                  />
+                  <span className="text-[10px] text-slate-500 block mt-1 font-sans">
+                    Impacta en el Calendario de Vencimientos.
+                  </span>
                 </div>
               </div>
 
@@ -868,8 +1032,12 @@ export const ProveedoresModule: React.FC = () => {
                   <span>IVA (21%):</span>
                   <span>${(netoFactura * 0.21).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                 </div>
+                <div className="flex justify-between text-amber-800 font-bold text-[11px] pt-1">
+                  <span>Estado inicial en Tesorería:</span>
+                  <span>PENDIENTE DE PAGO ({medioPagoFactura})</span>
+                </div>
                 <div className="flex justify-between font-bold text-slate-900 pt-1 border-t border-slate-200">
-                  <span>Total Factura Compra:</span>
+                  <span>Total Factura Compra (A Pagar):</span>
                   <span>${(netoFactura * 1.21).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
@@ -887,7 +1055,7 @@ export const ProveedoresModule: React.FC = () => {
                   className="px-4 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase flex items-center gap-1.5"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>Cargar Factura</span>
+                  <span>Cargar Factura (Dejar Pendiente)</span>
                 </button>
               </div>
             </form>
@@ -895,17 +1063,26 @@ export const ProveedoresModule: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: AGREGAR PAGO A PROVEEDOR */}
+      {/* MODAL: AGREGAR PAGO A PROVEEDOR (PASO 2: DESEMBOLSO REAL DE TESORERÍA) */}
       {showPagoModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-300 max-w-md w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <h3 className="text-sm font-bold text-slate-900 uppercase">
-                AGREGAR PAGO // {proveedorActivo?.razonSocial}
-              </h3>
+              <div>
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-emerald-100 text-[#064e3b] border border-emerald-300">
+                  PASO 2 DE 2 · EGRESO DE FONDOS DE TESORERÍA
+                </span>
+                <h3 className="text-sm font-bold text-slate-900 uppercase mt-1">
+                  AGREGAR PAGO // {proveedorActivo?.razonSocial}
+                </h3>
+              </div>
               <button onClick={() => setShowPagoModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
               </button>
+            </div>
+
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-950 font-sans">
+              <strong>Desembolso Efectivo:</strong> Desde aquí se <strong>saca el pago</strong> descontando el dinero de la Cuenta de Tesorería elegida y cancelando la deuda pendiente del proveedor.
             </div>
 
             <form onSubmit={handleAgregarPago} className="space-y-4">
@@ -926,11 +1103,14 @@ export const ProveedoresModule: React.FC = () => {
                 <select
                   value={medioPago}
                   onChange={(e) => setMedioPago(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-[#042f22]"
                 >
-                  <option value="Transferencia Bancaria Santander">Transferencia Bancaria</option>
+                  <option value="Transferencia Bancaria Santander">Transferencia Bancaria Santander</option>
+                  <option value="Transferencia Bancaria Galicia">Transferencia Bancaria Galicia</option>
                   <option value="Cheque Propio Diferido">Cheque Propio Diferido</option>
                   <option value="Efectivo de Caja">Efectivo en Caja</option>
+                  <option value="Mercado Pago / Transferencia CVU">Mercado Pago / Transferencia CVU</option>
+                  <option value="Cuenta Corriente a 30 Días">Cancelación de Cuenta Corriente</option>
                 </select>
               </div>
 
