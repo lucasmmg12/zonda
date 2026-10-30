@@ -175,7 +175,7 @@ export const ConfiguracionModule: React.FC = () => {
 
         <button
           onClick={() => setNotificacion('Calendario impositivo sincronizado: IVA 18/11, IIBB San Juan 20/11, F.931 12/11.')}
-          className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#4c1d95]"
+          className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
         >
           <Calendar className="w-3.5 h-3.5" />
           <span>Calendario de vencimientos</span>
@@ -183,7 +183,7 @@ export const ConfiguracionModule: React.FC = () => {
       </div>
 
       {/* 2. PESTAÑAS PRINCIPALES DEL MÓDULO */}
-      <div className="bg-[#ede9fe]/40 border-b border-slate-300 px-2 pt-1 flex flex-wrap items-center gap-1">
+      <div className="bg-[#ecfdf5]/40 border-b border-slate-300 px-2 pt-1 flex flex-wrap items-center gap-1">
         {[
           { key: 'generales', label: 'Datos generales' },
           { key: 'impositivos', label: 'Datos Impositivos' },
@@ -201,7 +201,7 @@ export const ConfiguracionModule: React.FC = () => {
               onClick={() => setTabActiva(tab.key as typeof tabActiva)}
               className={`px-3 py-1.5 text-xs font-bold transition-all border-t-2 ${
                 isActive
-                  ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
+                  ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
                   : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
@@ -222,7 +222,7 @@ export const ConfiguracionModule: React.FC = () => {
       {/* 3. VISTA PRINCIPAL: PESTAÑA DATOS GENERALES */}
       {tabActiva === 'generales' && (
         <div className="bg-white border border-slate-300 border-t-0 min-h-[640px]">
-          <div className="grid grid-cols-1 lg:grid-cols-2 bg-[#f3f0ff] border-b border-slate-300 text-xs font-mono font-bold text-slate-800">
+          <div className="grid grid-cols-1 lg:grid-cols-2 bg-[#f0fdf4] border-b border-slate-300 text-xs font-mono font-bold text-slate-800">
             <div className="px-4 py-1.5 border-r border-slate-300">
               Datos generales (Persistidos en Supabase `erp_empresa`)
             </div>
@@ -239,7 +239,7 @@ export const ConfiguracionModule: React.FC = () => {
                   type="text"
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
-                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                 />
               </div>
 
@@ -249,7 +249,7 @@ export const ConfiguracionModule: React.FC = () => {
                   type="text"
                   value={razonSocial}
                   onChange={(e) => setRazonSocial(e.target.value)}
-                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                 />
               </div>
 
@@ -259,7 +259,7 @@ export const ConfiguracionModule: React.FC = () => {
                   type="text"
                   value={domicilio}
                   onChange={(e) => setDomicilio(e.target.value)}
-                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                 />
               </div>
 
@@ -269,7 +269,7 @@ export const ConfiguracionModule: React.FC = () => {
                   type="text"
                   value={localidad}
                   onChange={(e) => setLocalidad(e.target.value)}
-                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                 />
               </div>
 
@@ -279,7 +279,7 @@ export const ConfiguracionModule: React.FC = () => {
                   type="text"
                   value={codPostal}
                   onChange={(e) => setCodPostal(e.target.value)}
-                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                 />
               </div>
 
@@ -306,7 +306,7 @@ export const ConfiguracionModule: React.FC = () => {
                   type="text"
                   value={pais}
                   onChange={(e) => setPais(e.target.value)}
-                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                 />
               </div>
 
@@ -316,7 +316,7 @@ export const ConfiguracionModule: React.FC = () => {
                   type="text"
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
-                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                 />
               </div>
 
@@ -326,7 +326,7 @@ export const ConfiguracionModule: React.FC = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                 />
               </div>
 
@@ -336,7 +336,7 @@ export const ConfiguracionModule: React.FC = () => {
                   type="text"
                   value={cbu}
                   onChange={(e) => setCbu(e.target.value)}
-                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                 />
               </div>
 
@@ -346,7 +346,7 @@ export const ConfiguracionModule: React.FC = () => {
                   type="text"
                   value={cuit}
                   onChange={(e) => setCuit(e.target.value)}
-                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                 />
               </div>
 
@@ -356,7 +356,7 @@ export const ConfiguracionModule: React.FC = () => {
                   type="text"
                   value={numeroIibb}
                   onChange={(e) => setNumeroIibb(e.target.value)}
-                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full max-w-sm px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                 />
               </div>
 
@@ -366,7 +366,7 @@ export const ConfiguracionModule: React.FC = () => {
                     type="checkbox"
                     checked={convenioMultilateral}
                     onChange={(e) => setConvenioMultilateral(e.target.checked)}
-                    className="accent-[#4c1d95] w-3.5 h-3.5"
+                    className="accent-[#064e3b] w-3.5 h-3.5"
                   />
                   <span>Inscripto en Convenio Multilateral</span>
                 </label>
@@ -375,7 +375,7 @@ export const ConfiguracionModule: React.FC = () => {
               <div className="pt-4">
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold transition-colors border border-[#4c1d95]"
+                  className="px-4 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold transition-colors border border-[#064e3b]"
                 >
                   Guardar datos en Supabase
                 </button>
@@ -430,7 +430,7 @@ export const ConfiguracionModule: React.FC = () => {
                     value={logoArchivo}
                     onChange={(e) => setLogoArchivo(e.target.value)}
                     placeholder="Seleccionar una Imagen del Logo(.jpg/.gif/.png)"
-                    className="w-full px-2 py-1 bg-white border border-slate-300 text-xs pr-7 focus:outline-none focus:border-[#4c1d95]"
+                    className="w-full px-2 py-1 bg-white border border-slate-300 text-xs pr-7 focus:outline-none focus:border-[#064e3b]"
                   />
                   <Save className="w-4 h-4 text-slate-600 absolute right-2" />
                 </div>
@@ -439,7 +439,7 @@ export const ConfiguracionModule: React.FC = () => {
               <div className="pt-3">
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold transition-colors border border-[#4c1d95]"
+                  className="px-4 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold transition-colors border border-[#064e3b]"
                 >
                   Guardar logo
                 </button>
@@ -484,13 +484,13 @@ export const ConfiguracionModule: React.FC = () => {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="border border-slate-200 p-4 bg-slate-50 space-y-2">
-              <span className="font-bold text-[#4c1d95] block">VENTAS Y CUENTAS POR COBRAR</span>
+              <span className="font-bold text-[#064e3b] block">VENTAS Y CUENTAS POR COBRAR</span>
               <p className="text-slate-600">Cuenta Contable Deudores por Ventas: <strong>1.1.02 Créditos por Ventas</strong></p>
               <p className="text-slate-600">Plazo de Vencimiento Facturas por Defecto: <strong>30 días corridos</strong></p>
               <p className="text-slate-600">Interés Punitorio por Mora: <strong>4.5% mensual</strong></p>
             </div>
             <div className="border border-slate-200 p-4 bg-slate-50 space-y-2">
-              <span className="font-bold text-[#4c1d95] block">COMPRAS Y CUENTAS POR PAGAR</span>
+              <span className="font-bold text-[#064e3b] block">COMPRAS Y CUENTAS POR PAGAR</span>
               <p className="text-slate-600">Cuenta Contable Proveedores: <strong>2.1.01 Proveedores Locales</strong></p>
               <p className="text-slate-600">Validación de CUIT duplicado: <strong>Estricta (Bloqueante)</strong></p>
               <p className="text-slate-600">Cálculo Automático Retenciones IIBB/Ganancias: <strong>Activo</strong></p>
@@ -506,7 +506,7 @@ export const ConfiguracionModule: React.FC = () => {
             <h3 className="font-bold text-slate-900 text-sm">Puntos de Venta y Talonarios de Emisión Electrónica</h3>
             <button
               onClick={() => setShowNuevoPuntoModal(true)}
-              className="px-3 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold flex items-center gap-1"
+              className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold flex items-center gap-1"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Agregar Punto de Venta</span>
@@ -1041,15 +1041,15 @@ export const ConfiguracionModule: React.FC = () => {
           <h3 className="font-bold text-slate-900 text-sm uppercase">Configuración de Portal de Autogestión de Clientes</h3>
           <div className="p-4 bg-slate-50 border border-slate-200 space-y-3">
             <label className="flex items-center gap-2">
-              <input type="checkbox" defaultChecked className="accent-[#4c1d95] w-4 h-4" />
+              <input type="checkbox" defaultChecked className="accent-[#064e3b] w-4 h-4" />
               <span className="font-bold">Enviar comprobantes electrónicos con CAE automáticamente por correo al emitir</span>
             </label>
             <label className="flex items-center gap-2">
-              <input type="checkbox" defaultChecked className="accent-[#4c1d95] w-4 h-4" />
+              <input type="checkbox" defaultChecked className="accent-[#064e3b] w-4 h-4" />
               <span className="font-bold">Incluir botón de pago QR interoperable de Mercado Pago en el PDF de la factura</span>
             </label>
             <label className="flex items-center gap-2">
-              <input type="checkbox" defaultChecked className="accent-[#4c1d95] w-4 h-4" />
+              <input type="checkbox" defaultChecked className="accent-[#064e3b] w-4 h-4" />
               <span className="font-bold">Permitir descarga de certificados de retención y recibos X</span>
             </label>
           </div>
@@ -1085,7 +1085,7 @@ export const ConfiguracionModule: React.FC = () => {
                   }
                 ]);
               }}
-              className="px-3 py-1.5 bg-[#4c1d95] text-white font-bold flex items-center gap-1"
+              className="px-3 py-1.5 bg-[#064e3b] text-white font-bold flex items-center gap-1"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Nuevo Centro de Costo</span>
@@ -1120,8 +1120,8 @@ export const ConfiguracionModule: React.FC = () => {
       {/* MODAL: NUEVO PUNTO DE VENTA */}
       {showNuevoPuntoModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-md shadow-2xl font-mono text-xs">
-            <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-bold">
+          <div className="bg-white border-2 border-[#064e3b] w-full max-w-md shadow-2xl font-mono text-xs">
+            <div className="bg-[#064e3b] text-white px-4 py-2.5 flex items-center justify-between font-bold">
               <span>HABILITAR PUNTO DE VENTA AFIP</span>
               <button onClick={() => setShowNuevoPuntoModal(false)}><X className="w-4 h-4" /></button>
             </div>
@@ -1155,7 +1155,7 @@ export const ConfiguracionModule: React.FC = () => {
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="px-4 py-1.5 bg-[#4c1d95] text-white font-bold">
+                <button type="submit" className="px-4 py-1.5 bg-[#064e3b] text-white font-bold">
                   Guardar Punto de Venta
                 </button>
               </div>

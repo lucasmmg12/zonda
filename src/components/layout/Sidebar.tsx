@@ -57,20 +57,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
     >
       <div>
-        {/* Cabecera del Sidebar */}
-        <div className="h-14 px-3 flex items-center justify-between border-b border-black bg-black text-white">
+        {/* Cabecera del Sidebar en Verde Bosque Profundo (Sin Negro) */}
+        <div className="h-14 px-3 flex items-center justify-between border-b border-[#047857] bg-[#064e3b] text-white">
           {!collapsed ? (
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-auto px-1.5 bg-white flex items-center justify-center border border-slate-700">
+              <div className="h-8 w-auto px-1.5 bg-white flex items-center justify-center border border-[#047857]">
                 <img src="/logogrow.png" alt="Grow Labs" className="h-5 w-auto object-contain" />
               </div>
               <div>
-                <h1 className="text-xs font-mono font-bold tracking-widest uppercase text-white">GROW // ERP</h1>
-                <span className="text-[9px] text-emerald-400 font-mono tracking-wider block font-semibold">PRECISION ENGINE</span>
+                <h1 className="text-xs font-bold tracking-widest uppercase text-white">GROW // ERP</h1>
+                <span className="text-[9px] text-emerald-300 tracking-wider block font-semibold">PRECISION ENGINE</span>
               </div>
             </div>
           ) : (
-            <div className="mx-auto h-8 w-8 bg-white flex items-center justify-center border border-slate-700 p-1">
+            <div className="mx-auto h-8 w-8 bg-white flex items-center justify-center border border-[#047857] p-1">
               <img src="/logogrow.png" alt="Grow Labs" className="h-6 w-6 object-contain" />
             </div>
           )}
@@ -78,13 +78,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={onToggleCollapse}
             title={collapsed ? 'Expandir consola' : 'Colapsar consola'}
-            className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors hidden sm:block border border-slate-700"
+            className="p-1 text-emerald-200 hover:text-white hover:bg-[#047857] transition-colors hidden sm:block border border-[#047857]"
           >
             {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
           </button>
         </div>
 
-        {/* Lista de Módulos con bordes rectos y acento afilado */}
+        {/* Lista de Módulos con bordes rectos y acento en Verde Esmeralda Oscuro */}
         <nav className="p-2 space-y-0.5">
           {menuItems.map((item) => {
             const Icon = item.icon;
@@ -94,16 +94,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 key={item.key}
                 onClick={() => onSelectModule(item.key)}
                 className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-sans transition-all text-left border ${isActive
-                    ? 'bg-black text-white border-black border-l-4 border-l-[#047857] font-bold'
-                    : 'text-slate-800 hover:text-black hover:bg-emerald-50/50 border-transparent hover:border-slate-200 font-semibold'
+                    ? 'bg-[#064e3b] text-white border-[#047857] border-l-4 border-l-emerald-400 font-bold shadow-sm'
+                    : 'text-[#064e3b] hover:text-[#042f22] hover:bg-emerald-50/70 border-transparent hover:border-emerald-200 font-semibold'
                   }`}
                 title={collapsed ? item.label : undefined}
               >
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`text-[10px] font-mono ${isActive ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}>
+                  <span className={`text-[10px] ${isActive ? 'text-emerald-300 font-bold' : 'text-emerald-700/70'}`}>
                     {item.code}
                   </span>
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-600'}`} />
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-[#047857]'}`} />
                 </div>
 
                 {!collapsed && (
@@ -112,8 +112,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {item.badge && (
                       <span
                         className={`text-[9px] px-1 py-0.2 font-sans font-bold uppercase ${isActive
-                            ? 'bg-[#064e3b] text-white border border-[#047857]'
-                            : 'bg-slate-100 text-slate-700 border border-slate-300'
+                            ? 'bg-[#047857] text-emerald-100 border border-emerald-400/50'
+                            : 'bg-emerald-50 text-[#064e3b] border border-emerald-200'
                           }`}
                       >
                         [{item.badge}]

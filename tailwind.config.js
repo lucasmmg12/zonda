@@ -7,6 +7,20 @@ export default {
   theme: {
     extend: {
       colors: {
+        black: '#042f22', // Verde Bosque Profundo (Reemplaza al negro puro en toda la app)
+        slate: {
+          50: '#f4fbf7',
+          100: '#e6f5ed',
+          200: '#cce8d8',
+          300: '#9fd1b6',
+          400: '#5ea882',
+          500: '#357a59',
+          600: '#1f5e41',
+          700: '#134931',
+          800: '#0a3a26',
+          900: '#063120',
+          950: '#032216',
+        },
         zonda: {
           50: '#f0fdf4',
           100: '#dcfce7',
@@ -21,10 +35,10 @@ export default {
           950: '#022c22', // Verde Oscuro Extremo
         },
         obsidian: {
-          900: '#000000',
-          800: '#0a0a0a',
-          700: '#121212',
-          600: '#1e1e1e',
+          900: '#042f22',
+          800: '#064e3b',
+          700: '#065f46',
+          600: '#047857',
         },
         darkgreen: {
           50: '#f0fdf4',

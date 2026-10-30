@@ -218,7 +218,7 @@ export const InventarioModule: React.FC = () => {
 
         <button
           onClick={() => setShowCalendarioModal(true)}
-          className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#4c1d95]"
+          className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
         >
           <Calendar className="w-3.5 h-3.5" />
           <span>Calendario de vencimientos</span>
@@ -226,7 +226,7 @@ export const InventarioModule: React.FC = () => {
       </div>
 
       {/* 2. PESTAÑAS PRINCIPALES DEL MÓDULO */}
-      <div className="bg-[#ede9fe]/40 border-b border-slate-300 px-2 pt-1 flex items-center gap-1">
+      <div className="bg-[#ecfdf5]/40 border-b border-slate-300 px-2 pt-1 flex items-center gap-1">
         {[
           { key: 'items', label: 'Items de inventario' },
           { key: 'configuracion', label: 'Configuración de inventario' },
@@ -239,7 +239,7 @@ export const InventarioModule: React.FC = () => {
               onClick={() => setTabPrincipal(tab.key as 'items' | 'configuracion' | 'listas')}
               className={`px-4 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
                 isActive
-                  ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
+                  ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
                   : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
@@ -262,19 +262,19 @@ export const InventarioModule: React.FC = () => {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar por código o descripción"
-                  className="px-2.5 py-1.5 bg-white border border-slate-300 text-xs font-mono flex-1 min-w-[180px] focus:outline-none focus:border-[#4c1d95]"
+                  className="px-2.5 py-1.5 bg-white border border-slate-300 text-xs font-mono flex-1 min-w-[180px] focus:outline-none focus:border-[#064e3b]"
                 />
 
                 <button
                   onClick={() => setShowPreciosModal(true)}
-                  className="px-3 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#4c1d95]"
+                  className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
                 >
                   <span>Actualizar precios ▼</span>
                 </button>
 
                 <button
                   onClick={() => setShowReportesModal(true)}
-                  className="px-3 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#4c1d95]"
+                  className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
                 >
                   <BarChart3 className="w-3.5 h-3.5" />
                   <span>Reportes ▼</span>
@@ -282,7 +282,7 @@ export const InventarioModule: React.FC = () => {
               </div>
 
               {/* Sub-cabecera de la tabla */}
-              <div className="bg-[#f3f0ff] border-b border-slate-300 px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
+              <div className="bg-[#f0fdf4] border-b border-slate-300 px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
                 <span>Listado de items de inventario ({articulosFiltrados.length} registrados)</span>
                 <button
                   onClick={handleExportarInventarioExcel}
@@ -317,7 +317,7 @@ export const InventarioModule: React.FC = () => {
                           onClick={() => setArticuloSeleccionadoId(art.id)}
                           className={`cursor-pointer transition-colors ${
                             isSelected
-                              ? 'bg-[#ede9fe] font-semibold text-slate-900 border-l-4 border-l-[#4c1d95]'
+                              ? 'bg-[#ecfdf5] font-semibold text-slate-900 border-l-4 border-l-[#064e3b]'
                               : 'hover:bg-slate-50 text-slate-800'
                           }`}
                         >
@@ -364,7 +364,7 @@ export const InventarioModule: React.FC = () => {
                 <span>de 1</span>
                 <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
                 <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                <button onClick={() => refreshAllFromDb()} className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#4c1d95]" /></button>
+                <button onClick={() => refreshAllFromDb()} className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#064e3b]" /></button>
               </div>
               <span>Mostrando 1 - {articulosFiltrados.length} de {articulosFiltrados.length}</span>
             </div>
@@ -386,7 +386,7 @@ export const InventarioModule: React.FC = () => {
                       onClick={() => setTabDetalle(t.key as 'movimientos' | 'general')}
                       className={`px-3 py-1.5 font-bold transition-colors border-t-2 ${
                         isActive
-                          ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
+                          ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
                           : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
@@ -397,7 +397,7 @@ export const InventarioModule: React.FC = () => {
               </div>
 
               {/* Título de la Grilla de Movimientos */}
-              <div className="bg-[#f3f0ff] border-b border-slate-300 px-4 py-2 flex items-center justify-between">
+              <div className="bg-[#f0fdf4] border-b border-slate-300 px-4 py-2 flex items-center justify-between">
                 <span className="font-mono text-xs font-bold text-slate-900">
                   {articuloActivo
                     ? `Movimientos: ${articuloActivo.codigo} - ${articuloActivo.descripcion}`
@@ -467,7 +467,7 @@ export const InventarioModule: React.FC = () => {
                       <span>de 1</span>
                       <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
                       <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => refreshAllFromDb()} className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#4c1d95]" /></button>
+                      <button onClick={() => refreshAllFromDb()} className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#064e3b]" /></button>
                     </div>
                     <span>
                       {articuloActivo && articuloActivo.movimientos && articuloActivo.movimientos.length > 0
@@ -533,10 +533,10 @@ export const InventarioModule: React.FC = () => {
             </div>
 
             {/* BOTONERA INFERIOR (Agregar item, Registrar Movimiento Stock, Importar items) */}
-            <div className="bg-[#ede9fe]/30 border-t border-slate-300 px-4 py-2 flex flex-wrap items-center gap-2">
+            <div className="bg-[#ecfdf5]/30 border-t border-slate-300 px-4 py-2 flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setShowAgregarModal(true)}
-                className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
               >
                 <Boxes className="w-3.5 h-3.5" />
                 <span>Agregar Item ▼</span>
@@ -552,7 +552,7 @@ export const InventarioModule: React.FC = () => {
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Importar CSV</span>
@@ -568,7 +568,7 @@ export const InventarioModule: React.FC = () => {
           <div className="flex items-center justify-between pb-3 border-b border-slate-200">
             <div>
               <h3 className="text-sm font-bold text-slate-900 uppercase flex items-center gap-2">
-                <Warehouse className="w-4 h-4 text-[#4c1d95]" />
+                <Warehouse className="w-4 h-4 text-[#064e3b]" />
                 <span>CONFIGURACIÓN DE DEPÓSITOS Y VALUACIÓN CONTABLE</span>
               </h3>
               <p className="text-slate-500 mt-0.5">Parámetros operativos de inventario y costeo de mercaderías</p>
@@ -616,7 +616,7 @@ export const InventarioModule: React.FC = () => {
                   type="checkbox"
                   checked={permitirStockNegativo}
                   onChange={(e) => setPermitirStockNegativo(e.target.checked)}
-                  className="accent-[#4c1d95] w-4 h-4"
+                  className="accent-[#064e3b] w-4 h-4"
                 />
                 <span className="font-bold text-slate-800">Permitir facturación y remitos con stock negativo (Pendiente de ingreso)</span>
               </label>
@@ -652,7 +652,7 @@ export const InventarioModule: React.FC = () => {
                 setConfigGuardada(true);
                 setTimeout(() => setConfigGuardada(false), 2500);
               }}
-              className="px-5 py-2 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold uppercase"
+              className="px-5 py-2 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase"
             >
               Guardar Configuración de Inventario
             </button>
@@ -666,7 +666,7 @@ export const InventarioModule: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-slate-200">
             <div>
               <h3 className="text-sm font-bold text-slate-900 uppercase flex items-center gap-2">
-                <Tag className="w-4 h-4 text-[#4c1d95]" />
+                <Tag className="w-4 h-4 text-[#064e3b]" />
                 <span>LISTAS DE PRECIOS DIFERENCIADAS EN VIVO</span>
               </h3>
               <p className="text-slate-500 mt-0.5">Cálculo automático según coeficientes comerciales sobre Precio Base</p>
@@ -674,7 +674,7 @@ export const InventarioModule: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowPreciosModal(true)}
-                className="px-3 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold"
+                className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold"
               >
                 Ajuste Masivo %
               </button>
@@ -752,7 +752,7 @@ export const InventarioModule: React.FC = () => {
                   <th className="py-2 px-3 border-r border-slate-200">Código</th>
                   <th className="py-2 px-3 border-r border-slate-200">Descripción del Artículo</th>
                   <th className="py-2 px-3 border-r border-slate-200 text-right">Costo Calc.</th>
-                  <th className="py-2 px-3 border-r border-slate-200 text-right bg-[#ede9fe]/50">Lista 1: Corporativa</th>
+                  <th className="py-2 px-3 border-r border-slate-200 text-right bg-[#ecfdf5]/50">Lista 1: Corporativa</th>
                   <th className="py-2 px-3 border-r border-slate-200 text-right">Lista 2: Minorista</th>
                   <th className="py-2 px-3 text-right">Lista 3: Mayorista</th>
                 </tr>
@@ -765,7 +765,7 @@ export const InventarioModule: React.FC = () => {
                     <td className="py-2 px-3 border-r border-slate-200 text-right text-slate-500">
                       ${art.costoCalculado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-[#4c1d95] bg-[#ede9fe]/20">
+                    <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-[#064e3b] bg-[#ecfdf5]/20">
                       ${(art.precioVentaNeto * coefListaCorporativa).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-slate-900">
@@ -785,8 +785,8 @@ export const InventarioModule: React.FC = () => {
       {/* MODAL: AGREGAR ARTÍCULO */}
       {showAgregarModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-lg shadow-2xl">
-            <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
+          <div className="bg-white border-2 border-[#064e3b] w-full max-w-lg shadow-2xl">
+            <div className="bg-[#064e3b] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
               <span>AGREGAR ITEM DE INVENTARIO (SUPABASE DB)</span>
               <button onClick={() => setShowAgregarModal(false)}><X className="w-4 h-4" /></button>
             </div>
@@ -800,7 +800,7 @@ export const InventarioModule: React.FC = () => {
                     value={nuevoCodigo}
                     onChange={(e) => setNuevoCodigo(e.target.value)}
                     placeholder="ej: 000007"
-                    className="w-full px-2 py-1.5 border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                    className="w-full px-2 py-1.5 border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                   />
                 </div>
                 <div>
@@ -833,7 +833,7 @@ export const InventarioModule: React.FC = () => {
                   value={nuevaDescripcion}
                   onChange={(e) => setNuevaDescripcion(e.target.value)}
                   placeholder="ej: VALVULA ESFERICA PEAD 63MM"
-                  className="w-full px-2 py-1.5 border border-slate-300 text-xs uppercase focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full px-2 py-1.5 border border-slate-300 text-xs uppercase focus:outline-none focus:border-[#064e3b]"
                 />
               </div>
 
@@ -879,7 +879,7 @@ export const InventarioModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#4c1d95] text-white hover:bg-[#3b0764] font-bold"
+                  className="px-4 py-1.5 bg-[#064e3b] text-white hover:bg-[#047857] font-bold"
                 >
                   Guardar Item
                 </button>
@@ -954,8 +954,8 @@ export const InventarioModule: React.FC = () => {
       {/* MODAL: ACTUALIZAR PRECIOS */}
       {showPreciosModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-md shadow-2xl">
-            <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
+          <div className="bg-white border-2 border-[#064e3b] w-full max-w-md shadow-2xl">
+            <div className="bg-[#064e3b] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
               <span>ACTUALIZAR PRECIOS DE VENTA Y COSTOS (SUPABASE DB)</span>
               <button onClick={() => setShowPreciosModal(false)}><X className="w-4 h-4" /></button>
             </div>
@@ -971,7 +971,7 @@ export const InventarioModule: React.FC = () => {
                     step="0.1"
                     value={porcentajeAumento}
                     onChange={(e) => setPorcentajeAumento(Number(e.target.value))}
-                    className="w-24 px-2 py-1.5 border border-slate-300 text-center font-bold text-sm focus:outline-none focus:border-[#4c1d95]"
+                    className="w-24 px-2 py-1.5 border border-slate-300 text-center font-bold text-sm focus:outline-none focus:border-[#064e3b]"
                   />
                   <span className="text-slate-500">% sobre precio actual</span>
                 </div>
@@ -987,7 +987,7 @@ export const InventarioModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#4c1d95] text-white hover:bg-[#3b0764] font-bold"
+                  className="px-4 py-1.5 bg-[#064e3b] text-white hover:bg-[#047857] font-bold"
                 >
                   Aplicar Ajuste
                 </button>
@@ -1000,15 +1000,15 @@ export const InventarioModule: React.FC = () => {
       {/* MODAL: REPORTES DE INVENTARIO */}
       {showReportesModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-lg shadow-2xl">
-            <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
+          <div className="bg-white border-2 border-[#064e3b] w-full max-w-lg shadow-2xl">
+            <div className="bg-[#064e3b] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
               <span>REPORTES DE INVENTARIO Y STOCK</span>
               <button onClick={() => setShowReportesModal(false)}><X className="w-4 h-4" /></button>
             </div>
             <div className="p-4 space-y-2 font-mono text-xs">
               <button
                 onClick={handleDescargarValuacionPdf}
-                className="w-full text-left p-3 border border-slate-200 hover:bg-[#ede9fe] transition-colors flex items-center justify-between"
+                className="w-full text-left p-3 border border-slate-200 hover:bg-[#ecfdf5] transition-colors flex items-center justify-between"
               >
                 <div>
                   <p className="font-bold text-slate-900">1. Existencias Físicas y Valuación Contable (PDF)</p>
@@ -1022,7 +1022,7 @@ export const InventarioModule: React.FC = () => {
                   handleExportarInventarioExcel();
                   setShowReportesModal(false);
                 }}
-                className="w-full text-left p-3 border border-slate-200 hover:bg-[#ede9fe] transition-colors flex items-center justify-between"
+                className="w-full text-left p-3 border border-slate-200 hover:bg-[#ecfdf5] transition-colors flex items-center justify-between"
               >
                 <div>
                   <p className="font-bold text-slate-900">2. Exportar Padrón Completo de Artículos y Stock (Excel CSV)</p>
@@ -1038,8 +1038,8 @@ export const InventarioModule: React.FC = () => {
       {/* MODAL: CALENDARIO DE VENCIMIENTOS */}
       {showCalendarioModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-md shadow-2xl">
-            <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
+          <div className="bg-white border-2 border-[#064e3b] w-full max-w-md shadow-2xl">
+            <div className="bg-[#064e3b] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
               <span>CALENDARIO DE VENCIMIENTOS - INVENTARIO</span>
               <button onClick={() => setShowCalendarioModal(false)}><X className="w-4 h-4" /></button>
             </div>

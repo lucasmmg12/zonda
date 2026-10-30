@@ -243,7 +243,7 @@ export const ProveedoresModule: React.FC = () => {
 
         <button
           onClick={() => setShowCalendarioModal(true)}
-          className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#4c1d95]"
+          className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
         >
           <Calendar className="w-3.5 h-3.5" />
           <span>Calendario de vencimientos</span>
@@ -251,7 +251,7 @@ export const ProveedoresModule: React.FC = () => {
       </div>
 
       {/* 2. PESTAÑAS PRINCIPALES DEL MÓDULO */}
-      <div className="bg-[#ede9fe]/40 border-b border-slate-300 px-2 pt-1 flex items-center gap-1">
+      <div className="bg-[#ecfdf5]/40 border-b border-slate-300 px-2 pt-1 flex items-center gap-1">
         {[
           { key: 'resumen', label: 'Resumen proveedores' },
           { key: 'gestion', label: 'Gestión de proveedores' }
@@ -263,7 +263,7 @@ export const ProveedoresModule: React.FC = () => {
               onClick={() => setTabPrincipal(tab.key as 'resumen' | 'gestion')}
               className={`px-4 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
                 isActive
-                  ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
+                  ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
                   : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
@@ -284,7 +284,7 @@ export const ProveedoresModule: React.FC = () => {
           >
             <div>
               {/* Cabecera del Panel Izquierdo */}
-              <div className="bg-[#f3f0ff] border-b border-slate-300 px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
+              <div className="bg-[#f0fdf4] border-b border-slate-300 px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
                 {!panelIzquierdoColapsado && <span>Lista de proveedores</span>}
                 <button
                   onClick={() => setPanelIzquierdoColapsado(!panelIzquierdoColapsado)}
@@ -303,7 +303,7 @@ export const ProveedoresModule: React.FC = () => {
                       onClick={() => setFiltroActivos('activos')}
                       className={`py-1.5 text-center font-bold transition-colors ${
                         filtroActivos === 'activos'
-                          ? 'bg-white text-slate-900 border-b-2 border-b-[#4c1d95]'
+                          ? 'bg-white text-slate-900 border-b-2 border-b-[#064e3b]'
                           : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                       }`}
                     >
@@ -313,7 +313,7 @@ export const ProveedoresModule: React.FC = () => {
                       onClick={() => setFiltroActivos('inactivos')}
                       className={`py-1.5 text-center font-bold transition-colors ${
                         filtroActivos === 'inactivos'
-                          ? 'bg-white text-slate-900 border-b-2 border-b-[#4c1d95]'
+                          ? 'bg-white text-slate-900 border-b-2 border-b-[#064e3b]'
                           : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                       }`}
                     >
@@ -330,7 +330,7 @@ export const ProveedoresModule: React.FC = () => {
                         value={searchProveedor}
                         onChange={(e) => setSearchProveedor(e.target.value)}
                         placeholder="Razón social o CUIT..."
-                        className="w-full px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                        className="w-full px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                       />
                     </div>
                     <button
@@ -338,7 +338,7 @@ export const ProveedoresModule: React.FC = () => {
                       title="Limpiar filtro"
                       className="text-slate-400 hover:text-slate-600"
                     >
-                      <HelpCircle className="w-4 h-4 text-[#4c1d95]" />
+                      <HelpCircle className="w-4 h-4 text-[#064e3b]" />
                     </button>
                   </div>
 
@@ -361,7 +361,7 @@ export const ProveedoresModule: React.FC = () => {
                               onClick={() => setProveedorSeleccionadoId(prv.id)}
                               className={`cursor-pointer transition-colors ${
                                 isSelected
-                                  ? 'bg-[#ede9fe] font-semibold text-slate-900 border-l-4 border-l-[#4c1d95]'
+                                  ? 'bg-[#ecfdf5] font-semibold text-slate-900 border-l-4 border-l-[#064e3b]'
                                   : 'hover:bg-slate-50 text-slate-700'
                               }`}
                               title="Haga click sobre proveedores para ver información y cuenta corriente"
@@ -409,7 +409,7 @@ export const ProveedoresModule: React.FC = () => {
           <div className="flex-1 flex flex-col justify-between bg-white min-w-0">
             <div>
               {/* Título del Proveedor Seleccionado */}
-              <div className="bg-[#f3f0ff] border-b border-slate-300 px-4 py-2 flex items-center justify-between">
+              <div className="bg-[#f0fdf4] border-b border-slate-300 px-4 py-2 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-xs font-bold text-slate-900 uppercase">
                     {proveedorActivo ? proveedorActivo.razonSocial : 'Seleccionar proveedor de la lista'}
@@ -446,7 +446,7 @@ export const ProveedoresModule: React.FC = () => {
                       onClick={() => setTabDetalle(t.key as 'adeudadas' | 'cuenta' | 'general' | 'otra')}
                       className={`px-3 py-1.5 font-bold transition-colors border-t-2 ${
                         isActive
-                          ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
+                          ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
                           : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
@@ -719,10 +719,10 @@ export const ProveedoresModule: React.FC = () => {
             </div>
 
             {/* BARRA INFERIOR DE ACCIONES (Agregar factura, Agregar pago, Nuevo proveedor, Importar) */}
-            <div className="bg-[#ede9fe]/30 border-t border-slate-300 px-4 py-2 flex flex-wrap items-center gap-2">
+            <div className="bg-[#ecfdf5]/30 border-t border-slate-300 px-4 py-2 flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setShowFacturaModal(true)}
-                className="px-3.5 py-1.5 bg-[#ede9fe] hover:bg-[#ddd6fe] text-[#581c87] font-mono text-xs font-bold border border-[#c4b5fd] flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-1.5 bg-[#ecfdf5] hover:bg-[#ddd6fe] text-[#581c87] font-mono text-xs font-bold border border-[#c4b5fd] flex items-center gap-1.5 transition-colors"
               >
                 <FileText className="w-3.5 h-3.5 text-[#581c87]" />
                 <span>Agregar factura ▼</span>
@@ -730,7 +730,7 @@ export const ProveedoresModule: React.FC = () => {
 
               <button
                 onClick={() => setShowPagoModal(true)}
-                className="px-3.5 py-1.5 bg-[#ede9fe] hover:bg-[#ddd6fe] text-[#581c87] font-mono text-xs font-bold border border-[#c4b5fd] flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-1.5 bg-[#ecfdf5] hover:bg-[#ddd6fe] text-[#581c87] font-mono text-xs font-bold border border-[#c4b5fd] flex items-center gap-1.5 transition-colors"
               >
                 <DollarSign className="w-3.5 h-3.5 text-[#581c87]" />
                 <span>Agregar pago</span>
@@ -738,7 +738,7 @@ export const ProveedoresModule: React.FC = () => {
 
               <button
                 onClick={() => setShowNuevoProveedorModal(true)}
-                className="px-3.5 py-1.5 bg-[#581c87] hover:bg-[#4c1d95] text-white font-mono text-xs font-bold border border-[#581c87] flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-1.5 bg-[#581c87] hover:bg-[#064e3b] text-white font-mono text-xs font-bold border border-[#581c87] flex items-center gap-1.5 transition-colors"
               >
                 <UserPlus className="w-3.5 h-3.5" />
                 <span>Nuevo proveedor</span>
@@ -746,7 +746,7 @@ export const ProveedoresModule: React.FC = () => {
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3.5 py-1.5 bg-[#581c87] hover:bg-[#4c1d95] text-white font-mono text-xs font-bold border border-[#581c87] flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-1.5 bg-[#581c87] hover:bg-[#064e3b] text-white font-mono text-xs font-bold border border-[#581c87] flex items-center gap-1.5 transition-colors"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Importar CSV ▼</span>
@@ -884,7 +884,7 @@ export const ProveedoresModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold uppercase flex items-center gap-1.5"
+                  className="px-4 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase flex items-center gap-1.5"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>Cargar Factura</span>
@@ -1079,7 +1079,7 @@ export const ProveedoresModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold uppercase"
+                  className="px-4 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase"
                 >
                   Guardar Proveedor
                 </button>
@@ -1095,7 +1095,7 @@ export const ProveedoresModule: React.FC = () => {
           <div className="bg-white border border-slate-300 max-w-lg w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <h3 className="text-sm font-bold text-slate-900 uppercase flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#4c1d95]" />
+                <Calendar className="w-4 h-4 text-[#064e3b]" />
                 <span>CALENDARIO DE VENCIMIENTOS // COMPRAS Y PAGOS</span>
               </h3>
               <button onClick={() => setShowCalendarioModal(false)} className="text-slate-400 hover:text-slate-600">

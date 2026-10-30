@@ -6,27 +6,34 @@
   font-family: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #0f172a;
-  background-color: #f8fafc;
+  color: #042f22;
+  background-color: #f4fbf7;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Tipografía Limpia y Clínica: Inter para UI/Tablas + Plus Jakarta Sans para Títulos */
+/* Tipografía Limpia y Clínica + Grilla Arquitectónica en Verde Oscuro Sutil */
 body {
   margin: 0;
   font-family: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   font-variant-numeric: tabular-nums;
+  color: #042f22;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #f8fafc;
+  background-color: #f4fbf7;
   background-image: 
-    linear-gradient(to right, rgba(226, 232, 240, 0.35) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(226, 232, 240, 0.35) 1px, transparent 1px);
-  background-size: 24px 24px;
+    linear-gradient(to right, rgba(6, 78, 59, 0.065) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(6, 78, 59, 0.065) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Permitir que las tarjetas blancas dejen traslucir sutilmente los elementos gráficos contables de fondo */
+.bg-white {
+  background-color: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(1px);
 }
 
 h1, h2, h3, h4 {

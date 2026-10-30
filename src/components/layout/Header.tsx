@@ -122,29 +122,29 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
   }
 
   return (
-    <header className="h-14 bg-white border-b border-black px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+    <header className="h-14 bg-white border-b border-[#047857] px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm">
       {/* Izquierda: Empresa y Módulo activo */}
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-3 pr-4 border-r border-slate-300">
-          <div className="h-8 px-2 bg-white flex items-center justify-center border border-black shadow-sm">
+        <div className="flex items-center gap-3 pr-4 border-r border-emerald-800/20">
+          <div className="h-8 px-2 bg-white flex items-center justify-center border border-[#047857] shadow-sm">
             <img src="/logogrow.png" alt="Grow Labs" className="h-5 w-auto object-contain" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-black tracking-tight text-xs uppercase">{empresa.razonSocial}</span>
-              <span className="text-[10px] px-1.5 py-0.2 bg-black text-white font-mono border border-black font-semibold">
+              <span className="font-bold text-[#042f22] tracking-tight text-xs uppercase">{empresa.razonSocial}</span>
+              <span className="text-[10px] px-1.5 py-0.2 bg-[#064e3b] text-emerald-100 border border-[#047857] font-semibold">
                 CUIT: {empresa.cuit}
               </span>
             </div>
-            <p className="text-[10px] text-[#064e3b] font-mono font-bold tracking-wider uppercase">
+            <p className="text-[10px] text-[#047857] font-bold tracking-wider uppercase">
               GROW LABS // ECOSYSTEM
             </p>
           </div>
         </div>
 
-        <div className="hidden md:flex items-center gap-2 text-xs font-mono">
-          <span className="text-slate-500 uppercase text-[10px] font-bold">MÓDULO:</span>
-          <span className="text-white bg-black px-2 py-0.5 font-bold uppercase text-[10px] tracking-wider border border-black">
+        <div className="hidden md:flex items-center gap-2 text-xs">
+          <span className="text-[#357a59] uppercase text-[10px] font-bold">MÓDULO:</span>
+          <span className="text-white bg-[#064e3b] px-2.5 py-0.5 font-bold uppercase text-[10px] tracking-wider border border-[#047857]">
             [ {activeModule} ]
           </span>
         </div>
@@ -156,16 +156,16 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
         <button
           onClick={refreshAllFromDb}
           title={`Base de Datos Supabase PostgreSQL (Última sincr.: ${lastSync}). Click para refrescar.`}
-          className={`flex items-center gap-1.5 px-2.5 py-1 border text-[11px] font-mono font-bold transition-all ${
+          className={`flex items-center gap-1.5 px-2.5 py-1 border text-[11px] font-bold transition-all ${
             dbStatus === 'conectado'
               ? 'bg-[#ecfdf5] text-[#064e3b] border-[#047857] hover:bg-[#d1fae5]'
               : dbStatus === 'sincronizando'
-              ? 'bg-amber-50 text-amber-800 border-amber-400'
-              : 'bg-rose-50 text-rose-800 border-rose-400'
+              ? 'bg-emerald-50 text-[#065f46] border-emerald-400'
+              : 'bg-emerald-50 text-[#064e3b] border-emerald-400'
           }`}
         >
           {dbStatus === 'sincronizando' ? (
-            <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-700" />
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#047857]" />
           ) : (
             <Database className="w-3.5 h-3.5 text-[#047857]" />
           )}
@@ -178,13 +178,13 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           </span>
         </button>
 
-        {/* Botón Centro de Manuales e Instrucciones */}
+        {/* Botón Centro de Manuales e Instrucciones en Verde Esmeralda */}
         <button
           onClick={() => setModalManualesOpen(true)}
           title="Abrir Manuales Paso a Paso e Instrucciones de cada Módulo"
-          className="flex items-center gap-1.5 px-2.5 py-1 border border-black bg-[#fef9c3] hover:bg-amber-200 text-black text-[11px] font-bold transition-all shadow-sm"
+          className="flex items-center gap-1.5 px-2.5 py-1 border border-[#047857] bg-[#064e3b] hover:bg-[#047857] text-white text-[11px] font-bold transition-all shadow-sm"
         >
-          <BookOpen className="w-3.5 h-3.5 text-amber-900" />
+          <BookOpen className="w-3.5 h-3.5 text-emerald-300" />
           <span>MANUALES E INSTRUCCIONES</span>
         </button>
 
@@ -195,12 +195,12 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 border text-[11px] font-bold transition-all ${
             afipConfig.estadoConexion === 'conectado'
               ? 'bg-[#ecfdf5] text-[#064e3b] border-[#047857] hover:bg-[#d1fae5]'
-              : 'bg-white text-black border-black hover:bg-slate-100'
+              : 'bg-white text-[#064e3b] border-[#047857] hover:bg-emerald-50'
           }`}
         >
           <span
             className={`w-2 h-2 ${
-              afipConfig.estadoConexion === 'conectado' ? 'bg-[#047857]' : 'bg-black'
+              afipConfig.estadoConexion === 'conectado' ? 'bg-[#047857]' : 'bg-[#064e3b]'
             }`}
           ></span>
           <span>
@@ -217,10 +217,10 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 border text-[11px] font-bold transition-all ${
             mpConfig.estadoConexion === 'conectado'
               ? 'bg-[#ecfdf5] text-[#064e3b] border-[#047857] hover:bg-[#d1fae5]'
-              : 'bg-white text-black border-black hover:bg-slate-100'
+              : 'bg-white text-[#064e3b] border-[#047857] hover:bg-emerald-50'
           }`}
         >
-          <CreditCard className="w-3.5 h-3.5 text-black" />
+          <CreditCard className="w-3.5 h-3.5 text-[#047857]" />
           <span>
             {mpConfig.estadoConexion === 'conectado'
               ? `MP: ${mpConfig.modo.toUpperCase()}`

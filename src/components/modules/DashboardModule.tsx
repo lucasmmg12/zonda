@@ -80,66 +80,96 @@ export const DashboardModule: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Banner Superior Estilo Consola de Ingeniería */}
-      <div className="bg-white border border-slate-300 p-4 border-l-4 border-l-zonda-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+      {/* Banner Superior Estilo Consola de Ingeniería en Verde Bosque */}
+      <div className="relative overflow-hidden bg-white border border-emerald-800/30 p-4 border-l-4 border-l-[#064e3b] flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Filigrana Contable Interna del Banner */}
+        <svg
+          className="pointer-events-none absolute right-24 top-0 h-full w-64 text-[#064e3b] opacity-[0.06]"
+          viewBox="0 0 240 80"
+          fill="none"
+        >
+          <path d="M0 65 L40 45 L85 52 L135 20 L185 30 L235 8" stroke="currentColor" strokeWidth="2.5" />
+          <line x1="0" y1="40" x2="240" y2="40" stroke="currentColor" strokeDasharray="3 3" />
+        </svg>
+
+        <div className="relative z-10">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold text-zonda-700 bg-zonda-50 px-2 py-0.5 border border-zonda-200">
+            <span className="text-xs font-bold text-[#064e3b] bg-emerald-50 px-2 py-0.5 border border-emerald-300">
               SYS // TABLERO EJECUTIVO
             </span>
-            <span className="font-mono text-xs text-slate-500 font-semibold">
+            <span className="text-xs text-[#1f5e41] font-semibold">
               PERÍODO: 2026.10 // SUPABASE LIVE
             </span>
           </div>
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight mt-1 font-mono uppercase">
+          <h2 className="text-lg font-bold text-[#042f22] tracking-tight mt-1 uppercase">
             CONSOLA DE CONTROL CONTABLE Y AUDITORÍA FINANCIERA
           </h2>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="relative z-10 flex items-center gap-3">
           <button
             onClick={() => setMostrarGuia(!mostrarGuia)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-black hover:bg-slate-900 text-white font-mono text-[11px] font-bold uppercase transition-colors border border-black shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white text-[11px] font-bold uppercase transition-colors border border-[#047857] shadow-sm"
           >
-            <Compass className="w-3.5 h-3.5 text-emerald-400" />
+            <Compass className="w-3.5 h-3.5 text-emerald-300" />
             <span>{mostrarGuia ? '[ - ] OCULTAR GUÍA' : '[ + ] VER INSTRUCCIONES'}</span>
           </button>
 
-          <div className="text-right hidden sm:block font-mono">
-            <p className="text-[10px] text-slate-400 uppercase">SINCRONIZACIÓN SUPABASE</p>
-            <p className="text-xs font-bold text-slate-800">{lastSync} // 100% CUADRADO</p>
+          <div className="text-right hidden sm:block">
+            <p className="text-[10px] text-[#357a59] uppercase font-semibold">SINCRONIZACIÓN SUPABASE</p>
+            <p className="text-xs font-bold text-[#064e3b]">{lastSync} // 100% CUADRADO</p>
           </div>
         </div>
       </div>
 
-      {/* Guía Operativa con Navegación Directa */}
+      {/* Guía Operativa en Verde Bosque Profundo con Elementos Gráficos Transparentes (Sin Negro) */}
       {mostrarGuia && (
-        <div className="bg-black border border-slate-800 p-4 text-white space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-            <div className="flex items-center gap-2 font-mono text-xs font-bold uppercase text-emerald-400">
-              <Terminal className="w-4 h-4 text-emerald-400" />
+        <div className="relative overflow-hidden bg-gradient-to-r from-[#064e3b] via-[#065f46] to-[#064e3b] border border-[#047857] p-4 text-white space-y-3 shadow-sm">
+          {/* Gráfico transparente contable detrás del protocolo */}
+          <svg
+            className="pointer-events-none absolute inset-0 w-full h-full text-emerald-200 opacity-[0.08]"
+            viewBox="0 0 1000 200"
+            preserveAspectRatio="none"
+          >
+            <line x1="0" y1="50" x2="1000" y2="50" stroke="currentColor" strokeWidth="1" strokeDasharray="4 6" />
+            <line x1="0" y1="100" x2="1000" y2="100" stroke="currentColor" strokeWidth="1" strokeDasharray="4 6" />
+            <line x1="0" y1="150" x2="1000" y2="150" stroke="currentColor" strokeWidth="1" strokeDasharray="4 6" />
+            <path
+              d="M0 170 Q 180 120, 320 140 T 650 80 T 1000 35"
+              stroke="currentColor"
+              strokeWidth="3"
+              fill="none"
+            />
+            <text x="740" y="185" fill="currentColor" fontSize="26" fontWeight="800" letterSpacing="4">
+              ∑ DEBE = ∑ HABER
+            </text>
+          </svg>
+
+          <div className="relative z-10 flex items-center justify-between pb-2 border-b border-emerald-500/30">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase text-emerald-200">
+              <Terminal className="w-4 h-4 text-emerald-300" />
               <span>PROTOCOLO DE AUDITORÍA DIARIA // 4 ETAPAS SECUENCIALES</span>
             </div>
-            <span className="text-[10px] font-mono text-emerald-400 border border-[#064e3b] px-2 py-0.5 bg-[#064e3b]/20">
+            <span className="text-[10px] text-emerald-100 border border-emerald-400/40 px-2 py-0.5 bg-emerald-950/30 font-semibold">
               ESTÁNDAR GROW LABS // QOAG
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+          <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
             {/* Paso 1 */}
             <div
               onClick={() => setActiveModule('clientes')}
-              className="p-3 bg-slate-900 border border-slate-800 hover:border-emerald-500 transition-colors cursor-pointer"
+              className="p-3 bg-[#053e2f]/85 backdrop-blur-sm border border-emerald-500/30 hover:border-emerald-300 hover:bg-[#047857]/60 transition-all cursor-pointer"
             >
-              <div className="flex items-center justify-between font-mono text-[11px]">
-                <span className="text-emerald-400 font-bold">[PASO 01]</span>
-                <FileText className="w-4 h-4 text-slate-400" />
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-emerald-300 font-bold">[PASO 01]</span>
+                <FileText className="w-4 h-4 text-emerald-300/80" />
               </div>
-              <h4 className="text-xs font-bold text-white mt-1.5 font-mono uppercase">AUDITORÍA AFIP</h4>
-              <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              <h4 className="text-xs font-bold text-white mt-1.5 uppercase">AUDITORÍA AFIP</h4>
+              <p className="text-[11px] text-emerald-100/90 mt-1 leading-snug">
                 Verifique que ningún comprobante emitido quede en estado "Pendiente" y confirme el CAE asignado.
               </p>
-              <div className="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] font-mono text-emerald-400 uppercase">
+              <div className="mt-3 pt-2 border-t border-emerald-500/30 flex items-center justify-between text-[10px] font-bold text-emerald-300 uppercase">
                 <span>EJECUTAR REVISIÓN</span>
                 <ArrowRight className="w-3 h-3" />
               </div>
@@ -148,17 +178,17 @@ export const DashboardModule: React.FC = () => {
             {/* Paso 2 */}
             <div
               onClick={() => setActiveModule('tesoreria')}
-              className="p-3 bg-slate-900 border border-slate-800 hover:border-emerald-500 transition-colors cursor-pointer"
+              className="p-3 bg-[#053e2f]/85 backdrop-blur-sm border border-emerald-500/30 hover:border-emerald-300 hover:bg-[#047857]/60 transition-all cursor-pointer"
             >
-              <div className="flex items-center justify-between font-mono text-[11px]">
-                <span className="text-emerald-400 font-bold">[PASO 02]</span>
-                <Landmark className="w-4 h-4 text-slate-400" />
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-emerald-300 font-bold">[PASO 02]</span>
+                <Landmark className="w-4 h-4 text-emerald-300/80" />
               </div>
-              <h4 className="text-xs font-bold text-white mt-1.5 font-mono uppercase">CONCILIACIÓN BANCOS</h4>
-              <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              <h4 className="text-xs font-bold text-white mt-1.5 uppercase">CONCILIACIÓN BANCOS</h4>
+              <p className="text-[11px] text-emerald-100/90 mt-1 leading-snug">
                 Cruce los saldos reales de cuentas corrientes contra los extractos de Banco Santander y Galicia.
               </p>
-              <div className="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] font-mono text-emerald-400 uppercase">
+              <div className="mt-3 pt-2 border-t border-emerald-500/30 flex items-center justify-between text-[10px] font-bold text-emerald-300 uppercase">
                 <span>CRUZAR EXTRACTOS</span>
                 <ArrowRight className="w-3 h-3" />
               </div>
@@ -167,17 +197,17 @@ export const DashboardModule: React.FC = () => {
             {/* Paso 3 */}
             <div
               onClick={() => setActiveModule('tesoreria')}
-              className="p-3 bg-slate-900 border border-slate-800 hover:border-emerald-500 transition-colors cursor-pointer"
+              className="p-3 bg-[#053e2f]/85 backdrop-blur-sm border border-emerald-500/30 hover:border-emerald-300 hover:bg-[#047857]/60 transition-all cursor-pointer"
             >
-              <div className="flex items-center justify-between font-mono text-[11px]">
-                <span className="text-emerald-400 font-bold">[PASO 03]</span>
-                <Clock className="w-4 h-4 text-slate-400" />
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-emerald-300 font-bold">[PASO 03]</span>
+                <Clock className="w-4 h-4 text-emerald-300/80" />
               </div>
-              <h4 className="text-xs font-bold text-white mt-1.5 font-mono uppercase">CARTERA DE CHEQUES</h4>
-              <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              <h4 className="text-xs font-bold text-white mt-1.5 uppercase">CARTERA DE CHEQUES</h4>
+              <p className="text-[11px] text-emerald-100/90 mt-1 leading-snug">
                 Revise los cheques físicos con fecha de cobro próxima y programe depósitos o endosos a proveedores.
               </p>
-              <div className="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] font-mono text-emerald-400 uppercase">
+              <div className="mt-3 pt-2 border-t border-emerald-500/30 flex items-center justify-between text-[10px] font-bold text-emerald-300 uppercase">
                 <span>CUSTODIA DE VALORES</span>
                 <ArrowRight className="w-3 h-3" />
               </div>
@@ -186,17 +216,17 @@ export const DashboardModule: React.FC = () => {
             {/* Paso 4 */}
             <div
               onClick={() => setActiveModule('contabilidad')}
-              className="p-3 bg-slate-900 border border-slate-800 hover:border-emerald-500 transition-colors cursor-pointer"
+              className="p-3 bg-[#053e2f]/85 backdrop-blur-sm border border-emerald-500/30 hover:border-emerald-300 hover:bg-[#047857]/60 transition-all cursor-pointer"
             >
-              <div className="flex items-center justify-between font-mono text-[11px]">
-                <span className="text-emerald-400 font-bold">[PASO 04]</span>
-                <BookOpenCheck className="w-4 h-4 text-slate-400" />
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-emerald-300 font-bold">[PASO 04]</span>
+                <BookOpenCheck className="w-4 h-4 text-emerald-300/80" />
               </div>
-              <h4 className="text-xs font-bold text-white mt-1.5 font-mono uppercase">CUADRE PARTIDA DOBLE</h4>
-              <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              <h4 className="text-xs font-bold text-white mt-1.5 uppercase">CUADRE PARTIDA DOBLE</h4>
+              <p className="text-[11px] text-emerald-100/90 mt-1 leading-snug">
                 Inspeccione el Libro Diario para validar que cada asiento mantenga balance matemático exacto: Debe = Haber.
               </p>
-              <div className="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] font-mono text-emerald-400 uppercase">
+              <div className="mt-3 pt-2 border-t border-emerald-500/30 flex items-center justify-between text-[10px] font-bold text-emerald-300 uppercase">
                 <span>REVISAR ASIENTOS</span>
                 <ArrowRight className="w-3 h-3" />
               </div>
@@ -205,23 +235,29 @@ export const DashboardModule: React.FC = () => {
         </div>
       )}
 
-      {/* Tarjetas KPIs Superiores */}
+      {/* Tarjetas KPIs Superiores con Filigrana Contable Transparente */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* KPI: Ventas */}
         <div
           onClick={() => setActiveModule('clientes')}
-          className="bg-white border border-slate-300 border-t-4 border-t-emerald-600 p-4 cursor-pointer hover:border-slate-400 transition-colors"
+          className="relative overflow-hidden bg-white border border-emerald-800/30 border-t-4 border-t-[#047857] p-4 cursor-pointer hover:border-[#047857] transition-colors"
         >
-          <div className="flex items-center justify-between font-mono text-[10px] text-slate-500 uppercase">
+          <svg className="pointer-events-none absolute -right-3 -bottom-3 w-28 h-24 text-[#064e3b] opacity-[0.06]" viewBox="0 0 120 100" fill="none">
+            <rect x="15" y="55" width="14" height="40" fill="currentColor" />
+            <rect x="38" y="40" width="14" height="55" fill="currentColor" />
+            <rect x="61" y="25" width="14" height="70" fill="currentColor" />
+            <rect x="84" y="10" width="14" height="85" fill="currentColor" />
+          </svg>
+          <div className="relative z-10 flex items-center justify-between text-[10px] text-[#357a59] uppercase">
             <span>[METRIC // 01]</span>
-            <span className="text-emerald-700 font-bold">FACTURADO AFIP ({facturasVenta.length})</span>
+            <span className="text-[#047857] font-bold">FACTURADO AFIP ({facturasVenta.length})</span>
           </div>
-          <div className="mt-2">
-            <span className="text-xs text-slate-500 font-mono">VENTAS TOTALES:</span>
-            <p className="text-2xl font-mono font-bold text-slate-900 tracking-tight">
+          <div className="relative z-10 mt-2">
+            <span className="text-xs text-[#1f5e41] font-medium">VENTAS TOTALES:</span>
+            <p className="text-2xl font-bold text-[#042f22] tracking-tight">
               ${totalVentas.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
             </p>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-700 font-mono font-semibold">
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#047857] font-semibold">
               <ArrowUpRight className="w-3.5 h-3.5" />
               <span>SINCRONIZADO CON CLIENTES</span>
             </div>
@@ -231,18 +267,22 @@ export const DashboardModule: React.FC = () => {
         {/* KPI: Compras */}
         <div
           onClick={() => setActiveModule('proveedores')}
-          className="bg-white border border-slate-300 border-t-4 border-t-rose-600 p-4 cursor-pointer hover:border-slate-400 transition-colors"
+          className="relative overflow-hidden bg-white border border-emerald-800/30 border-t-4 border-t-[#065f46] p-4 cursor-pointer hover:border-[#047857] transition-colors"
         >
-          <div className="flex items-center justify-between font-mono text-[10px] text-slate-500 uppercase">
+          <svg className="pointer-events-none absolute -right-2 -bottom-2 w-28 h-24 text-[#064e3b] opacity-[0.06]" viewBox="0 0 120 100" fill="none">
+            <circle cx="70" cy="55" r="36" stroke="currentColor" strokeWidth="6" strokeDasharray="45 15" />
+            <path d="M70 55 L95 30" stroke="currentColor" strokeWidth="4" />
+          </svg>
+          <div className="relative z-10 flex items-center justify-between text-[10px] text-[#357a59] uppercase">
             <span>[METRIC // 02]</span>
-            <span className="text-rose-700 font-bold">EGRESOS & GASTOS ({facturasCompra.length})</span>
+            <span className="text-[#065f46] font-bold">EGRESOS & GASTOS ({facturasCompra.length})</span>
           </div>
-          <div className="mt-2">
-            <span className="text-xs text-slate-500 font-mono">COMPRAS REGISTRADAS:</span>
-            <p className="text-2xl font-mono font-bold text-slate-900 tracking-tight">
+          <div className="relative z-10 mt-2">
+            <span className="text-xs text-[#1f5e41] font-medium">COMPRAS REGISTRADAS:</span>
+            <p className="text-2xl font-bold text-[#042f22] tracking-tight">
               ${totalCompras.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
             </p>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-600 font-mono">
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#1f5e41] font-semibold">
               <span>IMPUTACIÓN: 100% C. COSTO</span>
             </div>
           </div>
@@ -251,18 +291,22 @@ export const DashboardModule: React.FC = () => {
         {/* KPI: Liquidez en Bancos */}
         <div
           onClick={() => setActiveModule('tesoreria')}
-          className="bg-white border border-slate-300 border-t-4 border-t-zonda-700 p-4 cursor-pointer hover:border-slate-400 transition-colors"
+          className="relative overflow-hidden bg-white border border-emerald-800/30 border-t-4 border-t-[#064e3b] p-4 cursor-pointer hover:border-[#047857] transition-colors"
         >
-          <div className="flex items-center justify-between font-mono text-[10px] text-slate-500 uppercase">
+          <svg className="pointer-events-none absolute -right-2 -bottom-2 w-28 h-24 text-[#064e3b] opacity-[0.06]" viewBox="0 0 120 100" fill="none">
+            <path d="M10 75 Q 35 35, 60 55 T 110 20" stroke="currentColor" strokeWidth="5" fill="none" />
+            <line x1="10" y1="85" x2="110" y2="85" stroke="currentColor" strokeWidth="3" />
+          </svg>
+          <div className="relative z-10 flex items-center justify-between text-[10px] text-[#357a59] uppercase">
             <span>[METRIC // 03]</span>
-            <span className="text-zonda-700 font-bold">DISPONIBILIDAD BANCARIA</span>
+            <span className="text-[#064e3b] font-bold">DISPONIBILIDAD BANCARIA</span>
           </div>
-          <div className="mt-2">
-            <span className="text-xs text-slate-500 font-mono">SALDO CONSOLIDADO:</span>
-            <p className="text-2xl font-mono font-bold text-slate-900 tracking-tight">
+          <div className="relative z-10 mt-2">
+            <span className="text-xs text-[#1f5e41] font-medium">SALDO CONSOLIDADO:</span>
+            <p className="text-2xl font-bold text-[#042f22] tracking-tight">
               ${totalLiquidez.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
             </p>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-zonda-700 font-mono font-semibold">
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#047857] font-semibold">
               <span>{cuentasBancarias.length} ENTIDADES ACTIVAS</span>
             </div>
           </div>
@@ -271,18 +315,22 @@ export const DashboardModule: React.FC = () => {
         {/* KPI: Cheques en Cartera */}
         <div
           onClick={() => setActiveModule('tesoreria')}
-          className="bg-white border border-slate-300 border-t-4 border-t-amber-500 p-4 cursor-pointer hover:border-slate-400 transition-colors"
+          className="relative overflow-hidden bg-white border border-emerald-800/30 border-t-4 border-t-emerald-500 p-4 cursor-pointer hover:border-[#047857] transition-colors"
         >
-          <div className="flex items-center justify-between font-mono text-[10px] text-slate-500 uppercase">
+          <svg className="pointer-events-none absolute -right-2 -bottom-2 w-28 h-24 text-[#064e3b] opacity-[0.06]" viewBox="0 0 120 100" fill="none">
+            <line x1="20" y1="30" x2="105" y2="30" stroke="currentColor" strokeWidth="5" />
+            <line x1="62" y1="30" x2="62" y2="90" stroke="currentColor" strokeWidth="5" />
+          </svg>
+          <div className="relative z-10 flex items-center justify-between text-[10px] text-[#357a59] uppercase">
             <span>[METRIC // 04]</span>
-            <span className="text-amber-700 font-bold">VALORES EN CUSTODIA</span>
+            <span className="text-[#047857] font-bold">VALORES EN CUSTODIA</span>
           </div>
-          <div className="mt-2">
-            <span className="text-xs text-slate-500 font-mono">CARTERA DE CHEQUES:</span>
-            <p className="text-2xl font-mono font-bold text-slate-900 tracking-tight">
+          <div className="relative z-10 mt-2">
+            <span className="text-xs text-[#1f5e41] font-medium">CARTERA DE CHEQUES:</span>
+            <p className="text-2xl font-bold text-[#042f22] tracking-tight">
               ${chequesEnCartera.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
             </p>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-amber-800 font-mono font-semibold">
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#065f46] font-semibold">
               <span>{cheques.filter((c) => c.estado === 'En Cartera').length} CHEQUES EN CARTERA</span>
             </div>
           </div>

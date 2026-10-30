@@ -247,7 +247,7 @@ export const TesoreriaModule: React.FC = () => {
 
         <button
           onClick={() => setShowCalendarioModal(true)}
-          className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#4c1d95]"
+          className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
         >
           <Calendar className="w-3.5 h-3.5" />
           <span>Calendario de vencimientos</span>
@@ -260,10 +260,10 @@ export const TesoreriaModule: React.FC = () => {
         <div className="w-full lg:w-80 shrink-0 border-r border-slate-300 bg-white flex flex-col justify-between">
           <div>
             {/* Cabecera del Panel Izquierdo */}
-            <div className="bg-[#ede9fe]/60 border-b border-slate-300 px-3 py-2 flex items-center justify-between text-xs font-mono font-bold text-slate-900">
+            <div className="bg-[#ecfdf5]/60 border-b border-slate-300 px-3 py-2 flex items-center justify-between text-xs font-mono font-bold text-slate-900">
               <div className="flex items-center gap-1.5">
                 <span>Lista de Cajas/Bancos</span>
-                <HelpCircle className="w-3.5 h-3.5 text-[#4c1d95]" />
+                <HelpCircle className="w-3.5 h-3.5 text-[#064e3b]" />
               </div>
               <span className="text-[10px] text-slate-500">{cuentasBancarias.length} cuentas</span>
             </div>
@@ -278,7 +278,7 @@ export const TesoreriaModule: React.FC = () => {
                     onClick={() => setCuentaSeleccionadaId(c.id)}
                     className={`p-3 cursor-pointer transition-colors ${
                       isSelected
-                        ? 'bg-[#f3f0ff] border-l-4 border-l-[#4c1d95]'
+                        ? 'bg-[#f0fdf4] border-l-4 border-l-[#064e3b]'
                         : 'hover:bg-slate-50 bg-white'
                     }`}
                   >
@@ -349,7 +349,7 @@ export const TesoreriaModule: React.FC = () => {
           <div className="p-2 border-t border-slate-300 bg-[#f8fafc]">
             <button
               onClick={() => setShowAgregarCuentaModal(true)}
-              className="w-full py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold flex items-center justify-center gap-1.5 border border-[#4c1d95] transition-colors"
+              className="w-full py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center justify-center gap-1.5 border border-[#064e3b] transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Agregar cuenta</span>
@@ -363,10 +363,10 @@ export const TesoreriaModule: React.FC = () => {
             {/* SECCIÓN SUPERIOR: GRÁFICO 12 MESES + WIDGET REPORTES */}
             <div className="border-b border-slate-300">
               {/* Barra de Título Superior del Gráfico */}
-              <div className="bg-[#ede9fe]/60 border-b border-slate-200 px-4 py-2 flex items-center justify-between text-xs font-mono font-bold text-slate-900">
+              <div className="bg-[#ecfdf5]/60 border-b border-slate-200 px-4 py-2 flex items-center justify-between text-xs font-mono font-bold text-slate-900">
                 <div className="flex items-center gap-1.5">
                   <span>Saldo / Ingresos / Egresos {cuentaActiva?.nombre}</span>
-                  <HelpCircle className="w-3.5 h-3.5 text-[#4c1d95]" />
+                  <HelpCircle className="w-3.5 h-3.5 text-[#064e3b]" />
                 </div>
                 <button
                   onClick={() => setGraficoColapsado(!graficoColapsado)}
@@ -469,19 +469,19 @@ export const TesoreriaModule: React.FC = () => {
                       <div className="mt-3 space-y-2 text-xs font-mono">
                         <button
                           onClick={() => setShowReporteModal('Reporte de cheques en cartera')}
-                          className="block text-left text-slate-700 hover:text-[#4c1d95] hover:underline"
+                          className="block text-left text-slate-700 hover:text-[#064e3b] hover:underline"
                         >
                           Reporte de cheques en cartera ({chequesEnCartera.length})
                         </button>
                         <button
                           onClick={() => setShowReporteModal('Reporte de cheques emitidos diferidos')}
-                          className="block text-left text-slate-700 hover:text-[#4c1d95] hover:underline"
+                          className="block text-left text-slate-700 hover:text-[#064e3b] hover:underline"
                         >
                           Reporte de cheques emitidos diferidos ({chequesEmitidos.length})
                         </button>
                         <button
                           onClick={() => setShowReporteModal('Reporte de seguimiento de cheques')}
-                          className="block text-left text-slate-700 hover:text-[#4c1d95] hover:underline"
+                          className="block text-left text-slate-700 hover:text-[#064e3b] hover:underline"
                         >
                           Reporte de seguimiento de cheques ({cheques.length})
                         </button>
@@ -499,10 +499,10 @@ export const TesoreriaModule: React.FC = () => {
             {/* SECCIÓN INFERIOR: MOVIMIENTOS DE LA CUENTA */}
             <div>
               {/* Barra de Título de Movimientos */}
-              <div className="bg-[#ede9fe]/60 border-b border-slate-200 px-4 py-2 flex items-center justify-between text-xs font-mono font-bold text-slate-900">
+              <div className="bg-[#ecfdf5]/60 border-b border-slate-200 px-4 py-2 flex items-center justify-between text-xs font-mono font-bold text-slate-900">
                 <div className="flex items-center gap-1.5">
                   <span>Movimientos {cuentaActiva?.nombre}</span>
-                  <HelpCircle className="w-3.5 h-3.5 text-[#4c1d95]" />
+                  <HelpCircle className="w-3.5 h-3.5 text-[#064e3b]" />
                 </div>
                 <button
                   onClick={handleExportarMovimientosExcel}
@@ -586,7 +586,7 @@ export const TesoreriaModule: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowPagoModal(true)}
-                className="px-3 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
               >
                 <FileText className="w-3.5 h-3.5" />
                 <span>Pagos ▼</span>
@@ -594,7 +594,7 @@ export const TesoreriaModule: React.FC = () => {
 
               <button
                 onClick={() => setShowCobroModal(true)}
-                className="px-3 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
               >
                 <DollarSign className="w-3.5 h-3.5" />
                 <span>Cobranzas ▼</span>
@@ -602,7 +602,7 @@ export const TesoreriaModule: React.FC = () => {
 
               <button
                 onClick={() => setShowMovimientoInternoModal(true)}
-                className="px-3 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
               >
                 <ArrowRightLeft className="w-3.5 h-3.5" />
                 <span>Depósitos / Extracciones / Canjes ▼</span>
@@ -676,7 +676,7 @@ export const TesoreriaModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold uppercase"
+                  className="px-4 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase"
                 >
                   Confirmar Pago
                 </button>
@@ -813,7 +813,7 @@ export const TesoreriaModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold uppercase"
+                  className="px-4 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase"
                 >
                   Guardar Cambios
                 </button>
@@ -872,7 +872,7 @@ export const TesoreriaModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold uppercase"
+                  className="px-4 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase"
                 >
                   Asentar Movimiento
                 </button>
@@ -943,7 +943,7 @@ export const TesoreriaModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-bold uppercase"
+                  className="px-4 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase"
                 >
                   Crear Cuenta
                 </button>
@@ -1101,7 +1101,7 @@ export const TesoreriaModule: React.FC = () => {
           <div className="bg-white border border-slate-300 max-w-lg w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <h3 className="text-sm font-bold text-slate-900 uppercase flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#4c1d95]" />
+                <Calendar className="w-4 h-4 text-[#064e3b]" />
                 <span>CALENDARIO DE VENCIMIENTOS // TESORERÍA</span>
               </h3>
               <button onClick={() => setShowCalendarioModal(false)} className="text-slate-400 hover:text-slate-600">

@@ -263,7 +263,7 @@ export const ContabilidadModule: React.FC = () => {
             onClick={() => handleSelectCuenta(c)}
             className={`cursor-pointer transition-colors border-b border-slate-200 text-xs font-mono ${
               isSelected
-                ? 'bg-[#ede9fe] font-bold text-slate-900 border-l-4 border-l-[#4c1d95]'
+                ? 'bg-[#ecfdf5] font-bold text-slate-900 border-l-4 border-l-[#064e3b]'
                 : isTotal
                 ? 'bg-slate-100 font-bold text-slate-900'
                 : 'hover:bg-slate-50 text-slate-800'
@@ -354,7 +354,7 @@ export const ContabilidadModule: React.FC = () => {
 
         <button
           onClick={() => setShowCalendarioModal(true)}
-          className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#4c1d95]"
+          className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
         >
           <Calendar className="w-3.5 h-3.5" />
           <span>Calendario de vencimientos</span>
@@ -362,12 +362,12 @@ export const ContabilidadModule: React.FC = () => {
       </div>
 
       {/* 2. PESTAÑAS PRINCIPALES DEL MÓDULO */}
-      <div className="bg-[#ede9fe]/40 border-b border-slate-300 px-2 pt-1 flex items-center gap-1">
+      <div className="bg-[#ecfdf5]/40 border-b border-slate-300 px-2 pt-1 flex items-center gap-1">
         <button
           onClick={() => setTabPrincipal('plan')}
           className={`px-4 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
             tabPrincipal === 'plan'
-              ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
+              ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
               : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
@@ -377,7 +377,7 @@ export const ContabilidadModule: React.FC = () => {
           onClick={() => setTabPrincipal('diario')}
           className={`px-4 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
             tabPrincipal === 'diario'
-              ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
+              ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
               : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
@@ -402,9 +402,9 @@ export const ContabilidadModule: React.FC = () => {
           <div className="w-full lg:w-1/2 border-r border-slate-300 bg-white flex flex-col justify-between">
             <div>
               {/* Header del Panel Izquierdo */}
-              <div className="bg-[#f3f0ff] border-b border-slate-300 px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
+              <div className="bg-[#f0fdf4] border-b border-slate-300 px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
                 <span>Sumas y saldos</span>
-                <button title="Ayuda sumas y saldos" className="text-[#4c1d95] hover:text-[#3b0764]">
+                <button title="Ayuda sumas y saldos" className="text-[#064e3b] hover:text-[#047857]">
                   <HelpCircle className="w-4 h-4" />
                 </button>
               </div>
@@ -435,14 +435,14 @@ export const ContabilidadModule: React.FC = () => {
 
                 <button
                   onClick={() => refreshAllFromDb()}
-                  className="px-3.5 py-1 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold transition-colors border border-[#4c1d95]"
+                  className="px-3.5 py-1 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold transition-colors border border-[#064e3b]"
                 >
                   Recalcular
                 </button>
 
                 <button
                   onClick={() => setShowReportesModal(true)}
-                  className="px-3 py-1 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold flex items-center gap-1 transition-colors border border-[#4c1d95]"
+                  className="px-3 py-1 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1 transition-colors border border-[#064e3b]"
                 >
                   <BarChart3 className="w-3.5 h-3.5" />
                   <span>Reportes ▼</span>
@@ -490,7 +490,7 @@ export const ContabilidadModule: React.FC = () => {
                   type="checkbox"
                   checked={mostrarAjusteInflacion}
                   onChange={(e) => setMostrarAjusteInflacion(e.target.checked)}
-                  className="accent-[#4c1d95] w-3.5 h-3.5"
+                  className="accent-[#064e3b] w-3.5 h-3.5"
                 />
               </label>
             </div>
@@ -501,7 +501,7 @@ export const ContabilidadModule: React.FC = () => {
             <div>
               {/* SECCIÓN SUPERIOR: FORMULARIO DE CUENTA */}
               <div className="border-b border-slate-300">
-                <div className="bg-[#f3f0ff] border-b border-slate-300 px-4 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
+                <div className="bg-[#f0fdf4] border-b border-slate-300 px-4 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
                   <span>Cuenta seleccionada: {cuentaSeleccionada?.codigo} - {cuentaSeleccionada?.nombre}</span>
                   {guardadoExitoso && (
                     <span className="text-emerald-700 flex items-center gap-1 text-[11px]">
@@ -529,7 +529,7 @@ export const ContabilidadModule: React.FC = () => {
                       type="text"
                       value={formDescripcion}
                       onChange={(e) => setFormDescripcion(e.target.value)}
-                      className="px-2 py-1 bg-white border border-slate-300 text-xs flex-1 focus:outline-none focus:border-[#4c1d95]"
+                      className="px-2 py-1 bg-white border border-slate-300 text-xs flex-1 focus:outline-none focus:border-[#064e3b]"
                     />
                   </div>
 
@@ -563,9 +563,9 @@ export const ContabilidadModule: React.FC = () => {
                       type="text"
                       value={formTipoCuenta}
                       onChange={(e) => setFormTipoCuenta(e.target.value)}
-                      className="px-2 py-1 bg-white border border-slate-300 text-xs flex-1 focus:outline-none focus:border-[#4c1d95]"
+                      className="px-2 py-1 bg-white border border-slate-300 text-xs flex-1 focus:outline-none focus:border-[#064e3b]"
                     />
-                    <HelpCircle className="w-4 h-4 text-[#4c1d95] shrink-0" />
+                    <HelpCircle className="w-4 h-4 text-[#064e3b] shrink-0" />
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -574,7 +574,7 @@ export const ContabilidadModule: React.FC = () => {
                       type="text"
                       value={formTituloSumas}
                       onChange={(e) => setFormTituloSumas(e.target.value)}
-                      className="px-2 py-1 bg-white border border-slate-300 text-xs flex-1 focus:outline-none focus:border-[#4c1d95]"
+                      className="px-2 py-1 bg-white border border-slate-300 text-xs flex-1 focus:outline-none focus:border-[#064e3b]"
                     />
                   </div>
 
@@ -589,7 +589,7 @@ export const ContabilidadModule: React.FC = () => {
                         });
                         setExpandedNodes(allExpanded);
                       }}
-                      className="px-3 py-1 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold transition-colors border border-[#4c1d95] flex items-center gap-1"
+                      className="px-3 py-1 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold transition-colors border border-[#064e3b] flex items-center gap-1"
                     >
                       <Folder className="w-3.5 h-3.5" />
                       <span>Expandir Títulos ▼</span>
@@ -598,7 +598,7 @@ export const ContabilidadModule: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowNuevaCuentaModal(true)}
-                      className="px-3 py-1 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold transition-colors border border-[#4c1d95] flex items-center gap-1"
+                      className="px-3 py-1 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold transition-colors border border-[#064e3b] flex items-center gap-1"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Nueva Subcuenta ▼</span>
@@ -606,7 +606,7 @@ export const ContabilidadModule: React.FC = () => {
 
                     <button
                       type="submit"
-                      className="px-3.5 py-1 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold transition-colors border border-[#4c1d95]"
+                      className="px-3.5 py-1 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold transition-colors border border-[#064e3b]"
                     >
                       Guardar
                     </button>
@@ -616,10 +616,10 @@ export const ContabilidadModule: React.FC = () => {
 
               {/* SECCIÓN INFERIOR: MAYOR (LIBRO MAYOR DE LA CUENTA SELECCIONADA) */}
               <div>
-                <div className="bg-[#f3f0ff] border-b border-slate-300 px-4 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
+                <div className="bg-[#f0fdf4] border-b border-slate-300 px-4 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
                   <div className="flex items-center gap-1.5">
                     <span>Mayor de {cuentaSeleccionada?.nombre}</span>
-                    <HelpCircle className="w-3.5 h-3.5 text-[#4c1d95]" />
+                    <HelpCircle className="w-3.5 h-3.5 text-[#064e3b]" />
                   </div>
                   <button
                     onClick={handleExportarMayorExcel}
@@ -689,7 +689,7 @@ export const ContabilidadModule: React.FC = () => {
                     <span>de 1</span>
                     <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
                     <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => refreshAllFromDb()} className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#4c1d95]" /></button>
+                    <button onClick={() => refreshAllFromDb()} className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#064e3b]" /></button>
                   </div>
                   <span>
                     {cuentaSeleccionada && cuentaSeleccionada.movimientosMayor && cuentaSeleccionada.movimientosMayor.length > 0
@@ -701,10 +701,10 @@ export const ContabilidadModule: React.FC = () => {
             </div>
 
             {/* BOTONERA INFERIOR (Nuevo asiento a diario, Libro Diario, Cierres contables) */}
-            <div className="bg-[#ede9fe]/30 border-t border-slate-300 px-4 py-2 flex flex-wrap items-center gap-2">
+            <div className="bg-[#ecfdf5]/30 border-t border-slate-300 px-4 py-2 flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setShowAsientoModal(true)}
-                className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
               >
                 <DollarSign className="w-3.5 h-3.5" />
                 <span>Nuevo asiento a diario</span>
@@ -712,7 +712,7 @@ export const ContabilidadModule: React.FC = () => {
 
               <button
                 onClick={() => setTabPrincipal('diario')}
-                className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
               >
                 <BarChart3 className="w-3.5 h-3.5" />
                 <span>Ver Libro Diario ({asientosContables.length})</span>
@@ -720,7 +720,7 @@ export const ContabilidadModule: React.FC = () => {
 
               <button
                 onClick={() => setShowCierresModal(true)}
-                className="px-3.5 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white font-mono text-xs font-bold border border-[#4c1d95] flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
               >
                 <DollarSign className="w-3.5 h-3.5" />
                 <span>Cierres contables ▼</span>
@@ -743,7 +743,7 @@ export const ContabilidadModule: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowAsientoModal(true)}
-                className="px-3 py-1.5 bg-[#4c1d95] hover:bg-[#3b0764] text-white text-xs font-bold flex items-center gap-1"
+                className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-bold flex items-center gap-1"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Nuevo Asiento</span>
@@ -762,7 +762,7 @@ export const ContabilidadModule: React.FC = () => {
               <div key={asiento.numero} className="border border-slate-300 bg-slate-50/40">
                 <div className="bg-slate-100 px-4 py-2 border-b border-slate-300 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-3">
-                    <span className="font-bold text-[#4c1d95]">ASIENTO #{asiento.numero}</span>
+                    <span className="font-bold text-[#064e3b]">ASIENTO #{asiento.numero}</span>
                     <span className="text-slate-600">Fecha: {asiento.fecha}</span>
                     <span className="px-2 py-0.5 bg-white border border-slate-300 text-[10px] font-bold">
                       Origen: {asiento.tipoOrigen}
@@ -916,8 +916,8 @@ export const ContabilidadModule: React.FC = () => {
       {/* MODAL: NUEVO ASIENTO A DIARIO */}
       {showAsientoModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-lg shadow-2xl">
-            <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
+          <div className="bg-white border-2 border-[#064e3b] w-full max-w-lg shadow-2xl">
+            <div className="bg-[#064e3b] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
               <span>NUEVO ASIENTO A DIARIO (PARTIDA DOBLE EN SUPABASE)</span>
               <button onClick={() => setShowAsientoModal(false)}><X className="w-4 h-4" /></button>
             </div>
@@ -930,7 +930,7 @@ export const ContabilidadModule: React.FC = () => {
                   value={asientoConcepto}
                   onChange={(e) => setAsientoConcepto(e.target.value)}
                   placeholder="Ej: Devengamiento de Honorarios Contables / Ajuste"
-                  className="w-full px-2 py-1.5 border border-slate-300 text-xs focus:outline-none focus:border-[#4c1d95]"
+                  className="w-full px-2 py-1.5 border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
                 />
               </div>
 
@@ -1003,7 +1003,7 @@ export const ContabilidadModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#4c1d95] text-white hover:bg-[#3b0764] font-bold"
+                  className="px-4 py-1.5 bg-[#064e3b] text-white hover:bg-[#047857] font-bold"
                 >
                   Registrar en Diario y Mayor
                 </button>
@@ -1016,8 +1016,8 @@ export const ContabilidadModule: React.FC = () => {
       {/* MODAL: NUEVA SUBCUENTA */}
       {showNuevaCuentaModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-md shadow-2xl">
-            <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
+          <div className="bg-white border-2 border-[#064e3b] w-full max-w-md shadow-2xl">
+            <div className="bg-[#064e3b] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
               <span>AGREGAR SUBCUENTA AL PLAN DE CUENTAS</span>
               <button onClick={() => setShowNuevaCuentaModal(false)}><X className="w-4 h-4" /></button>
             </div>
@@ -1084,7 +1084,7 @@ export const ContabilidadModule: React.FC = () => {
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="px-4 py-1.5 bg-[#4c1d95] text-white font-bold">
+                <button type="submit" className="px-4 py-1.5 bg-[#064e3b] text-white font-bold">
                   Crear Cuenta
                 </button>
               </div>
@@ -1096,8 +1096,8 @@ export const ContabilidadModule: React.FC = () => {
       {/* MODAL: CIERRES CONTABLES */}
       {showCierresModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-md shadow-2xl">
-            <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
+          <div className="bg-white border-2 border-[#064e3b] w-full max-w-md shadow-2xl">
+            <div className="bg-[#064e3b] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
               <span>CIERRES Y REFUNDICIONES CONTABLES</span>
               <button onClick={() => setShowCierresModal(false)}><X className="w-4 h-4" /></button>
             </div>
@@ -1118,7 +1118,7 @@ export const ContabilidadModule: React.FC = () => {
                   setShowCierresModal(false);
                   setTabPrincipal('diario');
                 }}
-                className="w-full text-left p-2.5 border border-slate-200 hover:bg-[#ede9fe] transition-colors"
+                className="w-full text-left p-2.5 border border-slate-200 hover:bg-[#ecfdf5] transition-colors"
               >
                 <span className="font-bold text-slate-900 block">1. Refundición de Cuentas de Resultado</span>
                 <span className="text-[10px] text-slate-500">Genera asiento real en Libro Diario contra Resultado del Ejercicio (3.2.01).</span>
@@ -1136,7 +1136,7 @@ export const ContabilidadModule: React.FC = () => {
                   setShowCierresModal(false);
                   setTabPrincipal('diario');
                 }}
-                className="w-full text-left p-2.5 border border-slate-200 hover:bg-[#ede9fe] transition-colors"
+                className="w-full text-left p-2.5 border border-slate-200 hover:bg-[#ecfdf5] transition-colors"
               >
                 <span className="font-bold text-slate-900 block">2. Asiento de Ajuste por Inflación (RECPAM - RT6)</span>
                 <span className="text-[10px] text-slate-500">Registra actualización monetaria de partidas no monetarias.</span>
@@ -1149,15 +1149,15 @@ export const ContabilidadModule: React.FC = () => {
       {/* MODAL: REPORTES CONTABLES */}
       {showReportesModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-lg shadow-2xl">
-            <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
+          <div className="bg-white border-2 border-[#064e3b] w-full max-w-lg shadow-2xl">
+            <div className="bg-[#064e3b] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
               <span>REPORTES Y ESTADOS CONTABLES OFICIALES</span>
               <button onClick={() => setShowReportesModal(false)}><X className="w-4 h-4" /></button>
             </div>
             <div className="p-4 space-y-2 font-mono text-xs">
               <button
                 onClick={handleDescargarBalancePdf}
-                className="w-full text-left p-3 border border-slate-200 hover:bg-[#ede9fe] transition-colors flex items-center justify-between"
+                className="w-full text-left p-3 border border-slate-200 hover:bg-[#ecfdf5] transition-colors flex items-center justify-between"
               >
                 <div>
                   <p className="font-bold text-slate-900">1. Balance General de Sumas y Saldos (PDF)</p>
@@ -1168,7 +1168,7 @@ export const ContabilidadModule: React.FC = () => {
 
               <button
                 onClick={handleDescargarLibroDiarioPdf}
-                className="w-full text-left p-3 border border-slate-200 hover:bg-[#ede9fe] transition-colors flex items-center justify-between"
+                className="w-full text-left p-3 border border-slate-200 hover:bg-[#ecfdf5] transition-colors flex items-center justify-between"
               >
                 <div>
                   <p className="font-bold text-slate-900">2. Libro Diario General Foliado (Ley 19.550 - PDF)</p>
@@ -1184,8 +1184,8 @@ export const ContabilidadModule: React.FC = () => {
       {/* MODAL: CALENDARIO DE VENCIMIENTOS */}
       {showCalendarioModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#4c1d95] w-full max-w-md shadow-2xl">
-            <div className="bg-[#4c1d95] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
+          <div className="bg-white border-2 border-[#064e3b] w-full max-w-md shadow-2xl">
+            <div className="bg-[#064e3b] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
               <span>CALENDARIO DE VENCIMIENTOS - CONTABILIDAD</span>
               <button onClick={() => setShowCalendarioModal(false)}><X className="w-4 h-4" /></button>
             </div>

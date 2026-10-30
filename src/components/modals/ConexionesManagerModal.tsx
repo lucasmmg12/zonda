@@ -314,11 +314,11 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
             }}
             className={`px-4 py-2 text-xs font-bold transition-all border-t-2 flex items-center gap-2 ${
               tab === 'webhooks'
-                ? 'bg-white border-t-[#4c1d95] text-slate-900 border-x border-slate-300 -mb-[1px]'
+                ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px]'
                 : 'text-slate-600 hover:text-slate-900 border-t-transparent'
             }`}
           >
-            <Activity className="w-3.5 h-3.5 text-[#4c1d95]" />
+            <Activity className="w-3.5 h-3.5 text-[#064e3b]" />
             <span>Monitor de Webhooks ({logsWebhooks.length})</span>
           </button>
         </div>
