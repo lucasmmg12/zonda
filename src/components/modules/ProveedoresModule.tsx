@@ -1790,7 +1790,7 @@ export const ProveedoresModule: React.FC = () => {
       <CalendarioVencimientosModal
         isOpen={showCalendarioModal}
         onClose={() => setShowCalendarioModal(false)}
-        initialProveedorId={selectedProv?.id}
+        initialProveedorId={proveedorSeleccionadoId || undefined}
         defaultContext="proveedores"
       />
     </div>

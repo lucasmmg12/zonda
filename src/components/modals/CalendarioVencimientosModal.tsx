@@ -12,7 +12,7 @@ import {
   Filter,
   Trash2
 } from 'lucide-react';
-import { useErp } from '../../context/ErpContext';
+import { useErp, flattenCuentasContables } from '../../context/ErpContext';
 
 export interface CalendarioVencimientosModalProps {
   isOpen: boolean;
@@ -207,7 +207,7 @@ export const CalendarioVencimientosModal: React.FC<CalendarioVencimientosModalPr
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
   const cuentasImputables = useMemo(
-    () => planDeCuentas.filter((c) => c.imputable),
+    () => flattenCuentasContables(planDeCuentas).filter((c) => c.imputable),
     [planDeCuentas]
   );
 
@@ -1279,7 +1279,7 @@ export const CalendarioVencimientosModal: React.FC<CalendarioVencimientosModalPr
                       className="w-full p-2 bg-slate-50 border border-slate-300 text-xs"
                     >
                       {cuentasImputables.map((c) => (
-                        <option key={c.id} value={`${c.codigo} - ${c.nombre}`}>
+                        <option key={c.codigo} value={`${c.codigo} - ${c.nombre}`}>
                           {c.codigo} - {c.nombre}
                         </option>
                       ))}
