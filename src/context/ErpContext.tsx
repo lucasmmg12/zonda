@@ -1063,6 +1063,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     cuentaGasto?: string;
     medioPagoPactado?: string;
     fechaVencimiento?: string;
+    cantidadCuotas?: number;
     itemsInventarioAsociados?: {
       articuloAsociadoId: string;
       codigoProveedor: string;
