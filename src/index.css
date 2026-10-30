@@ -54,9 +54,14 @@ pre, code {
   font-variant-numeric: tabular-nums;
 }
 
-/* Forzar esquinas 100% rectas afiladas */
-*, *::before, *::after {
+/* Forzar esquinas rectas salvo en contenedores circulares de logo (.logo-circle) */
+*:not(.logo-circle), *::before, *::after {
   border-radius: 0px !important;
+}
+
+.logo-circle {
+  border-radius: 9999px !important;
+  border: none !important;
 }
 
 /* Scrollbars rectangulares tipo terminal de precisión */

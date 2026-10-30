@@ -61,8 +61,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="h-14 px-3.5 flex items-center justify-between border-b border-emerald-800/25 bg-white text-[#042f22]">
           {!collapsed ? (
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="h-8 w-8 shrink-0 bg-emerald-50/80 flex items-center justify-center border border-emerald-700/30">
-                <img src="/logogrow.png" alt="Grow Labs" className="h-5 w-auto object-contain" />
+              <div className="logo-circle h-8 w-8 shrink-0 bg-emerald-50/90 flex items-center justify-center overflow-hidden">
+                <img src="/logogrow.png" alt="Grow Labs" className="h-5 w-5 object-contain" />
               </div>
               <div className="truncate">
                 <h1 className="text-xs font-extrabold tracking-wider uppercase text-[#064e3b] leading-tight whitespace-nowrap">
@@ -74,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
           ) : (
-            <div className="mx-auto h-8 w-8 bg-emerald-50/80 flex items-center justify-center border border-emerald-700/30 p-1">
+            <div className="logo-circle mx-auto h-8 w-8 bg-emerald-50/90 flex items-center justify-center overflow-hidden p-1">
               <img src="/logogrow.png" alt="Grow Labs" className="h-5 w-5 object-contain" />
             </div>
           )}
@@ -129,6 +129,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
         </nav>
+      </div>
+
+      {/* Espacio Central del Sidebar: Logo Grow Labs contenido en un círculo sin bordes */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-2">
+        {!collapsed ? (
+          <div className="logo-circle w-28 h-28 bg-emerald-50/75 flex items-center justify-center overflow-hidden p-4 transition-transform hover:scale-105">
+            <img
+              src="/logogrow.png"
+              alt="Grow Labs Ecosystem"
+              className="w-full h-full object-contain select-none"
+            />
+          </div>
+        ) : (
+          <div className="logo-circle w-10 h-10 bg-emerald-50/75 flex items-center justify-center overflow-hidden p-1.5">
+            <img
+              src="/logogrow.png"
+              alt="Grow Labs"
+              className="w-full h-full object-contain select-none"
+            />
+          </div>
+        )}
       </div>
 
       {/* Indicador Técnico de Base de Datos Productiva */}
