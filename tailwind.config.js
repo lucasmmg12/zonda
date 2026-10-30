@@ -50,9 +50,11 @@ export default {
         hairline: '#e2e8f0',
       },
       fontFamily: {
-        sans: ['Montserrat', 'Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
-        montserrat: ['Montserrat', 'sans-serif'],
-        mono: ['JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', 'monospace'],
+        sans: ['Inter', 'Plus Jakarta Sans', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
+        montserrat: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+        mono: ['Inter', 'Plus Jakarta Sans', 'system-ui', '-apple-system', 'sans-serif'],
+        code: ['JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', 'monospace'],
       },
       borderRadius: {
         'none': '0px',

@@ -109,7 +109,7 @@ export function printAfipElectronicInvoice(params: {
   <title>${params.tipo} ${params.nroComprobante} - ${params.clienteNombre}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; background: #fff; padding: 20px; font-size: 12px; }
+    body { font-family: 'Inter', 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif; font-variant-numeric: tabular-nums; color: #0f172a; background: #fff; padding: 20px; font-size: 12px; }
     .invoice-box { border: 2px solid #0f172a; max-width: 820px; margin: 0 auto; }
     .copy-banner { text-align: center; font-weight: 800; padding: 6px; border-bottom: 2px solid #0f172a; background: #f8fafc; letter-spacing: 2px; font-size: 11px; }
     .header-grid { display: grid; grid-template-columns: 1fr 72px 1fr; border-bottom: 2px solid #0f172a; }

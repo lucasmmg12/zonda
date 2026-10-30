@@ -231,3 +231,4 @@ export function downloadTxtFile(filename: string, content: string): void {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+

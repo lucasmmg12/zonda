@@ -94,3 +94,4 @@ export async function sendInvoiceViaWhatsApp(
     message: `WhatsApp abierto para ${params.clienteNombre} (+${normalizedPhone})`
   };
 }
+
