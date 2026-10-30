@@ -17,17 +17,26 @@ import {
   Send,
   Camera,
   Sparkles,
+  Plus,
+  Trash2,
+  Boxes,
   X
 } from 'lucide-react';
 import { useErp, flattenCuentasContables } from '../../context/ErpContext';
 import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
-import { extraerDatosFacturaDesdeFoto, imageFileToBase64 } from '../../services/invoiceOcrService';
+import {
+  extraerDatosFacturaDesdeFoto,
+  imageFileToBase64,
+  guardarEquivalenciaArticuloProveedor,
+  type ItemFacturaCompraExtraido
+} from '../../services/invoiceOcrService';
 
 export const ProveedoresModule: React.FC = () => {
   const {
     proveedores,
     cuentasBancarias,
     planDeCuentas,
+    inventario,
     crearProveedor,
     registrarFacturaCompra,
     registrarPagoProveedor,
@@ -67,15 +76,63 @@ export const ProveedoresModule: React.FC = () => {
     () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
 
-  // Escáner de Factura por Foto / Cámara (OCR IA)
+  // Escáner de Factura por Foto / Cámara (OCR IA) + Ítems de Artículos
   const [escaneandoFoto, setEscaneandoFoto] = useState(false);
   const [fotoFacturaPreview, setFotoFacturaPreview] = useState<string | null>(null);
   const [datosExtraidosMsg, setDatosExtraidosMsg] = useState<string | null>(null);
+  const [itemsFactura, setItemsFactura] = useState<ItemFacturaCompraExtraido[]>([]);
   const [camaraActiva, setCamaraActiva] = useState(false);
   const videoCamaraRef = useRef<HTMLVideoElement | null>(null);
   const streamCamaraRef = useRef<MediaStream | null>(null);
   const fotoInputRef = useRef<HTMLInputElement | null>(null);
   const camaraMobileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const recalcularNetoDesdeItems = (listaItems: ItemFacturaCompraExtraido[]) => {
+    setItemsFactura(listaItems);
+    if (listaItems.length > 0) {
+      const sumaNeto = Number(
+        listaItems.reduce((acc, it) => acc + it.cantidad * it.costoUnitarioNeto, 0).toFixed(2)
+      );
+      setNetoFactura(sumaNeto);
+    }
+  };
+
+  const actualizarItemFactura = (
+    idItem: string,
+    cambios: Partial<ItemFacturaCompraExtraido>
+  ) => {
+    const nuevaLista = itemsFactura.map((it) => {
+      if (it.id !== idItem) return it;
+      const actualizado = { ...it, ...cambios };
+      actualizado.subtotalNeto = Number(
+        (actualizado.cantidad * actualizado.costoUnitarioNeto).toFixed(2)
+      );
+      if (cambios.articuloAsociadoId && cambios.articuloAsociadoId !== '__CREAR_NUEVO__') {
+        guardarEquivalenciaArticuloProveedor(actualizado.codigoProveedor, cambios.articuloAsociadoId);
+        guardarEquivalenciaArticuloProveedor(actualizado.descripcionProveedor, cambios.articuloAsociadoId);
+      }
+      return actualizado;
+    });
+    recalcularNetoDesdeItems(nuevaLista);
+  };
+
+  const agregarItemManualFactura = () => {
+    const nuevoIt: ItemFacturaCompraExtraido = {
+      id: `IT-MAN-${Date.now()}`,
+      codigoProveedor: `PRV-${itemsFactura.length + 1}`,
+      descripcionProveedor: 'ARTÍCULO DE PROVEEDOR',
+      cantidad: 1,
+      costoUnitarioNeto: 25000,
+      subtotalNeto: 25000,
+      articuloAsociadoId: inventario[0]?.id || ''
+    };
+    recalcularNetoDesdeItems([...itemsFactura, nuevoIt]);
+  };
+
+  const eliminarItemFactura = (idItem: string) => {
+    const nuevaLista = itemsFactura.filter((i) => i.id !== idItem);
+    recalcularNetoDesdeItems(nuevaLista);
+  };
 
   const detenerCamara = () => {
     if (streamCamaraRef.current) {
@@ -117,7 +174,8 @@ export const ProveedoresModule: React.FC = () => {
         imageBase64: base64,
         fileName: nombreArchivo,
         proveedorNombre: proveedorActivo?.razonSocial,
-        cuentaHabitual: proveedorActivo?.cuentaGastoHabitual
+        cuentaHabitual: proveedorActivo?.cuentaGastoHabitual,
+        inventarioInterno: inventario
       });
       setTipoFactura(extraido.tipoComprobante);
       setCuentaImputacionFactura(extraido.cuentaImputacionSugerida);
@@ -125,9 +183,10 @@ export const ProveedoresModule: React.FC = () => {
       setMedioPagoFactura(extraido.medioPagoSugerido);
       setFechaVtoFactura(extraido.fechaVencimiento);
       setDescFactura(extraido.descripcion);
+      setItemsFactura(extraido.items || []);
       setNetoFactura(extraido.netoGravado);
       setDatosExtraidosMsg(
-        `✓ Datos completados automáticamente desde la foto (${extraido.tipoComprobante} ${extraido.nroComprobante} · Neto $${extraido.netoGravado.toLocaleString('es-AR')} · Confianza ${extraido.confianza}%)`
+        `✓ Factura ${extraido.tipoComprobante} ${extraido.nroComprobante} y ${extraido.items.length} ítems extraídos de la foto. Verificá abajo la asociación con tus productos para actualizar Stock y Costo.`
       );
     } finally {
       setEscaneandoFoto(false);
@@ -215,6 +274,14 @@ export const ProveedoresModule: React.FC = () => {
 
     const totalCalculado = Number((netoFactura * 1.21).toFixed(2));
 
+    // Guardar equivalencias de artículos del proveedor -> nuestro inventario
+    for (const it of itemsFactura) {
+      if (it.articuloAsociadoId && it.articuloAsociadoId !== '__CREAR_NUEVO__') {
+        guardarEquivalenciaArticuloProveedor(it.codigoProveedor, it.articuloAsociadoId);
+        guardarEquivalenciaArticuloProveedor(it.descripcionProveedor, it.articuloAsociadoId);
+      }
+    }
+
     await registrarFacturaCompra({
       proveedorId: proveedorActivo.id,
       tipo: tipoFactura,
@@ -224,7 +291,14 @@ export const ProveedoresModule: React.FC = () => {
         : `Provisión de insumos operativos [${centroCostoFactura}]`,
       cuentaGasto: cuentaImputacionFactura || proveedorActivo.cuentaGastoHabitual,
       medioPagoPactado: medioPagoFactura,
-      fechaVencimiento: fechaVtoFactura
+      fechaVencimiento: fechaVtoFactura,
+      itemsInventarioAsociados: itemsFactura.map((it) => ({
+        articuloAsociadoId: it.articuloAsociadoId,
+        codigoProveedor: it.codigoProveedor,
+        descripcionProveedor: it.descripcionProveedor,
+        cantidad: it.cantidad,
+        costoUnitarioNeto: it.costoUnitarioNeto
+      }))
     });
 
     // Pre-configurar el formulario de pago con el monto y medio elegido para el Paso 2
@@ -239,6 +313,7 @@ export const ProveedoresModule: React.FC = () => {
     detenerCamara();
     setFotoFacturaPreview(null);
     setDatosExtraidosMsg(null);
+    setItemsFactura([]);
     setShowFacturaModal(false);
     setDescFactura('');
   };
@@ -1022,7 +1097,7 @@ export const ProveedoresModule: React.FC = () => {
       {/* MODAL: AGREGAR FACTURA DE COMPRA (PASO 1: QUEDA PENDIENTE CON MEDIO DE PAGO PACTADO) */}
       {showFacturaModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-300 max-w-xl w-full p-6 shadow-2xl space-y-3.5 my-4">
+          <div className="bg-white border border-slate-300 max-w-2xl w-full p-6 shadow-2xl space-y-3.5 my-4 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <h3 className="text-sm font-bold text-slate-900 font-mono uppercase">
                 AGREGAR FACTURA // {proveedorActivo?.razonSocial}
@@ -1282,6 +1357,159 @@ export const ProveedoresModule: React.FC = () => {
                     Impacta en el Calendario de Vencimientos.
                   </span>
                 </div>
+              </div>
+
+              {/* TABLA DE ÍTEMS DE LA FACTURA Y ASOCIACIÓN CON NUESTRO INVENTARIO (STOCK + PRECIO DE COSTO) */}
+              <div className="border border-emerald-300 bg-emerald-50/40 p-3 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Boxes className="w-4 h-4 text-[#064e3b] shrink-0" />
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-[#042f22] block">
+                        Ítems de la Factura y Asociación con Nuestro Inventario ({itemsFactura.length})
+                      </span>
+                      <span className="text-[10px] text-slate-600 font-sans block">
+                        Asociá el artículo del proveedor con tu producto para actualizar automáticamente su <strong>Stock</strong> y <strong>Precio de Costo</strong>.
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={agregarItemManualFactura}
+                    className="px-2.5 py-1 bg-white hover:bg-emerald-100 text-[#064e3b] border border-emerald-400 text-[10px] font-bold uppercase flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Agregar Ítem</span>
+                  </button>
+                </div>
+
+                {itemsFactura.length === 0 ? (
+                  <div className="p-3 bg-white border border-dashed border-emerald-300 text-center text-[11px] text-slate-500 font-sans">
+                    Sacá o subí una foto de la factura arriba para detectar los ítems automáticamente, o pulsá <strong>&ldquo;+ Agregar Ítem&rdquo;</strong> para asociar artículos de stock manualmente.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                    {itemsFactura.map((it) => {
+                      const prodAsociado = inventario.find((a) => a.id === it.articuloAsociadoId);
+                      return (
+                        <div
+                          key={it.id}
+                          className="p-2.5 bg-white border border-emerald-300 space-y-2 shadow-sm"
+                        >
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                            <div className="sm:col-span-6">
+                              <label className="block text-[10px] text-slate-500 font-bold mb-0.5">
+                                Artículo según Factura del Proveedor:
+                              </label>
+                              <input
+                                type="text"
+                                value={it.descripcionProveedor}
+                                onChange={(e) =>
+                                  actualizarItemFactura(it.id, { descripcionProveedor: e.target.value })
+                                }
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-300 text-[11px] font-bold text-slate-900"
+                              />
+                            </div>
+
+                            <div className="sm:col-span-2">
+                              <label className="block text-[10px] text-slate-500 font-bold mb-0.5">
+                                Cant.:
+                              </label>
+                              <input
+                                type="number"
+                                min="0.01"
+                                step="any"
+                                value={it.cantidad}
+                                onChange={(e) =>
+                                  actualizarItemFactura(it.id, {
+                                    cantidad: parseFloat(e.target.value) || 0
+                                  })
+                                }
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-300 text-[11px] font-bold text-slate-900"
+                              />
+                            </div>
+
+                            <div className="sm:col-span-3">
+                              <label className="block text-[10px] text-slate-500 font-bold mb-0.5">
+                                Costo Unit. Neto ($):
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={it.costoUnitarioNeto}
+                                onChange={(e) =>
+                                  actualizarItemFactura(it.id, {
+                                    costoUnitarioNeto: parseFloat(e.target.value) || 0
+                                  })
+                                }
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-300 text-[11px] font-bold text-[#042f22]"
+                              />
+                            </div>
+
+                            <div className="sm:col-span-1 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => eliminarItemFactura(it.id)}
+                                title="Quitar ítem"
+                                className="p-1.5 text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Selector de Asociación con Nuestro Producto en Inventario */}
+                          <div className="pt-1.5 border-t border-slate-100">
+                            <label className="block text-[10px] font-bold text-[#064e3b] uppercase mb-1">
+                              🔗 Asociar con Nuestro Producto en Inventario (Actualiza Stock y Costo):
+                            </label>
+                            <select
+                              value={it.articuloAsociadoId}
+                              onChange={(e) =>
+                                actualizarItemFactura(it.id, { articuloAsociadoId: e.target.value })
+                              }
+                              className="w-full px-2 py-1.5 bg-emerald-50/70 border border-emerald-400 text-[11px] font-bold text-[#042f22]"
+                            >
+                              <option value="">-- No asociar a Stock (Imputar solo como Gasto) --</option>
+                              {inventario.map((art) => (
+                                <option key={art.id} value={art.id}>
+                                  [{art.codigo}] {art.descripcion} (Stock actual: {art.stockActual} | Costo actual: ${art.costoCalculado.toLocaleString('es-AR', { minimumFractionDigits: 2 })})
+                                </option>
+                              ))}
+                              <option value="__CREAR_NUEVO__">
+                                + Crear como Nuevo Producto en nuestro Inventario ({it.descripcionProveedor})
+                              </option>
+                            </select>
+
+                            {prodAsociado && (
+                              <div className="mt-1.5 px-2.5 py-1 bg-emerald-100/80 border border-emerald-300 text-[10px] text-[#042f22] flex flex-wrap items-center justify-between gap-2">
+                                <span>
+                                  <strong>Stock:</strong> {prodAsociado.stockActual} u. &rarr;{' '}
+                                  <strong className="text-emerald-800">
+                                    {Number((prodAsociado.stockActual + it.cantidad).toFixed(2))} u. (+{it.cantidad})
+                                  </strong>
+                                </span>
+                                <span>
+                                  <strong>Precio de Costo:</strong> $
+                                  {prodAsociado.costoCalculado.toLocaleString('es-AR', { minimumFractionDigits: 2 })} &rarr;{' '}
+                                  <strong className="text-emerald-800">
+                                    ${it.costoUnitarioNeto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                  </strong>
+                                </span>
+                              </div>
+                            )}
+                            {it.articuloAsociadoId === '__CREAR_NUEVO__' && (
+                              <div className="mt-1.5 px-2.5 py-1 bg-sky-50 border border-sky-300 text-[10px] text-sky-950">
+                                Se dará de alta automáticamente en <strong>Inventario y Stock</strong> con Stock inicial de <strong>{it.cantidad} u.</strong> y Costo <strong>${it.costoUnitarioNeto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</strong>.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div>

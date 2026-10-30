@@ -119,6 +119,13 @@ interface ErpContextValue {
     cuentaGasto?: string;
     medioPagoPactado?: string;
     fechaVencimiento?: string;
+    itemsInventarioAsociados?: {
+      articuloAsociadoId: string;
+      codigoProveedor: string;
+      descripcionProveedor: string;
+      cantidad: number;
+      costoUnitarioNeto: number;
+    }[];
   }) => Promise<void>;
   registrarPagoProveedor: (params: {
     proveedorId: string;
@@ -1041,6 +1048,13 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     cuentaGasto?: string;
     medioPagoPactado?: string;
     fechaVencimiento?: string;
+    itemsInventarioAsociados?: {
+      articuloAsociadoId: string;
+      codigoProveedor: string;
+      descripcionProveedor: string;
+      cantidad: number;
+      costoUnitarioNeto: number;
+    }[];
   }) => {
     const proveedor = proveedores.find((p) => p.id === params.proveedorId);
     if (!proveedor) return;
@@ -1051,6 +1065,108 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const iva = Number((params.netoGravado * 0.21).toFixed(2));
     const total = Number((params.netoGravado + iva).toFixed(2));
     const medioPactado = params.medioPagoPactado || 'Transferencia Bancaria Santander';
+
+    // Impactar Stock y Precio de Costo en los productos de Inventario asociados
+    if (params.itemsInventarioAsociados && params.itemsInventarioAsociados.length > 0) {
+      let nuevoInv = [...inventario];
+      const articulosParaUpsert: ArticuloInventario[] = [];
+
+      for (const item of params.itemsInventarioAsociados) {
+        if (!item.articuloAsociadoId || item.cantidad <= 0) continue;
+
+        if (item.articuloAsociadoId === '__CREAR_NUEVO__') {
+          const nuevoCodigo = String(nuevoInv.length + 1).padStart(6, '0');
+          const nuevoArt: ArticuloInventario = {
+            id: `INV-${Date.now()}-${Math.floor(Math.random() * 999)}`,
+            codigo: nuevoCodigo,
+            sku: item.codigoProveedor || nuevoCodigo,
+            descripcion: item.descripcionProveedor.toUpperCase(),
+            tipo: 'P',
+            um: '1',
+            categoria: 'Materiales Incorporados por Factura',
+            unidadMedida: 'Unidad',
+            disponible: Number(item.cantidad),
+            stockActual: Number(item.cantidad),
+            stockMinimo: 1,
+            costoCalculado: Number(item.costoUnitarioNeto),
+            precioVentaNeto: Number((item.costoUnitarioNeto * 1.35).toFixed(2)),
+            alicuotaIva: 21,
+            deposito: 'Depósito Central San Juan',
+            movimientos: [
+              {
+                id: `MOV-INV-${Date.now()}-${Math.floor(Math.random() * 999)}`,
+                fecha: hoy,
+                deposito: 'Depósito Central',
+                descripcion: `Alta por ${params.tipo} ${nroFact} - ${proveedor.razonSocial}`,
+                tipoDoc: 'FAC',
+                precio: Number(item.costoUnitarioNeto),
+                cantidad: Number(item.cantidad)
+              }
+            ]
+          };
+          nuevoInv.push(nuevoArt);
+          articulosParaUpsert.push(nuevoArt);
+        } else {
+          nuevoInv = nuevoInv.map((art) => {
+            if (art.id !== item.articuloAsociadoId) return art;
+            const nuevoStock = Number((art.stockActual + item.cantidad).toFixed(2));
+            const nuevoDisponible = Number((art.disponible + item.cantidad).toFixed(2));
+            const nuevoCosto = Number(item.costoUnitarioNeto.toFixed(2));
+            // Si el precio de venta estaba igualado al costo anterior o por debajo del nuevo costo, lo actualizamos
+            const margenPrevio =
+              art.costoCalculado > 0 ? art.precioVentaNeto / art.costoCalculado : 1;
+            const nuevoPrecioVenta = Number((nuevoCosto * Math.max(1, margenPrevio)).toFixed(2));
+
+            const nuevoMov = {
+              id: `MOV-INV-${Date.now()}-${Math.floor(Math.random() * 999)}`,
+              fecha: hoy,
+              deposito: 'Depósito Central',
+              descripcion: `Factura Compra ${params.tipo} ${nroFact} - ${proveedor.razonSocial} (Equiv: ${item.descripcionProveedor})`,
+              tipoDoc: 'FAC',
+              precio: nuevoCosto,
+              cantidad: Number(item.cantidad)
+            };
+
+            const actualizado: ArticuloInventario = {
+              ...art,
+              disponible: nuevoDisponible,
+              stockActual: nuevoStock,
+              costoCalculado: nuevoCosto,
+              precioVentaNeto: nuevoPrecioVenta,
+              movimientos: [nuevoMov, ...(art.movimientos || [])]
+            };
+            articulosParaUpsert.push(actualizado);
+            return actualizado;
+          });
+        }
+      }
+
+      setInventario(nuevoInv);
+
+      if (articulosParaUpsert.length > 0) {
+        await supabase.from('erp_inventario').upsert(
+          articulosParaUpsert.map((i) => ({
+            id: i.id,
+            codigo: i.codigo,
+            sku: i.sku,
+            descripcion: i.descripcion,
+            tipo: i.tipo,
+            um: i.um,
+            categoria: i.categoria,
+            unidad_medida: i.unidadMedida,
+            disponible: i.disponible,
+            stock_actual: i.stockActual,
+            stock_minimo: i.stockMinimo,
+            costo_calculado: i.costoCalculado,
+            precio_venta_neto: i.precioVentaNeto,
+            alicuota_iva: i.alicuotaIva,
+            deposito: i.deposito,
+            movimientos: i.movimientos || [],
+            updated_at: new Date().toISOString()
+          }))
+        );
+      }
+    }
 
     const nuevaFacturaAdeudada: FacturaAdeudadaProveedor = {
       id: `FP-${Date.now()}`,
