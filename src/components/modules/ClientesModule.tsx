@@ -1116,44 +1116,6 @@ export const ClientesModule: React.FC = () => {
               Seleccionar archivo local
             </button>
           </div>
-
-          {/* Diccionario Fiscal de las 26 Columnas de la Plantilla Excel */}
-          <div className="border border-emerald-800/25 bg-emerald-50/30 p-4 space-y-3 text-xs">
-            <div className="flex items-center justify-between border-b border-emerald-800/20 pb-2">
-              <span className="font-bold text-[#042f22] uppercase">
-                Estructura Fiscal de la Plantilla (26 Columnas — Norma ARCA RG 4597 / WSFEv1)
-              </span>
-              <span className="text-[11px] font-semibold text-[#047857]">
-                Incluye Todos los Impuestos Nacionales, Provinciales y Municipales
-              </span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
-              <div className="bg-white p-3 border border-emerald-800/20 space-y-1">
-                <span className="font-bold text-[#064e3b] block uppercase">1. Cabecera y Receptor (Cols A - K)</span>
-                <p className="text-[#1f5e41]">
-                  <code>Fecha_Emision</code>, <code>Fecha_Vencimiento</code>, <code>Tipo_Comprobante</code> (A/B/C/NC/ND),{' '}
-                  <code>Punto_Venta</code>, <code>Numero_Comprobante</code>, <code>CUIT_Cliente</code>,{' '}
-                  <code>Razon_Social</code>, <code>Condicion_IVA</code>, <code>Jurisdiccion_IIBB</code>,{' '}
-                  <code>Moneda</code> (ARS/USD) y <code>Tipo_Cambio</code>.
-                </p>
-              </div>
-              <div className="bg-white p-3 border border-emerald-800/20 space-y-1">
-                <span className="font-bold text-[#064e3b] block uppercase">2. Bases e Impuestos (Cols L - V)</span>
-                <p className="text-[#1f5e41]">
-                  <code>Neto_Gravado</code>, <code>No_Gravado</code>, <code>Exento</code>, <code>IVA_21</code> (21%),{' '}
-                  <code>IVA_10_5</code> (10.5%), <code>IVA_27</code> (27%), <code>Percepcion_IVA</code>,{' '}
-                  <code>Percepcion_IIBB</code>, <code>Impuestos_Internos</code>, <code>Otros_Tributos_Municipales</code> y{' '}
-                  <code>Total_Comprobante</code>.
-                </p>
-              </div>
-              <div className="bg-white p-3 border border-emerald-800/20 space-y-1">
-                <span className="font-bold text-[#064e3b] block uppercase">3. Autorización ARCA y Contabilidad (Cols W - Z)</span>
-                <p className="text-[#1f5e41]">
-                  <code>CAE</code> (14 dígitos ARCA), <code>Vencimiento_CAE</code>, <code>Cuenta_Contable</code> (para asiento automático en Libro Diario) y <code>Descripcion</code>.
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
       ) : (
         /* PESTAÑA: MERCADO PAGO / COBROS ONLINE */
