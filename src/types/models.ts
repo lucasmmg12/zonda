@@ -243,6 +243,13 @@ export interface MovimientoInventario {
   tipoDoc: string;
   precio: number;
   cantidad: number;
+  proveedorId?: string;
+  proveedorNombre?: string;
+  proveedorCuit?: string;
+  facturaId?: string;
+  facturaNro?: string;
+  destinoEgreso?: string;
+  comprobanteEgreso?: string;
 }
 
 export interface ArticuloInventario {

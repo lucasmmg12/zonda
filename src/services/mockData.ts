@@ -1036,8 +1036,31 @@ export const mockInventario: ArticuloInventario[] = [
     alicuotaIva: 21,
     deposito: 'Depósito Central San Juan',
     movimientos: [
-      { id: 'MOV-INV-01', fecha: '2026-10-12', deposito: 'Depósito Central', descripcion: 'Factura Compra A 0001-00004120 - ALEJANDRO LUL', tipoDoc: 'FAC', precio: 16284.30, cantidad: 5.00 },
-      { id: 'MOV-INV-02', fecha: '2026-10-18', deposito: 'Depósito Central', descripcion: 'Remito Salida R-0001-00000189 - Obra Rawson', tipoDoc: 'REM', precio: 16284.30, cantidad: -2.00 }
+      {
+        id: 'MOV-INV-01',
+        fecha: '2026-10-12',
+        deposito: 'Depósito Central',
+        descripcion: 'Ingreso por Factura A 0001-00004120 — ALEJANDRO MIGUEL LUL...',
+        tipoDoc: 'FAC',
+        precio: 16284.30,
+        cantidad: 5.00,
+        proveedorId: 'PRV-01',
+        proveedorNombre: 'ALEJANDRO MIGUEL LUL...',
+        proveedorCuit: '20-24891230-4',
+        facturaId: 'FP-01',
+        facturaNro: 'Factura A 0001-00004120'
+      },
+      {
+        id: 'MOV-INV-02',
+        fecha: '2026-10-18',
+        deposito: 'Depósito Central',
+        descripcion: 'Salida por Remito R-0001-00000189 — Obra Red Cloacal Rawson',
+        tipoDoc: 'REM',
+        precio: 16284.30,
+        cantidad: -2.00,
+        destinoEgreso: 'CC-200 · Obra Red Cloacal Rawson',
+        comprobanteEgreso: 'Remito R-0001-00000189'
+      }
     ]
   },
   {
@@ -1057,7 +1080,31 @@ export const mockInventario: ArticuloInventario[] = [
     alicuotaIva: 21,
     deposito: 'Depósito Central San Juan',
     movimientos: [
-      { id: 'MOV-INV-03', fecha: '2026-09-28', deposito: 'Depósito Central', descripcion: 'Factura Compra A 0003-00019283 - DECOM SA', tipoDoc: 'FAC', precio: 8165.325, cantidad: 1.00 }
+      {
+        id: 'MOV-INV-03',
+        fecha: '2026-09-28',
+        deposito: 'Depósito Central',
+        descripcion: 'Ingreso por Factura A 0003-00019283 — DECOM SA',
+        tipoDoc: 'FAC',
+        precio: 8165.325,
+        cantidad: 3.00,
+        proveedorId: 'PRV-10',
+        proveedorNombre: 'DECOM SA',
+        proveedorCuit: '30-68192834-0',
+        facturaId: 'FP-10',
+        facturaNro: 'Factura A 0003-00019283'
+      },
+      {
+        id: 'MOV-INV-03B',
+        fecha: '2026-10-08',
+        deposito: 'Depósito Central',
+        descripcion: 'Salida por Remito R-0001-00000174 — Obra Acueducto Gran Tulum',
+        tipoDoc: 'REM',
+        precio: 8165.325,
+        cantidad: -2.00,
+        destinoEgreso: 'CC-100 · Obra Acueducto Gran Tulum',
+        comprobanteEgreso: 'Remito R-0001-00000174'
+      }
     ]
   },
   {
@@ -1077,8 +1124,31 @@ export const mockInventario: ArticuloInventario[] = [
     alicuotaIva: 21,
     deposito: 'Depósito Central San Juan',
     movimientos: [
-      { id: 'MOV-INV-04', fecha: '2026-10-02', deposito: 'Depósito Central', descripcion: 'Factura Compra A 0004-00001289 - JUAN CARLOS ROJO', tipoDoc: 'FAC', precio: 3900.00, cantidad: 10.00 },
-      { id: 'MOV-INV-05', fecha: '2026-10-15', deposito: 'Depósito Central', descripcion: 'Consumo Directo Mantenimiento Interno', tipoDoc: 'AJU', precio: 3900.00, cantidad: -5.00 }
+      {
+        id: 'MOV-INV-04',
+        fecha: '2026-10-02',
+        deposito: 'Depósito Central',
+        descripcion: 'Ingreso por Factura A 0004-00001289 — JUAN CARLOS ROJO',
+        tipoDoc: 'FAC',
+        precio: 3900.00,
+        cantidad: 10.00,
+        proveedorId: 'PRV-24',
+        proveedorNombre: 'JUAN CARLOS ROJO',
+        proveedorCuit: '20-12891240-8',
+        facturaId: 'FP-24',
+        facturaNro: 'Factura A 0004-00001289'
+      },
+      {
+        id: 'MOV-INV-05',
+        fecha: '2026-10-15',
+        deposito: 'Depósito Central',
+        descripcion: 'Salida por Remito R-0001-00000185 — Consumo Mantenimiento Obra',
+        tipoDoc: 'REM',
+        precio: 3900.00,
+        cantidad: -5.00,
+        destinoEgreso: 'CC-300 · Mantenimiento y Depósito',
+        comprobanteEgreso: 'Remito R-0001-00000185'
+      }
     ]
   },
   {
@@ -1098,8 +1168,31 @@ export const mockInventario: ArticuloInventario[] = [
     alicuotaIva: 21,
     deposito: 'Depósito Central San Juan',
     movimientos: [
-      { id: 'MOV-INV-06', fecha: '2026-09-15', deposito: 'Depósito Central', descripcion: 'Factura Compra A 0008-00041289 - ESTACION CENTRAL', tipoDoc: 'FAC', precio: 4627.93, cantidad: 100.00 },
-      { id: 'MOV-INV-07', fecha: '2026-10-05', deposito: 'Depósito Central', descripcion: 'Despacho Obra Barrio Rivadavia', tipoDoc: 'REM', precio: 4627.93, cantidad: -50.00 }
+      {
+        id: 'MOV-INV-06',
+        fecha: '2026-09-15',
+        deposito: 'Depósito Central',
+        descripcion: 'Ingreso por Factura A 0008-00041289 — ESTACION CENTRAL S.A.S.',
+        tipoDoc: 'FAC',
+        precio: 4627.93,
+        cantidad: 100.00,
+        proveedorId: 'PRV-14',
+        proveedorNombre: 'ESTACION CENTRAL S.A.S.',
+        proveedorCuit: '30-71689124-1',
+        facturaId: 'FP-14',
+        facturaNro: 'Factura A 0008-00041289'
+      },
+      {
+        id: 'MOV-INV-07',
+        fecha: '2026-10-05',
+        deposito: 'Depósito Central',
+        descripcion: 'Salida por Remito R-0001-00000180 — Despacho Obra Barrio Rivadavia',
+        tipoDoc: 'REM',
+        precio: 4627.93,
+        cantidad: -50.00,
+        destinoEgreso: 'CC-100 · Obra Barrio Rivadavia',
+        comprobanteEgreso: 'Remito R-0001-00000180'
+      }
     ]
   },
   {
@@ -1119,7 +1212,31 @@ export const mockInventario: ArticuloInventario[] = [
     alicuotaIva: 21,
     deposito: 'Depósito Central San Juan',
     movimientos: [
-      { id: 'MOV-INV-08', fecha: '2026-01-01', deposito: 'Depósito Central', descripcion: 'Carga de Inventario Inicial Apertura de Ejercicio', tipoDoc: 'INI', precio: 1.00, cantidad: 1.00 }
+      {
+        id: 'MOV-INV-08',
+        fecha: '2026-09-15',
+        deposito: 'Depósito Central',
+        descripcion: 'Ingreso por Factura A 0001-00004120 — ALEJANDRO MIGUEL LUL...',
+        tipoDoc: 'FAC',
+        precio: 1.00,
+        cantidad: 3.00,
+        proveedorId: 'PRV-01',
+        proveedorNombre: 'ALEJANDRO MIGUEL LUL...',
+        proveedorCuit: '20-24891230-4',
+        facturaId: 'FP-01',
+        facturaNro: 'Factura A 0001-00004120'
+      },
+      {
+        id: 'MOV-INV-09',
+        fecha: '2026-10-01',
+        deposito: 'Depósito Central',
+        descripcion: 'Salida por Remito R-0001-00000192 — Obra Acueducto Gran Tulum',
+        tipoDoc: 'REM',
+        precio: 1.00,
+        cantidad: -2.00,
+        destinoEgreso: 'CC-100 · Obra Acueducto Gran Tulum',
+        comprobanteEgreso: 'Remito R-0001-00000192'
+      }
     ]
   }
 ];

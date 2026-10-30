@@ -42,7 +42,8 @@ export const ProveedoresModule: React.FC = () => {
     crearProveedor,
     registrarFacturaCompra,
     registrarPagoProveedor,
-    refreshAllFromDb
+    refreshAllFromDb,
+    setActiveModule
   } = useErp();
 
   // Cuentas imputables reales obtenidas en vivo desde el Plan de Cuentas (Módulo 05 Contabilidad)
@@ -104,6 +105,7 @@ export const ProveedoresModule: React.FC = () => {
 
   // Formulario Factura Compra
   const [tipoFactura, setTipoFactura] = useState<'Factura A' | 'Factura B' | 'Factura C' | 'Liquidación' | 'Nota de Débito'>('Factura A');
+  const [nroComprobanteFactura, setNroComprobanteFactura] = useState('0001-00045120');
   const [netoFactura, setNetoFactura] = useState(300000);
   const [descFactura, setDescFactura] = useState('');
   const [cuentaImputacionFactura, setCuentaImputacionFactura] = useState('5.1.01 Materiales e Insumos');
@@ -215,6 +217,9 @@ export const ProveedoresModule: React.FC = () => {
         inventarioInterno: inventario
       });
       setTipoFactura(extraido.tipoComprobante);
+      if (extraido.nroComprobante) {
+        setNroComprobanteFactura(extraido.nroComprobante);
+      }
       setCuentaImputacionFactura(extraido.cuentaImputacionSugerida);
       setCentroCostoFactura(extraido.centroCostoSugerido);
       setMedioPagoFactura(extraido.medioPagoSugerido);
@@ -258,7 +263,43 @@ export const ProveedoresModule: React.FC = () => {
     total: number;
     medioPactado: string;
     proveedorNombre: string;
+    itemsIngresadosCount?: number;
+    nroFactura?: string;
   } | null>(null);
+
+  // Escuchar apertura directa desde Inventario para cargar Factura de Proveedor + Ingreso de Stock
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('zonda_open_proveedor_factura_stock');
+      if (raw) {
+        sessionStorage.removeItem('zonda_open_proveedor_factura_stock');
+        const payload = JSON.parse(raw);
+        setTabPrincipal('gestion');
+        setTabDetalle('adeudadas');
+        if (payload.proveedorId && proveedores.some((p) => p.id === payload.proveedorId)) {
+          setProveedorSeleccionadoId(payload.proveedorId);
+        }
+        const artObj =
+          inventario.find((a) => a.id === payload.articuloId) || inventario[0];
+        if (artObj) {
+          const itemInicial: ItemFacturaCompraExtraido = {
+            id: `IT-MAN-${Date.now()}`,
+            codigoProveedor: artObj.codigo,
+            descripcionProveedor: artObj.descripcion,
+            cantidad: payload.cantidad || 10,
+            costoUnitarioNeto: artObj.costoCalculado || 1000,
+            subtotalNeto: Number(((payload.cantidad || 10) * (artObj.costoCalculado || 1000)).toFixed(2)),
+            articuloAsociadoId: artObj.id
+          };
+          recalcularNetoDesdeItems([itemInicial]);
+          setDescFactura(`Ingreso de Stock: ${artObj.descripcion}`);
+        }
+        setShowFacturaModal(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, [proveedores, inventario]);
 
   // Formulario Pago (con soporte para Cuotas y Múltiples Cheques atados a Factura y Proveedor)
   const [facturaPagoId, setFacturaPagoId] = useState<string>('');
@@ -433,9 +474,12 @@ export const ProveedoresModule: React.FC = () => {
       }
     }
 
+    const itemsConStock = itemsFactura.filter((it) => it.articuloAsociadoId && it.cantidad > 0);
+
     await registrarFacturaCompra({
       proveedorId: proveedorActivo.id,
       tipo: tipoFactura,
+      nroComprobante: nroComprobanteFactura,
       netoGravado: netoFactura,
       descripcion: descFactura
         ? `${descFactura} [${centroCostoFactura}]`
@@ -458,8 +502,13 @@ export const ProveedoresModule: React.FC = () => {
     setAvisoFacturaPendiente({
       total: totalCalculado,
       medioPactado: medioPagoFactura,
-      proveedorNombre: proveedorActivo.razonSocial
+      proveedorNombre: proveedorActivo.razonSocial,
+      itemsIngresadosCount: itemsConStock.length,
+      nroFactura: `${tipoFactura} ${nroComprobanteFactura}`
     });
+
+    // Avanzar correlativo sugerido para la próxima carga
+    setNroComprobanteFactura(`0001-000${Math.floor(10000 + Math.random() * 89999)}`);
 
     detenerCamara();
     setFotoFacturaPreview(null);
@@ -868,13 +917,28 @@ export const ProveedoresModule: React.FC = () => {
                     <div className="bg-amber-50 border-b-2 border-amber-300 px-4 py-3 flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
                       <div className="space-y-0.5">
                         <span className="font-bold text-amber-950 uppercase block">
-                          ✓ PASO 1 COMPLETADO: FACTURA REGISTRADA COMO PENDIENTE (${avisoFacturaPendiente.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })})
+                          ✓ PASO 1 COMPLETADO: {avisoFacturaPendiente.nroFactura || 'FACTURA'} REGISTRADA COMO PENDIENTE (${avisoFacturaPendiente.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })})
+                          {avisoFacturaPendiente.itemsIngresadosCount && avisoFacturaPendiente.itemsIngresadosCount > 0 ? (
+                            <span className="ml-2 px-2 py-0.5 bg-emerald-700 text-white text-[10px]">
+                              + {avisoFacturaPendiente.itemsIngresadosCount} ÍTEM(S) INGRESADOS A INVENTARIO
+                            </span>
+                          ) : null}
                         </span>
                         <p className="text-[11px] text-amber-900 font-sans">
-                          Medio de pago pactado: <strong>{avisoFacturaPendiente.medioPactado}</strong>. El dinero <strong>aún no salió de Tesorería</strong>. Para desembolsar el pago ahora o cuando corresponda, ejecutá el <strong>Paso 2</strong>:
+                          Medio de pago pactado: <strong>{avisoFacturaPendiente.medioPactado}</strong>. El stock ya impactó en Inventario con su factura y proveedor asociados. Para desembolsar el pago ahora o cuando corresponda, ejecutá el <strong>Paso 2</strong>:
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {avisoFacturaPendiente.itemsIngresadosCount && avisoFacturaPendiente.itemsIngresadosCount > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => setActiveModule('inventario')}
+                            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+                          >
+                            <Boxes className="w-3.5 h-3.5" />
+                            <span>Ver Ingreso en Inventario</span>
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => abrirModalPagoConMedio(avisoFacturaPendiente.total, avisoFacturaPendiente.medioPactado)}
@@ -1308,6 +1372,33 @@ export const ProveedoresModule: React.FC = () => {
 
               <button
                 onClick={() => {
+                  if (proveedorActivo?.cuentaGastoHabitual) {
+                    setCuentaImputacionFactura(proveedorActivo.cuentaGastoHabitual);
+                  }
+                  if (itemsFactura.length === 0) {
+                    const artDefault = inventario[0];
+                    const itemInicial: ItemFacturaCompraExtraido = {
+                      id: `IT-MAN-${Date.now()}`,
+                      codigoProveedor: artDefault?.codigo || '000001',
+                      descripcionProveedor: artDefault?.descripcion || 'MATERIAL BASE',
+                      cantidad: 10,
+                      costoUnitarioNeto: artDefault?.costoCalculado || 1500,
+                      subtotalNeto: Number((10 * (artDefault?.costoCalculado || 1500)).toFixed(2)),
+                      articuloAsociadoId: artDefault?.id || ''
+                    };
+                    recalcularNetoDesdeItems([itemInicial]);
+                  }
+                  setShowFacturaModal(true);
+                }}
+                title="Cargar Factura de Compra del Proveedor con Ingreso directo de Artículos al Inventario"
+                className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs font-bold border border-emerald-700 flex items-center gap-1.5 transition-colors"
+              >
+                <Boxes className="w-3.5 h-3.5" />
+                <span>Cargar Factura + Ingreso de Stock</span>
+              </button>
+
+              <button
+                onClick={() => {
                   const primeraPendiente = proveedorActivo?.facturasAdeudadas?.[0];
                   if (primeraPendiente) {
                     abrirModalPagoConMedio(primeraPendiente.saldo, primeraPendiente.medioPagoPactado);
@@ -1551,7 +1642,7 @@ export const ProveedoresModule: React.FC = () => {
             </details>
 
             <form onSubmit={handleCrearFactura} className="space-y-3.5 font-mono text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-slate-600 font-bold mb-1">Tipo de Comprobante:</label>
                   <select
@@ -1563,6 +1654,17 @@ export const ProveedoresModule: React.FC = () => {
                     <option value="Factura B">Factura B</option>
                     <option value="Factura C">Factura C</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">N° de Factura / Comprobante:</label>
+                  <input
+                    type="text"
+                    required
+                    value={nroComprobanteFactura}
+                    onChange={(e) => setNroComprobanteFactura(e.target.value)}
+                    placeholder="Ej: 0001-00045120"
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 font-bold text-slate-900 text-xs"
+                  />
                 </div>
                 <div>
                   <label className="block text-slate-600 font-bold mb-1">

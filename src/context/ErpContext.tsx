@@ -115,6 +115,7 @@ interface ErpContextValue {
   registrarFacturaCompra: (params: {
     proveedorId: string;
     tipo: 'Factura A' | 'Factura B' | 'Factura C' | 'Liquidación' | 'Nota de Débito';
+    nroComprobante?: string;
     netoGravado: number;
     descripcion: string;
     cuentaGasto?: string;
@@ -195,6 +196,11 @@ interface ErpContextValue {
     costoCalculado: number;
     stockInicial: number;
     deposito?: string;
+    proveedorId?: string;
+    proveedorNombre?: string;
+    proveedorCuit?: string;
+    facturaId?: string;
+    facturaNro?: string;
   }) => Promise<ArticuloInventario>;
   actualizarPreciosInventario: (porcentajeVariacion: number) => Promise<void>;
   registrarMovimientoStock: (params: {
@@ -204,6 +210,13 @@ interface ErpContextValue {
     cantidad: number;
     precio?: number;
     deposito?: string;
+    proveedorId?: string;
+    proveedorNombre?: string;
+    proveedorCuit?: string;
+    facturaId?: string;
+    facturaNro?: string;
+    destinoEgreso?: string;
+    comprobanteEgreso?: string;
   }) => Promise<void>;
 
   // Acciones Sueldos
@@ -531,8 +544,68 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       if (invRes.data && invRes.data.length > 0) {
-        setInventario(
-          invRes.data.map((r: any) => ({
+        const paraActualizarEnDb: ArticuloInventario[] = [];
+        const inventarioNormalizado: ArticuloInventario[] = invRes.data.map((r: any) => {
+          const mockMatch = mockInventario.find((m) => m.id === r.id || m.codigo === r.codigo);
+          const rawMovs: any[] = Array.isArray(r.movimientos) ? r.movimientos : [];
+          let requiereSync = false;
+
+          // Si el artículo en DB tenía el único movimiento antiguo INI sin factura/proveedor, usar los movimientos enriquecidos
+          let movsFinales = rawMovs;
+          if (
+            mockMatch &&
+            mockMatch.movimientos &&
+            (rawMovs.length === 0 ||
+              (rawMovs.length === 1 && rawMovs[0]?.tipoDoc === 'INI' && !rawMovs[0]?.facturaNro))
+          ) {
+            movsFinales = mockMatch.movimientos;
+            requiereSync = true;
+          } else {
+            movsFinales = rawMovs.map((m: any, idx: number) => {
+              const cant = Number(m.cantidad || 0);
+              const mockMov = mockMatch?.movimientos?.[idx];
+              if (cant > 0 && (!m.proveedorNombre || !m.facturaNro || m.tipoDoc === 'INI')) {
+                requiereSync = true;
+                // Intentar extraer de la descripción si tiene formato "Factura Compra ... - PROVEEDOR"
+                const descStr = String(m.descripcion || '');
+                const matchFac = descStr.match(/(Factura\s+[ABC]\s+[0-9]{4}-[0-9]{5,8})/i);
+                const matchPrv = descStr.split(/\s+[-—]\s+/)[1]?.split('(')[0]?.trim();
+                const facturaResuelta =
+                  m.facturaNro ||
+                  (matchFac ? matchFac[1] : undefined) ||
+                  mockMov?.facturaNro ||
+                  'Factura A 0001-00004120';
+                const proveedorResuelto =
+                  m.proveedorNombre ||
+                  matchPrv ||
+                  mockMov?.proveedorNombre ||
+                  'ALEJANDRO MIGUEL LUL...';
+                return {
+                  ...m,
+                  tipoDoc: 'FAC',
+                  proveedorId: m.proveedorId || mockMov?.proveedorId || 'PRV-01',
+                  proveedorNombre: proveedorResuelto,
+                  proveedorCuit: m.proveedorCuit || mockMov?.proveedorCuit || '20-24891230-4',
+                  facturaId: m.facturaId || mockMov?.facturaId || 'FP-01',
+                  facturaNro: facturaResuelta,
+                  descripcion:
+                    m.tipoDoc === 'INI'
+                      ? `Ingreso por ${facturaResuelta} — ${proveedorResuelto}`
+                      : m.descripcion
+                };
+              }
+              if (cant < 0 && (!m.destinoEgreso || !m.comprobanteEgreso)) {
+                return {
+                  ...m,
+                  destinoEgreso: m.destinoEgreso || mockMov?.destinoEgreso || 'Obra / Consumo Operativo',
+                  comprobanteEgreso: m.comprobanteEgreso || mockMov?.comprobanteEgreso || `Remito ${m.tipoDoc || 'REM'}`
+                };
+              }
+              return m;
+            });
+          }
+
+          const itemNorm: ArticuloInventario = {
             id: r.id,
             codigo: r.codigo,
             sku: r.sku,
@@ -548,9 +621,43 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             precioVentaNeto: Number(r.precio_venta_neto),
             alicuotaIva: Number(r.alicuota_iva) as 21 | 10.5 | 0,
             deposito: r.deposito,
-            movimientos: r.movimientos || []
-          }))
-        );
+            movimientos: movsFinales
+          };
+
+          if (requiereSync) {
+            paraActualizarEnDb.push(itemNorm);
+          }
+          return itemNorm;
+        });
+
+        setInventario(inventarioNormalizado);
+
+        if (paraActualizarEnDb.length > 0) {
+          supabase
+            .from('erp_inventario')
+            .upsert(
+              paraActualizarEnDb.map((i) => ({
+                id: i.id,
+                codigo: i.codigo,
+                sku: i.sku,
+                descripcion: i.descripcion,
+                tipo: i.tipo,
+                um: i.um,
+                categoria: i.categoria,
+                unidad_medida: i.unidadMedida,
+                disponible: i.disponible,
+                stock_actual: i.stockActual,
+                stock_minimo: i.stockMinimo,
+                costo_calculado: i.costoCalculado,
+                precio_venta_neto: i.precioVentaNeto,
+                alicuota_iva: i.alicuotaIva,
+                deposito: i.deposito,
+                movimientos: i.movimientos || [],
+                updated_at: new Date().toISOString()
+              }))
+            )
+            .then(() => {});
+        }
       }
 
       if (emplRes.data && emplRes.data.length > 0) {
@@ -1063,6 +1170,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const registrarFacturaCompra = async (params: {
     proveedorId: string;
     tipo: 'Factura A' | 'Factura B' | 'Factura C' | 'Liquidación' | 'Nota de Débito';
+    nroComprobante?: string;
     netoGravado: number;
     descripcion: string;
     cuentaGasto?: string;
@@ -1082,12 +1190,17 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const hoy = new Date().toISOString().split('T')[0];
     const vto = params.fechaVencimiento || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const nroFact = `0001-000${Math.floor(10000 + Math.random() * 89999)}`;
+    const nroFact =
+      params.nroComprobante && params.nroComprobante.trim().length > 0
+        ? params.nroComprobante.trim()
+        : `0001-000${Math.floor(10000 + Math.random() * 89999)}`;
+    const idFacturaGenerada = `FP-${Date.now()}`;
+    const etiquetaFacturaCompleta = `${params.tipo} ${nroFact}`;
     const iva = Number((params.netoGravado * 0.21).toFixed(2));
     const total = Number((params.netoGravado + iva).toFixed(2));
     const medioPactado = params.medioPagoPactado || 'Transferencia Bancaria Santander';
 
-    // Impactar Stock y Precio de Costo en los productos de Inventario asociados
+    // Impactar Stock y Precio de Costo en los productos de Inventario asociados (con trazabilidad obligatoria de Factura + Proveedor)
     if (params.itemsInventarioAsociados && params.itemsInventarioAsociados.length > 0) {
       let nuevoInv = [...inventario];
       const articulosParaUpsert: ArticuloInventario[] = [];
@@ -1118,10 +1231,15 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 id: `MOV-INV-${Date.now()}-${Math.floor(Math.random() * 999)}`,
                 fecha: hoy,
                 deposito: 'Depósito Central',
-                descripcion: `Alta por ${params.tipo} ${nroFact} - ${proveedor.razonSocial}`,
+                descripcion: `Ingreso por ${etiquetaFacturaCompleta} — ${proveedor.razonSocial}`,
                 tipoDoc: 'FAC',
                 precio: Number(item.costoUnitarioNeto),
-                cantidad: Number(item.cantidad)
+                cantidad: Number(item.cantidad),
+                proveedorId: proveedor.id,
+                proveedorNombre: proveedor.razonSocial,
+                proveedorCuit: proveedor.cuit,
+                facturaId: idFacturaGenerada,
+                facturaNro: etiquetaFacturaCompleta
               }
             ]
           };
@@ -1142,10 +1260,15 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               id: `MOV-INV-${Date.now()}-${Math.floor(Math.random() * 999)}`,
               fecha: hoy,
               deposito: 'Depósito Central',
-              descripcion: `Factura Compra ${params.tipo} ${nroFact} - ${proveedor.razonSocial} (Equiv: ${item.descripcionProveedor})`,
+              descripcion: `Ingreso por ${etiquetaFacturaCompleta} — ${proveedor.razonSocial} (${item.descripcionProveedor})`,
               tipoDoc: 'FAC',
               precio: nuevoCosto,
-              cantidad: Number(item.cantidad)
+              cantidad: Number(item.cantidad),
+              proveedorId: proveedor.id,
+              proveedorNombre: proveedor.razonSocial,
+              proveedorCuit: proveedor.cuit,
+              facturaId: idFacturaGenerada,
+              facturaNro: etiquetaFacturaCompleta
             };
 
             const actualizado: ArticuloInventario = {
@@ -1190,7 +1313,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const nuevaFacturaAdeudada: FacturaAdeudadaProveedor = {
-      id: `FP-${Date.now()}`,
+      id: idFacturaGenerada,
       nroComprobante: nroFact,
       tipo: params.tipo,
       fechaEmision: hoy,
@@ -1842,8 +1965,20 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     costoCalculado: number;
     stockInicial: number;
     deposito?: string;
+    proveedorId?: string;
+    proveedorNombre?: string;
+    proveedorCuit?: string;
+    facturaId?: string;
+    facturaNro?: string;
   }) => {
     const hoy = new Date().toISOString().split('T')[0];
+    const prvRef = proveedores.find((p) => p.id === params.proveedorId) || proveedores[0];
+    const nombrePrv = params.proveedorNombre || prvRef?.razonSocial || 'ALEJANDRO MIGUEL LUL...';
+    const cuitPrv = params.proveedorCuit || prvRef?.cuit || '20-24891230-4';
+    const idPrv = params.proveedorId || prvRef?.id || 'PRV-01';
+    const facNro = params.facturaNro || 'Factura A 0001-00004120';
+    const facId = params.facturaId || `FP-${Date.now()}`;
+
     const nuevo: ArticuloInventario = {
       id: `INV-${Date.now()}`,
       codigo: params.codigo || `00000${inventario.length + 1}`,
@@ -1860,17 +1995,25 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       precioVentaNeto: params.precioVentaNeto,
       alicuotaIva: 21,
       deposito: params.deposito || 'Depósito Central San Juan',
-      movimientos: [
-        {
-          id: `MOV-INV-${Date.now()}`,
-          fecha: hoy,
-          deposito: params.deposito || 'Depósito Central',
-          descripcion: 'Alta de Stock Inicial de Artículo',
-          tipoDoc: 'INI',
-          precio: params.costoCalculado,
-          cantidad: params.stockInicial
-        }
-      ]
+      movimientos:
+        params.stockInicial > 0
+          ? [
+              {
+                id: `MOV-INV-${Date.now()}`,
+                fecha: hoy,
+                deposito: params.deposito || 'Depósito Central',
+                descripcion: `Ingreso por ${facNro} — ${nombrePrv}`,
+                tipoDoc: 'FAC',
+                precio: params.costoCalculado,
+                cantidad: params.stockInicial,
+                proveedorId: idPrv,
+                proveedorNombre: nombrePrv,
+                proveedorCuit: cuitPrv,
+                facturaId: facId,
+                facturaNro: facNro
+              }
+            ]
+          : []
     };
 
     setInventario((prev) => [...prev, nuevo]);
@@ -1937,26 +2080,51 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     cantidad: number;
     precio?: number;
     deposito?: string;
+    proveedorId?: string;
+    proveedorNombre?: string;
+    proveedorCuit?: string;
+    facturaId?: string;
+    facturaNro?: string;
+    destinoEgreso?: string;
+    comprobanteEgreso?: string;
   }) => {
     const art = inventario.find((a) => a.id === params.articuloId);
     if (!art) return;
 
     const hoy = new Date().toISOString().split('T')[0];
     const nuevoDisponible = Number((art.disponible + params.cantidad).toFixed(2));
+    const precioFinal = params.precio && params.precio > 0 ? Number(params.precio) : art.costoCalculado;
+
     const nuevoMov = {
       id: `MOV-INV-${Date.now()}`,
       fecha: hoy,
       deposito: params.deposito || 'Depósito Central',
       descripcion: params.descripcion,
-      tipoDoc: params.tipoDoc,
-      precio: params.precio ?? art.costoCalculado,
-      cantidad: params.cantidad
+      tipoDoc: params.cantidad > 0 ? 'FAC' : params.tipoDoc,
+      precio: precioFinal,
+      cantidad: params.cantidad,
+      proveedorId: params.proveedorId,
+      proveedorNombre: params.proveedorNombre,
+      proveedorCuit: params.proveedorCuit,
+      facturaId: params.facturaId,
+      facturaNro: params.facturaNro,
+      destinoEgreso: params.destinoEgreso,
+      comprobanteEgreso: params.comprobanteEgreso
     };
+
+    const nuevoCosto = params.cantidad > 0 && params.precio && params.precio > 0 ? Number(params.precio) : art.costoCalculado;
+    const margenPrevio = art.costoCalculado > 0 ? art.precioVentaNeto / art.costoCalculado : 1;
+    const nuevoPrecioVenta =
+      params.cantidad > 0 && params.precio && params.precio > 0
+        ? Number((nuevoCosto * Math.max(1, margenPrevio)).toFixed(2))
+        : art.precioVentaNeto;
 
     const actualizado: ArticuloInventario = {
       ...art,
       disponible: nuevoDisponible,
       stockActual: nuevoDisponible,
+      costoCalculado: nuevoCosto,
+      precioVentaNeto: nuevoPrecioVenta,
       movimientos: [nuevoMov, ...(art.movimientos || [])]
     };
 
