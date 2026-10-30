@@ -263,62 +263,20 @@ export const CalendarioVencimientosModal: React.FC<CalendarioVencimientosModalPr
       });
     }
 
-    // 3. Cheques en Cartera y Cheques Entregados a Proveedores (Atados a Factura y Proveedor)
-    if (showLayerCheques) {
-      const seenChequeNumbers = new Set<string>();
-
-      // 3a. Cheques asociados directamente a cada factura de proveedor
-      proveedores.forEach((prov) => {
-        if (filtroProveedorId !== 'TODOS' && prov.id !== filtroProveedorId) return;
-        prov.facturasAdeudadas.forEach((fac) => {
-          (fac.chequesAsociados || []).forEach((ch) => {
-            seenChequeNumbers.add(ch.numero);
-            const iso = parseDdMmYyyyToIso(ch.fechaPago || ch.fechaEmision);
-            events.push({
-              id: `CHQ-FAC-${prov.id}-${fac.id}-${ch.id}`,
-              fecha: formatIsoToDdMmYyyy(iso),
-              isoDate: iso,
-              tipo: 'cheque_cartera',
-              titulo: `🏦 Chq #${ch.numero} · ${prov.razonSocial}`,
-              subtitulo: `Atado a ${fac.tipo} ${fac.nroComprobante} · ${ch.bancoEmisor} (Cuota ${
-                ch.cuotaNro || 1
-              }/${ch.totalCuotas || 1})`,
-              monto: ch.importe,
-              estado: 'EN_CARTERA',
-              proveedorId: prov.id,
-              proveedorNombre: prov.razonSocial,
-              nroComprobante: `${fac.tipo} ${fac.nroComprobante}`
-            });
-          });
-        });
-      });
-
-      // 3b. Cheques en cartera o entregados en el padrón general de cheques
+    // 3. Cheques en Cartera / Diferidos
+    if (showLayerCheques && filtroProveedorId === 'TODOS') {
       cheques.forEach((chq) => {
-        if (seenChequeNumbers.has(chq.numero)) return;
-        if (
-          filtroProveedorId !== 'TODOS' &&
-          chq.proveedorId !== filtroProveedorId
-        ) {
-          return;
-        }
+        if (chq.estado !== 'En Cartera') return;
         const iso = parseDdMmYyyyToIso(chq.fechaPago || chq.fechaEmision);
         events.push({
           id: `CHQ-${chq.id}`,
           fecha: formatIsoToDdMmYyyy(iso),
           isoDate: iso,
           tipo: 'cheque_cartera',
-          titulo: chq.proveedorNombre
-            ? `🏦 Chq #${chq.numero} · ${chq.proveedorNombre}`
-            : `Cheque #${chq.numero} · ${chq.bancoEmisor}`,
-          subtitulo: chq.facturaNro
-            ? `Atado a ${chq.facturaNro} · ${chq.bancoEmisor} (${chq.estado})`
-            : `Librador: ${chq.librador} (${chq.estado})`,
+          titulo: `Cheque #${chq.numero} · ${chq.bancoEmisor}`,
+          subtitulo: `Librador: ${chq.librador}`,
           monto: chq.importe,
-          estado: 'EN_CARTERA',
-          proveedorId: chq.proveedorId,
-          proveedorNombre: chq.proveedorNombre,
-          nroComprobante: chq.facturaNro
+          estado: 'EN_CARTERA'
         });
       });
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Calendar,
   AlertCircle,
@@ -14,12 +14,16 @@ import {
   RefreshCw,
   FileCode,
   Plus,
-  X
+  X,
+  Upload,
+  Image as ImageIcon,
+  Trash2
 } from 'lucide-react';
 import type { AfipWsConfig, MercadoPagoConfig } from '../../types/models';
 import { getAfipConfig, saveAfipConfig, probarConexionAfip, generarInstruccionesOpenSsl, DEFAULT_ARCA_FUNCTION_URL } from '../../services/afip/afipWsClient';
 import { getMercadoPagoConfig, saveMercadoPagoConfig, probarConexionMercadoPago, crearPreferenciaMercadoPago, simularWebhookPagoMercadoPago, DEFAULT_MP_WEBHOOK_URL } from '../../services/mercadopago/mercadoPagoClient';
 import { ConexionesManagerModal } from '../modals/ConexionesManagerModal';
+import { CalendarioVencimientosModal } from '../modals/CalendarioVencimientosModal';
 import { useErp } from '../../context/ErpContext';
 
 export const ConfiguracionModule: React.FC = () => {
@@ -37,6 +41,7 @@ export const ConfiguracionModule: React.FC = () => {
 
   const [modalConexionesOpen, setModalConexionesOpen] = useState(false);
   const [tabModalConexion, setTabModalConexion] = useState<'afip' | 'mercadopago'>('afip');
+  const [calendarioModalOpen, setCalendarioModalOpen] = useState(false);
 
   const abrirModalConexiones = (targetTab: 'afip' | 'mercadopago') => {
     setTabModalConexion(targetTab);
@@ -85,6 +90,32 @@ export const ConfiguracionModule: React.FC = () => {
   const [logoAncho, setLogoAncho] = useState(empresaExtra.logoAncho || '45');
   const [logoAltura, setLogoAltura] = useState(empresaExtra.logoAltura || '20');
   const [logoArchivo, setLogoArchivo] = useState(empresaExtra.logoArchivo || 'logo_ecar_oficial.png');
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string>(() => {
+    try {
+      return localStorage.getItem('zonda_empresa_logo_dataurl_v1') || '/logogrow.png?v=2';
+    } catch {
+      return '/logogrow.png?v=2';
+    }
+  });
+  const logoFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleSeleccionarFotoLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoArchivo(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setLogoPreviewUrl(reader.result);
+        try {
+          localStorage.setItem('zonda_empresa_logo_dataurl_v1', reader.result);
+        } catch {
+          // ignore quota error
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Talonarios dinámicos
   const [talonarios, setTalonarios] = useState([
@@ -147,19 +178,26 @@ export const ConfiguracionModule: React.FC = () => {
         logoArchivo
       }
     );
-    setNotificacion('Datos generales de la empresa guardados en Supabase PostgreSQL.');
+    setNotificacion('Datos generales de la empresa guardados correctamente.');
     setTimeout(() => setNotificacion(null), 3000);
   };
 
   const handleGuardarLogo = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (logoPreviewUrl) {
+      try {
+        localStorage.setItem('zonda_empresa_logo_dataurl_v1', logoPreviewUrl);
+      } catch {
+        // ignore quota error
+      }
+    }
     await guardarConfiguracionEmpresa(empresa, {
       ...empresaExtra,
       logoAncho,
       logoAltura,
       logoArchivo
     });
-    setNotificacion('Parámetros de logotipo corporativo sincronizados en Supabase.');
+    setNotificacion('Logo corporativo guardado correctamente.');
     setTimeout(() => setNotificacion(null), 3000);
   };
 
@@ -240,7 +278,7 @@ export const ConfiguracionModule: React.FC = () => {
           </div>
 
           <button
-            onClick={() => setNotificacion('Calendario impositivo sincronizado: IVA 18/11, IIBB San Juan 20/11, F.931 12/11.')}
+            onClick={() => setCalendarioModalOpen(true)}
             className="h-8 px-3.5 bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
           >
             <Calendar className="w-3.5 h-3.5" />
@@ -291,7 +329,7 @@ export const ConfiguracionModule: React.FC = () => {
         <div className="bg-white border border-slate-300 border-t-0 min-h-[640px]">
           <div className="grid grid-cols-1 lg:grid-cols-2 bg-[#f0fdf4] border-b border-slate-300 text-xs font-mono font-bold text-slate-800">
             <div className="px-4 py-1.5 border-r border-slate-300">
-              Datos generales (Persistidos en Supabase `erp_empresa`)
+              Datos generales
             </div>
             <div className="px-4 py-1.5">
               Logo
@@ -444,13 +482,21 @@ export const ConfiguracionModule: React.FC = () => {
                   type="submit"
                   className="px-4 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold transition-colors border border-[#064e3b]"
                 >
-                  Guardar datos en Supabase
+                  Guardar
                 </button>
               </div>
             </form>
 
             {/* COLUMNA DERECHA: LOGO DE LA EMPRESA */}
             <form onSubmit={handleGuardarLogo} className="p-4 space-y-3 font-mono text-xs">
+              <input
+                ref={logoFileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleSeleccionarFotoLogo}
+                className="hidden"
+              />
+
               <div className="flex items-center gap-2">
                 <label className="w-40 shrink-0 text-slate-700">Logo Actual:</label>
                 <input
@@ -491,15 +537,90 @@ export const ConfiguracionModule: React.FC = () => {
 
               <div className="flex items-center gap-2">
                 <label className="w-40 shrink-0 text-slate-700">Archivo del Logo:</label>
-                <div className="relative w-full max-w-md flex items-center">
-                  <input
-                    type="text"
-                    value={logoArchivo}
-                    onChange={(e) => setLogoArchivo(e.target.value)}
-                    placeholder="Seleccionar una Imagen del Logo(.jpg/.gif/.png)"
-                    className="w-full px-2 py-1 bg-white border border-slate-300 text-xs pr-7 focus:outline-none focus:border-[#064e3b]"
-                  />
-                  <Save className="w-4 h-4 text-slate-600 absolute right-2" />
+                <div className="w-full max-w-md flex items-center gap-1.5">
+                  <div
+                    onClick={() => logoFileInputRef.current?.click()}
+                    title="Haga clic para seleccionar una foto o imagen del logo"
+                    className="relative flex-1 flex items-center cursor-pointer"
+                  >
+                    <input
+                      type="text"
+                      readOnly
+                      value={logoArchivo}
+                      placeholder="Seleccionar una Imagen del Logo (.jpg/.png/.webp)"
+                      className="w-full px-2 py-1 bg-white border border-slate-300 text-xs pr-7 cursor-pointer hover:border-[#064e3b] focus:outline-none focus:border-[#064e3b]"
+                    />
+                    <Save className="w-4 h-4 text-[#064e3b] absolute right-2 pointer-events-none" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => logoFileInputRef.current?.click()}
+                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-[#064e3b] border border-emerald-700/30 text-[11px] font-bold flex items-center gap-1 shrink-0 transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Subir foto</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* VISTA PREVIA INTERACTIVA DE LA FOTO DEL LOGO */}
+              <div className="flex items-start gap-2 pt-1">
+                <label className="w-40 shrink-0 text-slate-700 pt-1">Vista previa:</label>
+                <div className="w-full max-w-md border border-slate-300 bg-slate-50/70 p-3 flex flex-col items-center justify-center gap-2">
+                  {logoPreviewUrl ? (
+                    <div className="flex flex-col items-center gap-2 w-full">
+                      <div className="bg-white border border-slate-200 p-2 flex items-center justify-center min-h-[84px] w-full">
+                        <img
+                          src={logoPreviewUrl}
+                          alt="Logo de la empresa"
+                          style={{
+                            maxWidth: `${Math.min(Math.max(Number(logoAncho) || 45, 20) * 3.2, 260)}px`,
+                            maxHeight: `${Math.min(Math.max(Number(logoAltura) || 20, 12) * 3.2, 120)}px`
+                          }}
+                          className="object-contain"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between w-full text-[10px] text-slate-500">
+                        <span>Dimensiones impresas: {logoAncho || '45'} mm × {logoAltura || '20'} mm</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => logoFileInputRef.current?.click()}
+                            className="text-[#064e3b] hover:underline font-bold flex items-center gap-1"
+                          >
+                            <ImageIcon className="w-3 h-3" />
+                            Cambiar foto
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLogoPreviewUrl('');
+                              setLogoArchivo('');
+                              try {
+                                localStorage.removeItem('zonda_empresa_logo_dataurl_v1');
+                              } catch {
+                                // ignore
+                              }
+                            }}
+                            className="text-rose-600 hover:underline font-bold flex items-center gap-0.5"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Quitar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => logoFileInputRef.current?.click()}
+                      className="w-full py-5 border border-dashed border-emerald-700/40 bg-white hover:bg-emerald-50/40 text-slate-600 flex flex-col items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Upload className="w-5 h-5 text-[#064e3b]" />
+                      <span className="text-xs font-bold text-[#064e3b]">Haga clic aquí para seleccionar la foto del logo</span>
+                      <span className="text-[10px] text-slate-400">Formatos soportados: PNG, JPG, WEBP, SVG</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1427,6 +1548,12 @@ export const ConfiguracionModule: React.FC = () => {
         isOpen={modalConexionesOpen}
         onClose={() => setModalConexionesOpen(false)}
         defaultTab={tabModalConexion}
+      />
+
+      {/* MODAL INTERACTIVO DE CALENDARIO DE VENCIMIENTOS */}
+      <CalendarioVencimientosModal
+        isOpen={calendarioModalOpen}
+        onClose={() => setCalendarioModalOpen(false)}
       />
     </div>
   );

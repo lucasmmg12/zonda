@@ -102,6 +102,13 @@ export function printAfipElectronicInvoice(params: {
   const printWin = window.open('', '_blank', 'width=920,height=800');
   if (!printWin) return;
 
+  let customLogoDataUrl = '';
+  try {
+    customLogoDataUrl = localStorage.getItem('zonda_empresa_logo_dataurl_v1') || '';
+  } catch {
+    customLogoDataUrl = '';
+  }
+
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -143,6 +150,7 @@ export function printAfipElectronicInvoice(params: {
     <div class="copy-banner">ORIGINAL / DUPLICADO — COMPROBANTE ELECTRÓNICO AUTORIZADO (WSFEv1)</div>
     <div class="header-grid">
       <div class="header-col">
+        ${customLogoDataUrl ? `<div style="margin-bottom:8px;"><img src="${customLogoDataUrl}" alt="Logo" style="max-height:48px;max-width:160px;object-fit:contain;" /></div>` : ''}
         <div class="title">${params.empresa.razonSocial}</div>
         <div class="meta-line"><strong>Domicilio Comercial:</strong> ${params.empresa.domicilioFiscal}</div>
         <div class="meta-line"><strong>Condición frente al IVA:</strong> ${params.empresa.condicionIva}</div>
