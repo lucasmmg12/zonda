@@ -17,18 +17,24 @@ import {
   Send,
   X
 } from 'lucide-react';
-import { useErp } from '../../context/ErpContext';
+import { useErp, flattenCuentasContables } from '../../context/ErpContext';
 import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
 
 export const ProveedoresModule: React.FC = () => {
   const {
     proveedores,
     cuentasBancarias,
+    planDeCuentas,
     crearProveedor,
     registrarFacturaCompra,
     registrarPagoProveedor,
     refreshAllFromDb
   } = useErp();
+
+  // Cuentas imputables reales obtenidas en vivo desde el Plan de Cuentas (Módulo 05 Contabilidad)
+  const cuentasImputablesPlan = flattenCuentasContables(planDeCuentas).filter(
+    (c) => c.imputable && (c.codigo.startsWith('5.') || c.codigo.startsWith('1.1.03') || c.codigo.startsWith('1.2.'))
+  );
 
   const [proveedorSeleccionadoId, setProveedorSeleccionadoId] = useState<string | null>('PRV-001');
   const [filtroActivos, setFiltroActivos] = useState<'activos' | 'inactivos'>('activos');
@@ -51,6 +57,8 @@ export const ProveedoresModule: React.FC = () => {
   const [tipoFactura, setTipoFactura] = useState<'Factura A' | 'Factura B' | 'Factura C' | 'Liquidación' | 'Nota de Débito'>('Factura A');
   const [netoFactura, setNetoFactura] = useState(300000);
   const [descFactura, setDescFactura] = useState('');
+  const [cuentaImputacionFactura, setCuentaImputacionFactura] = useState('5.1.01 Materiales e Insumos');
+  const [centroCostoFactura, setCentroCostoFactura] = useState('CC-100 · Obra Acueducto Gran Tulum - Tramo II');
   const [medioPagoFactura, setMedioPagoFactura] = useState('Transferencia Bancaria Santander');
   const [fechaVtoFactura, setFechaVtoFactura] = useState(
     () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -118,8 +126,10 @@ export const ProveedoresModule: React.FC = () => {
       proveedorId: proveedorActivo.id,
       tipo: tipoFactura,
       netoGravado: netoFactura,
-      descripcion: descFactura || 'Provisión de insumos operativos',
-      cuentaGasto: proveedorActivo.cuentaGastoHabitual,
+      descripcion: descFactura
+        ? `${descFactura} [${centroCostoFactura}]`
+        : `Provisión de insumos operativos [${centroCostoFactura}]`,
+      cuentaGasto: cuentaImputacionFactura || proveedorActivo.cuentaGastoHabitual,
       medioPagoPactado: medioPagoFactura,
       fechaVencimiento: fechaVtoFactura
     });
@@ -818,7 +828,12 @@ export const ProveedoresModule: React.FC = () => {
             {/* BARRA INFERIOR DE ACCIONES (Agregar factura, Agregar pago, Nuevo proveedor, Importar) */}
             <div className="bg-[#ecfdf5]/30 border-t border-slate-300 px-4 py-2 flex flex-wrap items-center gap-2">
               <button
-                onClick={() => setShowFacturaModal(true)}
+                onClick={() => {
+                  if (proveedorActivo?.cuentaGastoHabitual) {
+                    setCuentaImputacionFactura(proveedorActivo.cuentaGastoHabitual);
+                  }
+                  setShowFacturaModal(true);
+                }}
                 title="Paso 1: Cargar factura y elegir medio de pago pactado (queda pendiente en cuenta corriente)"
                 className="px-3.5 py-1.5 bg-[#ecfdf5] hover:bg-emerald-100 text-[#042f22] font-mono text-xs font-bold border border-emerald-400 flex items-center gap-1.5 transition-colors"
               >
@@ -948,7 +963,7 @@ export const ProveedoresModule: React.FC = () => {
             </details>
 
             <form onSubmit={handleCrearFactura} className="space-y-3.5 font-mono text-xs">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-600 font-bold mb-1">Tipo de Comprobante:</label>
                   <select
@@ -962,9 +977,53 @@ export const ProveedoresModule: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-600 font-bold mb-1">Cuenta de Imputación:</label>
-                  <input type="text" readOnly value={proveedorActivo?.cuentaGastoHabitual || '5.1.01 Materiales'} className="w-full px-2.5 py-1.5 bg-slate-100 border border-slate-300 text-slate-500" />
+                  <label className="block text-slate-600 font-bold mb-1">
+                    Cuenta de Imputación (Plan de Cuentas):
+                  </label>
+                  <select
+                    value={cuentaImputacionFactura}
+                    onChange={(e) => setCuentaImputacionFactura(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-emerald-400 font-bold text-[#042f22] text-xs"
+                  >
+                    {cuentasImputablesPlan.map((cta) => {
+                      const label = `${cta.codigo} ${cta.nombre}`;
+                      return (
+                        <option key={cta.codigo} value={label}>
+                          {label}
+                        </option>
+                      );
+                    })}
+                    {proveedorActivo?.cuentaGastoHabitual &&
+                      !cuentasImputablesPlan.some(
+                        (c) => `${c.codigo} ${c.nombre}` === proveedorActivo.cuentaGastoHabitual
+                      ) && (
+                        <option value={proveedorActivo.cuentaGastoHabitual}>
+                          {proveedorActivo.cuentaGastoHabitual}
+                        </option>
+                      )}
+                  </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">
+                  Centro de Costo / Imputación Operativa (Configuración):
+                </label>
+                <select
+                  value={centroCostoFactura}
+                  onChange={(e) => setCentroCostoFactura(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 text-xs font-bold text-slate-800"
+                >
+                  <option value="CC-100 · Obra Acueducto Gran Tulum - Tramo II">
+                    CC-100 · Obra Acueducto Gran Tulum - Tramo II
+                  </option>
+                  <option value="CC-200 · Red Cloacal Rawson - Sector Sur">
+                    CC-200 · Red Cloacal Rawson - Sector Sur
+                  </option>
+                  <option value="CC-300 · Administración Central y Depósito">
+                    CC-300 · Administración Central y Depósito
+                  </option>
+                </select>
               </div>
 
               {/* NUEVO: SELECTOR DE MEDIO DE PAGO PACTADO + FECHA DE VENCIMIENTO */}
@@ -1222,15 +1281,20 @@ export const ProveedoresModule: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-600 font-bold mb-1">Cuenta de Gasto Habitual:</label>
+                <label className="block text-slate-600 font-bold mb-1">Cuenta de Gasto Habitual (Plan de Cuentas):</label>
                 <select
                   value={nuevoCuentaGasto}
                   onChange={(e) => setNuevoCuentaGasto(e.target.value)}
                   className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
                 >
-                  <option value="5.1.01 Materiales e Insumos">5.1.01 Materiales e Insumos</option>
-                  <option value="5.1.02 Combustibles y Lubricantes">5.1.02 Combustibles y Lubricantes</option>
-                  <option value="5.2.02 Alquiler de Maquinaria">5.2.02 Alquiler de Maquinaria</option>
+                  {cuentasImputablesPlan.map((cta) => {
+                    const label = `${cta.codigo} ${cta.nombre}`;
+                    return (
+                      <option key={cta.codigo} value={label}>
+                        {label}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

@@ -474,7 +474,19 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       if (pcRes.data && pcRes.data.nodos) {
-        setPlanDeCuentas(pcRes.data.nodos);
+        const nodosDb: CuentaContable[] = pcRes.data.nodos;
+        const nodo51Mock = findCuentaInTree(mockPlanDeCuentas, '5.1');
+        const nodo51Db = findCuentaInTree(nodosDb, '5.1');
+        if (nodo51Mock?.hijos && nodo51Db && (!nodo51Db.hijos || nodo51Db.hijos.length === 0)) {
+          const nodosEnriquecidos = updatePlanCuentasTree(nodosDb, '5.1', (c) => ({
+            ...c,
+            hijos: nodo51Mock.hijos
+          }));
+          setPlanDeCuentas(nodosEnriquecidos);
+          supabase.from('erp_plan_cuentas').upsert({ id: 'DEFAULT', nodos: nodosEnriquecidos }).then(() => {});
+        } else {
+          setPlanDeCuentas(nodosDb);
+        }
       }
 
       if (acRes.data && acRes.data.length > 0) {
@@ -1130,17 +1142,22 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     ]);
 
-    // Impactar Asiento Contable
+    // Impactar Asiento Contable en la Cuenta del Plan de Cuentas seleccionada
+    const rawCuentaGasto = params.cuentaGasto || proveedor.cuentaGastoHabitual || '5.1.01 Materiales e Insumos';
+    const matchCodigo = rawCuentaGasto.match(/^([0-9]+(?:\.[0-9]+)+)\s+(.+)$/);
+    const codigoImputacion = matchCodigo ? matchCodigo[1] : '5.1';
+    const nombreImputacion = matchCodigo ? matchCodigo[2] : rawCuentaGasto;
+
     const nextAsientoNum =
       asientosContables.length > 0 ? Math.max(...asientosContables.map((a) => a.numero)) + 1 : 4095;
     await impactarAsientoContable(
       {
         numero: nextAsientoNum,
         fecha: hoy,
-        concepto: `Compra ${params.tipo} ${nroFact} - ${proveedor.razonSocial}`,
+        concepto: `Compra ${params.tipo} ${nroFact} - ${proveedor.razonSocial} (${rawCuentaGasto})`,
         tipoOrigen: 'Compras',
         renglones: [
-          { cuentaCodigo: '5.1', cuentaNombre: 'Costos y Gastos Operativos', debe: params.netoGravado, haber: 0 },
+          { cuentaCodigo: codigoImputacion, cuentaNombre: nombreImputacion, debe: params.netoGravado, haber: 0 },
           { cuentaCodigo: '2.1.02', cuentaNombre: 'Cargas Fiscales e IVA', debe: iva, haber: 0 },
           { cuentaCodigo: '2.1.01', cuentaNombre: 'Proveedores Comerciales', debe: 0, haber: total }
         ],
