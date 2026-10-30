@@ -13,6 +13,7 @@ import { MigrationHubModule } from './components/modules/MigrationHubModule';
 import { ConfiguracionModule } from './components/modules/ConfiguracionModule';
 import { SueldosModule } from './components/modules/SueldosModule';
 import { UsuariosModule } from './components/modules/UsuariosModule';
+import { ZondaChat } from './components/ZondaChat';
 import { ErpProvider, useErp } from './context/ErpContext';
 import {
   getActiveOperator,
@@ -126,6 +127,9 @@ function AppLayout() {
           </div>
         </main>
       </div>
+
+      {/* Copiloto y Asistente Inteligente Zonda (Flotante + Caminante + Voz) */}
+      <ZondaChat />
     </div>
   );
 }

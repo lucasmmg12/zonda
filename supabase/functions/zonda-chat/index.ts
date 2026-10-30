@@ -1,0 +1,82 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') || '';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+};
+
+const SYSTEM_PROMPT = `Sos "Zonda" 💼, el asistente IA corporativo de oficina de Grow // ERP (Ecosistema Sanatorio Argentino / ECAR).
+Hablás en español argentino (vos, dale, impecable). Sos amable, ejecutivo, preciso y resolutivo.
+Tenés acceso en tiempo real a las 14 tablas contables, fiscales y financieras de Supabase PostgreSQL (erp_empresa, erp_clientes, erp_proveedores, erp_comprobantes_venta, erp_comprobantes_compra, erp_cuentas_bancarias, erp_cheques, erp_plan_cuentas, erp_asientos_contables, erp_inventario, erp_empleados, erp_liquidaciones, erp_integraciones_config, erp_webhooks_log).`;
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const { messages = [], activeModule = 'tablero' } = await req.json();
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+    if (OPENAI_API_KEY) {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: `${SYSTEM_PROMPT}\nMódulo activo: ${activeModule}` },
+            ...messages
+          ],
+          temperature: 0.3
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const reply = data.choices?.[0]?.message?.content || '';
+        if (reply) {
+          return new Response(JSON.stringify({ reply, provider: 'openai' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+    }
+
+    // Motor directo contra Supabase PostgreSQL cuando no se requiere API externa
+    const [fv, fc, cb, chq] = await Promise.all([
+      supabase.from('erp_comprobantes_venta').select('total'),
+      supabase.from('erp_comprobantes_compra').select('total'),
+      supabase.from('erp_cuentas_bancarias').select('saldo_actual'),
+      supabase.from('erp_cheques').select('importe, estado')
+    ]);
+
+    const totalVentas = (fv.data || []).reduce((s: number, r: any) => s + Number(r.total || 0), 0);
+    const totalCompras = (fc.data || []).reduce((s: number, r: any) => s + Number(r.total || 0), 0);
+    const totalBancos = (cb.data || []).reduce((s: number, r: any) => s + Number(r.saldo_actual || 0), 0);
+    const totalCheques = (chq.data || [])
+      .filter((c: any) => c.estado === 'En Cartera')
+      .reduce((s: number, r: any) => s + Number(r.importe || 0), 0);
+
+    return new Response(
+      JSON.stringify({
+        reply: `📊 **Estado Consolidado en Supabase PostgreSQL:**\n• Ventas AFIP: $${totalVentas.toLocaleString('es-AR')}\n• Compras: $${totalCompras.toLocaleString('es-AR')}\n• Saldos Bancarios: $${totalBancos.toLocaleString('es-AR')}\n• Cheques en Cartera: $${totalCheques.toLocaleString('es-AR')}`,
+        provider: 'supabase-native'
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err?.message || 'Error en zonda-chat' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});

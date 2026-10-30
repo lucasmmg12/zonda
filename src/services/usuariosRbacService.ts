@@ -382,3 +382,4 @@ export async function cambiarOperadorActivo(op: OperadorProfile): Promise<void> 
     // No bloquear cambio de sesión
   }
 }
+
