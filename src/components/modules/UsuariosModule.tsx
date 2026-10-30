@@ -9,7 +9,6 @@ import {
   KeyRound,
   Lock,
   Unlock,
-  RefreshCw,
   Download,
   Search,
   Eye,
@@ -509,21 +508,6 @@ export const UsuariosModule: React.FC = () => {
           >
             <Download className="w-3.5 h-3.5" />
             <span>Exportar Padrón (.CSV)</span>
-          </button>
-
-          <button
-            onClick={async () => {
-              setSincronizando(true);
-              const remotos = await sincronizarUsuariosDesdeSupabase();
-              setUsuarios(remotos);
-              await cargarAuditoria();
-              setSincronizando(false);
-              mostrarNotificacion('ok', 'Padrón de usuarios sincronizado correctamente.');
-            }}
-            className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-[#064e3b] border border-emerald-700/30 text-xs font-bold uppercase flex items-center gap-1.5 transition-colors"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${sincronizando ? 'animate-spin' : ''}`} />
-            <span>Sincronizar</span>
           </button>
         </div>
       </div>
