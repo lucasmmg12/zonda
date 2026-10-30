@@ -56,13 +56,18 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
       setAfipConfig(getAfipConfig());
       setMpConfig(getMercadoPagoConfig());
     };
+    const handleUserUpdate = () => {
+      setOperadorActual(getActiveOperator());
+    };
 
     window.addEventListener('afip_config_updated', handleUpdate);
     window.addEventListener('mercadopago_config_updated', handleUpdate);
+    window.addEventListener('zonda_usuarios_updated', handleUserUpdate);
 
     return () => {
       window.removeEventListener('afip_config_updated', handleUpdate);
       window.removeEventListener('mercadopago_config_updated', handleUpdate);
+      window.removeEventListener('zonda_usuarios_updated', handleUserUpdate);
     };
   }, []);
 
@@ -131,7 +136,8 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
       inventario: '06 · Inventario y Stock',
       sueldos: '07 · Sueldos y Cargas',
       migracion: '08 · Centro de Migración',
-      configuracion: '09 · Configuración Fiscal'
+      configuracion: '09 · Configuración Fiscal',
+      usuarios: '10 · Usuarios y Accesos'
     };
     return map[mod] || mod.toUpperCase();
   };

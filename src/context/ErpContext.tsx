@@ -260,7 +260,8 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'inventario',
       'sueldos',
       'migracion',
-      'configuracion'
+      'configuracion',
+      'usuarios'
     ];
     if (validModules.includes(hash)) return hash;
     return 'tablero';

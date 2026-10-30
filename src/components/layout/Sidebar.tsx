@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -11,9 +11,11 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
-  Terminal,
+  ShieldCheck,
+  Lock,
   BadgeDollarSign
 } from 'lucide-react';
+import { getActiveOperator, OperadorProfile } from '../../services/usuariosRbacService';
 
 export type ModuleKey =
   | 'tablero'
@@ -24,7 +26,8 @@ export type ModuleKey =
   | 'inventario'
   | 'sueldos'
   | 'migracion'
-  | 'configuracion';
+  | 'configuracion'
+  | 'usuarios';
 
 interface SidebarProps {
   activeModule: ModuleKey;
@@ -39,6 +42,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   collapsed,
   onToggleCollapse
 }) => {
+  const [operadorActual, setOperadorActual] = useState<OperadorProfile>(getActiveOperator());
+
+  useEffect(() => {
+    const syncOperator = () => setOperadorActual(getActiveOperator());
+    window.addEventListener('zonda_usuarios_updated', syncOperator);
+    return () => window.removeEventListener('zonda_usuarios_updated', syncOperator);
+  }, []);
+
   const menuItems: { key: ModuleKey; label: string; icon: React.ElementType; code: string; badge?: string }[] = [
     { key: 'tablero', label: 'Tablero de Control', icon: LayoutDashboard, code: '01' },
     { key: 'clientes', label: 'Clientes y Ventas', icon: Users, code: '02', badge: 'AFIP' },
@@ -48,7 +59,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { key: 'inventario', label: 'Inventario y Stock', icon: Boxes, code: '06' },
     { key: 'sueldos', label: 'Sueldos y Cargas', icon: BadgeDollarSign, code: '07', badge: 'LSD' },
     { key: 'migracion', label: 'Centro de Migración', icon: ArrowRightLeft, code: '08', badge: 'HUB' },
-    { key: 'configuracion', label: 'Configuración Fiscal', icon: Settings, code: '09' }
+    { key: 'configuracion', label: 'Configuración Fiscal', icon: Settings, code: '09' },
+    { key: 'usuarios', label: 'Usuarios y Accesos', icon: ShieldCheck, code: '10', badge: 'RBAC' }
   ];
 
   return (
@@ -93,13 +105,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeModule === item.key;
+            const tienePermiso =
+              item.key === 'usuarios' ||
+              operadorActual.rol === 'ADMINISTRADOR GENERAL' ||
+              operadorActual.modulosPermitidos.includes(item.key);
             return (
               <button
                 key={item.key}
                 onClick={() => onSelectModule(item.key)}
                 className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-sans transition-all text-left border ${isActive
                     ? 'bg-[#064e3b] text-white border-[#047857] border-l-4 border-l-emerald-400 font-bold shadow-sm'
-                    : 'text-[#064e3b] hover:text-[#042f22] hover:bg-emerald-50/70 border-transparent hover:border-emerald-200 font-semibold'
+                    : tienePermiso
+                      ? 'text-[#064e3b] hover:text-[#042f22] hover:bg-emerald-50/70 border-transparent hover:border-emerald-200 font-semibold'
+                      : 'text-emerald-900/40 hover:bg-emerald-50/40 border-transparent font-medium'
                   }`}
                 title={collapsed ? item.label : undefined}
               >
@@ -107,21 +125,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span className={`text-[10px] ${isActive ? 'text-emerald-300 font-bold' : 'text-emerald-700/70'}`}>
                     {item.code}
                   </span>
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-[#047857]'}`} />
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : tienePermiso ? 'text-[#047857]' : 'text-emerald-800/40'}`} />
                 </div>
 
                 {!collapsed && (
                   <div className="flex-1 flex items-center justify-between min-w-0">
                     <span className="truncate uppercase tracking-tight text-[11px] font-semibold">{item.label}</span>
-                    {item.badge && (
-                      <span
-                        className={`text-[9px] px-1 py-0.2 font-sans font-bold uppercase ${isActive
-                            ? 'bg-[#047857] text-emerald-100 border border-emerald-400/50'
-                            : 'bg-emerald-50 text-[#064e3b] border border-emerald-200'
-                          }`}
-                      >
-                        [{item.badge}]
-                      </span>
+                    {!tienePermiso ? (
+                      <Lock className="w-3 h-3 text-amber-700 shrink-0" />
+                    ) : (
+                      item.badge && (
+                        <span
+                          className={`text-[9px] px-1 py-0.2 font-sans font-bold uppercase ${isActive
+                              ? 'bg-[#047857] text-emerald-100 border border-emerald-400/50'
+                              : 'bg-emerald-50 text-[#064e3b] border border-emerald-200'
+                            }`}
+                        >
+                          [{item.badge}]
+                        </span>
+                      )
                     )}
                   </div>
                 )}
