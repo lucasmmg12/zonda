@@ -293,12 +293,13 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
     // 8. Plan de Cuentas Contables
     cuentasPlanPlanas.forEach((cc) => {
       if (raw && matchTextOrCuit(`${cc.codigo} ${cc.nombre} ${cc.tipo}`)) {
+        const saldoCuenta = cc.saldoFinal ?? (cc.saldoDeudor - cc.saldoAcreedor);
         results.push({
           id: `CC-${cc.codigo}`,
           entityId: cc.codigo,
           tipo: 'CUENTA CONTABLE',
           titulo: `${cc.codigo} · ${cc.nombre}`,
-          sub: `Rubro: ${cc.tipo} · Saldo: $${cc.saldo.toLocaleString('es-AR')}`,
+          sub: `Rubro: ${cc.tipo} · Saldo: $${saldoCuenta.toLocaleString('es-AR')}`,
           modulo: 'contabilidad',
           queryHint: cc.codigo
         });
@@ -309,8 +310,8 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
     asientosContables.forEach((as) => {
       if (raw && matchTextOrCuit(`asiento ${as.numero} ${as.concepto} ${as.tipoOrigen}`)) {
         results.push({
-          id: `AS-${as.id}`,
-          entityId: as.id,
+          id: `AS-${as.numero}`,
+          entityId: String(as.numero),
           tipo: 'ASIENTO',
           titulo: `Asiento N° ${as.numero} — ${as.concepto}`,
           sub: `Fecha: ${as.fecha} · Origen: ${as.tipoOrigen} · Total: $${as.totalDebe.toLocaleString('es-AR')}`,
@@ -322,13 +323,13 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
 
     // 10. Legajos / Empleados
     empleados.forEach((emp) => {
-      if (matchTextOrCuit(`${emp.nombreCompleto} ${emp.puesto} ${emp.cct} ${emp.legajo}`, emp.cuil)) {
+      if (matchTextOrCuit(`${emp.nombreCompleto} ${emp.categoria} ${emp.cct} ${emp.legajo}`, emp.cuil)) {
         results.push({
           id: `EMP-${emp.id}`,
           entityId: emp.id,
           tipo: 'LEGAJO',
           titulo: `${emp.legajo} · ${emp.nombreCompleto}`,
-          sub: `CUIL: ${emp.cuil} · ${emp.puesto} (${emp.cct})`,
+          sub: `CUIL: ${emp.cuil} · ${emp.categoria} (${emp.cct})`,
           modulo: 'sueldos',
           queryHint: emp.nombreCompleto
         });
