@@ -213,7 +213,7 @@ export const InventarioModule: React.FC = () => {
           <h1 className="text-xl font-bold text-slate-900 tracking-tight font-mono uppercase">
             Inventario
           </h1>
-          <span className="text-xs text-slate-400 font-mono">| CONTROL MULTIDEPÓSITO Y LISTAS DE PRECIOS (SUPABASE DB)</span>
+          <span className="text-xs text-slate-400 font-mono">| CONTROL MULTIDEPÓSITO Y LISTAS DE PRECIOS</span>
         </div>
 
         <button

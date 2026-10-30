@@ -459,7 +459,7 @@ export const ProveedoresModule: React.FC = () => {
           <h1 className="text-xl font-bold text-slate-900 tracking-tight font-mono uppercase">
             Proveedores
           </h1>
-          <span className="text-xs text-slate-400 font-mono">| GESTIÓN DE COMPRAS Y ÓRDENES DE PAGO (SUPABASE DB)</span>
+          <span className="text-xs text-slate-400 font-mono">| GESTIÓN DE COMPRAS Y ÓRDENES DE PAGO</span>
         </div>
 
         <button

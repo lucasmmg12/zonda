@@ -349,7 +349,7 @@ export const ContabilidadModule: React.FC = () => {
           <h1 className="text-xl font-bold text-slate-900 tracking-tight font-mono uppercase">
             Contabilidad general
           </h1>
-          <span className="text-xs text-slate-400 font-mono">| PLAN DE CUENTAS, MAYOR Y LIBRO DIARIO (SUPABASE DB)</span>
+          <span className="text-xs text-slate-400 font-mono">| PLAN DE CUENTAS, MAYOR Y LIBRO DIARIO</span>
         </div>
 
         <button

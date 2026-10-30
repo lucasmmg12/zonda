@@ -188,7 +188,7 @@ export const SueldosModule: React.FC = () => {
             Liquidación de Sueldos y Cargas Sociales
           </h1>
           <span className="text-xs text-slate-500 font-medium">
-            | CCT UOCRA, COMERCIO, SANIDAD & LIBRO SUELDOS DIGITAL (SUPABASE DB)
+            | CCT UOCRA, COMERCIO, SANIDAD & LIBRO SUELDOS DIGITAL
           </span>
         </div>
 

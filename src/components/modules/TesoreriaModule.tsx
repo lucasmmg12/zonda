@@ -242,7 +242,7 @@ export const TesoreriaModule: React.FC = () => {
           <h1 className="text-xl font-bold text-slate-900 tracking-tight font-mono uppercase">
             Tesorería
           </h1>
-          <span className="text-xs text-slate-400 font-mono">| CAJAS, BANCOS, CHEQUES Y CONCILIACIONES (SUPABASE DB)</span>
+          <span className="text-xs text-slate-400 font-mono">| CAJAS, BANCOS, CHEQUES Y CONCILIACIONES</span>
         </div>
 
         <button
