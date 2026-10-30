@@ -928,14 +928,9 @@ export const ProveedoresModule: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-300 max-w-xl w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div>
-                <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300">
-                  PASO 1 DE 2 · DEVENGAMIENTO DE FACTURA (QUEDA PENDIENTE DE PAGO)
-                </span>
-                <h3 className="text-sm font-bold text-slate-900 font-mono uppercase mt-1">
-                  AGREGAR FACTURA // {proveedorActivo?.razonSocial}
-                </h3>
-              </div>
+              <h3 className="text-sm font-bold text-slate-900 font-mono uppercase">
+                AGREGAR FACTURA // {proveedorActivo?.razonSocial}
+              </h3>
               <button onClick={() => setShowFacturaModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
               </button>
@@ -1134,14 +1129,9 @@ export const ProveedoresModule: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-300 max-w-md w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div>
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-emerald-100 text-[#064e3b] border border-emerald-300">
-                  PASO 2 DE 2 · EGRESO DE FONDOS DE TESORERÍA
-                </span>
-                <h3 className="text-sm font-bold text-slate-900 uppercase mt-1">
-                  AGREGAR PAGO // {proveedorActivo?.razonSocial}
-                </h3>
-              </div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase">
+                AGREGAR PAGO // {proveedorActivo?.razonSocial}
+              </h3>
               <button onClick={() => setShowPagoModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
               </button>
