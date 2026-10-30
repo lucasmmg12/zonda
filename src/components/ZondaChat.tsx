@@ -32,9 +32,8 @@ import type { ModuleKey } from './layout/Sidebar';
 import { getUsuariosList, getActiveOperator } from '../services/usuariosRbacService';
 import { exportToExcelCsv } from '../utils/exportUtils';
 import {
-  descargarLibroIvaVentasTxt,
-  descargarLibroIvaComprasTxt,
-  calcularPosicionMensualIva
+  generateLibroIvaDigitalRg4597,
+  downloadTxtFile
 } from '../utils/afipLibroIvaDigital';
 import { supabase } from '../lib/supabase';
 
@@ -522,8 +521,9 @@ export const ZondaChat: React.FC = () => {
 
     // 4. DESCARGA DE LIBRO IVA (Ventas / Compras)
     if (q.includes('libro iva') || q.includes('rg 4597') || (q.includes('descargar') && q.includes('iva'))) {
-      const pos = calcularPosicionMensualIva(facturasVenta, facturasCompra);
-      return `📑 **Posición de IVA y Descarga de Libros Oficiales (Período 2026-10)**\n\n• **IVA Débito Fiscal (Ventas):** **${fmt(pos.debitoFiscalTotal)}** (${facturasVenta.length} comprobantes)\n• **IVA Crédito Fiscal (Compras):** **${fmt(pos.creditoFiscalTotal)}** (${facturasCompra.length} comprobantes)\n• **Retenciones / Percepciones Sufridas:** **${fmt(pos.retencionesSufridas)}**\n• **Saldo Técnico / Posición F.2002:** **${fmt(pos.saldoAPagar)}** (${pos.saldoAFavor > 0 ? `Saldo a Favor: ${fmt(pos.saldoAFavor)}` : 'Saldo a ingresar AFIP'})\n\nHacé clic abajo para descargar los archivos directamente:\n\n[DOWNLOAD_LIBRO_IVA:ventas]\n[DOWNLOAD_LIBRO_IVA:compras]`;
+      const { resumenPosicionIva: pos } = generateLibroIvaDigitalRg4597(facturasVenta, facturasCompra);
+      const retenciones = facturasCompra.reduce((s, f) => s + (f.retencionIva || 0) + (f.retencionIIBB || 0), 0);
+      return `📑 **Posición de IVA y Descarga de Libros Oficiales (Período 2026-10)**\n\n• **IVA Débito Fiscal (Ventas):** **${fmt(pos.totalIvaDebitoFiscal)}** (${facturasVenta.length} comprobantes)\n• **IVA Crédito Fiscal (Compras):** **${fmt(pos.totalIvaCreditoFiscal)}** (${facturasCompra.length} comprobantes)\n• **Retenciones / Percepciones Sufridas:** **${fmt(retenciones)}**\n• **Saldo Técnico / Posición F.2002:** **${fmt(pos.saldoTecnicoIva)}**\n\nHacé clic abajo para descargar los archivos directamente:\n\n[DOWNLOAD_LIBRO_IVA:ventas]\n[DOWNLOAD_LIBRO_IVA:compras]`;
     }
 
     // 5. CONSULTA DE CHEQUES Y TESORERÍA
@@ -623,9 +623,9 @@ export const ZondaChat: React.FC = () => {
     const chqCartera = cheques.filter((c) => c.estado === 'En Cartera');
     const totalCartera = chqCartera.reduce((s, c) => s + c.importe, 0);
     const criticos = inventario.filter((i) => i.stockActual <= i.stockMinimo);
-    const posIva = calcularPosicionMensualIva(facturasVenta, facturasCompra);
+    const { resumenPosicionIva: posIva } = generateLibroIvaDigitalRg4597(facturasVenta, facturasCompra);
 
-    return `📊 **Resumen Ejecutivo en Tiempo Real — ${empresa.razonSocial} (CUIT ${empresa.cuit})**\n\n1. **Facturación Ventas (AFIP):** **${fmt(totalVentas)}** (${facturasVenta.length} comprobantes emitidos con CAE)\n2. **Compras y Gastos:** **${fmt(totalCompras)}** (${facturasCompra.length} comprobantes registrados)\n3. **Posición IVA Mensual:** Débito **${fmt(posIva.debitoFiscalTotal)}** vs. Crédito **${fmt(posIva.creditoFiscalTotal)}**\n4. **Saldos en Cajas y Bancos:** **${fmt(totalBancos)}** en ${cuentasBancarias.length} cuentas\n5. **Cheques en Cartera:** **${fmt(totalCartera)}** (${chqCartera.length} cheques listos para depositar)\n6. **Sueldos y Cargas (${liquidacionActual.periodo}):** Neto a pagar **${fmt(liquidacionActual.totalNeto)}** (${empleados.length} legajos)\n7. **Alertas Operativas:** **${criticos.length} artículos** en stock crítico y **100% cuadre de Partida Doble** (${asientosContables.length} asientos).\n\n¿Querés que emita una factura, concilie bancos o descargue el Libro IVA?`;
+    return `📊 **Resumen Ejecutivo en Tiempo Real — ${empresa.razonSocial} (CUIT ${empresa.cuit})**\n\n1. **Facturación Ventas (AFIP):** **${fmt(totalVentas)}** (${facturasVenta.length} comprobantes emitidos con CAE)\n2. **Compras y Gastos:** **${fmt(totalCompras)}** (${facturasCompra.length} comprobantes registrados)\n3. **Posición IVA Mensual:** Débito **${fmt(posIva.totalIvaDebitoFiscal)}** vs. Crédito **${fmt(posIva.totalIvaCreditoFiscal)}**\n4. **Saldos en Cajas y Bancos:** **${fmt(totalBancos)}** en ${cuentasBancarias.length} cuentas\n5. **Cheques en Cartera:** **${fmt(totalCartera)}** (${chqCartera.length} cheques listos para depositar)\n6. **Sueldos y Cargas (${liquidacionActual.periodo}):** Neto a pagar **${fmt(liquidacionActual.totalNeto)}** (${empleados.length} legajos)\n7. **Alertas Operativas:** **${criticos.length} artículos** en stock crítico y **100% cuadre de Partida Doble** (${asientosContables.length} asientos).\n\n¿Querés que emita una factura, concilie bancos o descargue el Libro IVA?`;
   };
 
   const sendMessage = async (e?: React.FormEvent | string) => {
@@ -777,6 +777,7 @@ export const ZondaChat: React.FC = () => {
   };
 
   const handleDescargarLibroIvaDesdeZonda = (tipo: 'ventas' | 'compras') => {
+    const { ventasCbteTxt, comprasCbteTxt } = generateLibroIvaDigitalRg4597(facturasVenta, facturasCompra);
     if (tipo === 'ventas') {
       const filas = facturasVenta.map((f) => ({
         Fecha: f.fechaEmision,
@@ -793,7 +794,7 @@ export const ZondaChat: React.FC = () => {
         CAE: f.cae || 'PENDIENTE'
       }));
       exportToExcelCsv('Libro_IVA_Ventas_ZondaERP_202610', filas);
-      descargarLibroIvaVentasTxt(facturasVenta, '202610');
+      downloadTxtFile('LIBRO_IVA_DIGITAL_VENTAS_CBTE_202610.txt', ventasCbteTxt);
     } else {
       const filas = facturasCompra.map((f) => ({
         Fecha: f.fechaComprobante,
@@ -810,7 +811,7 @@ export const ZondaChat: React.FC = () => {
         Estado: f.estadoPago
       }));
       exportToExcelCsv('Libro_IVA_Compras_ZondaERP_202610', filas);
-      descargarLibroIvaComprasTxt(facturasCompra, '202610');
+      downloadTxtFile('LIBRO_IVA_DIGITAL_COMPRAS_CBTE_202610.txt', comprasCbteTxt);
     }
   };
 
