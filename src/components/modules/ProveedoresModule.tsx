@@ -15,10 +15,13 @@ import {
   CheckCircle2,
   FileText,
   Send,
+  Camera,
+  Sparkles,
   X
 } from 'lucide-react';
 import { useErp, flattenCuentasContables } from '../../context/ErpContext';
 import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
+import { extraerDatosFacturaDesdeFoto, imageFileToBase64 } from '../../services/invoiceOcrService';
 
 export const ProveedoresModule: React.FC = () => {
   const {
@@ -63,6 +66,96 @@ export const ProveedoresModule: React.FC = () => {
   const [fechaVtoFactura, setFechaVtoFactura] = useState(
     () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
+
+  // Escáner de Factura por Foto / Cámara (OCR IA)
+  const [escaneandoFoto, setEscaneandoFoto] = useState(false);
+  const [fotoFacturaPreview, setFotoFacturaPreview] = useState<string | null>(null);
+  const [datosExtraidosMsg, setDatosExtraidosMsg] = useState<string | null>(null);
+  const [camaraActiva, setCamaraActiva] = useState(false);
+  const videoCamaraRef = useRef<HTMLVideoElement | null>(null);
+  const streamCamaraRef = useRef<MediaStream | null>(null);
+  const fotoInputRef = useRef<HTMLInputElement | null>(null);
+  const camaraMobileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const detenerCamara = () => {
+    if (streamCamaraRef.current) {
+      streamCamaraRef.current.getTracks().forEach((t) => t.stop());
+      streamCamaraRef.current = null;
+    }
+    setCamaraActiva(false);
+  };
+
+  const iniciarCamaraEnVivo = async () => {
+    setDatosExtraidosMsg(null);
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        streamCamaraRef.current = stream;
+        setCamaraActiva(true);
+        setTimeout(() => {
+          if (videoCamaraRef.current) {
+            videoCamaraRef.current.srcObject = stream;
+            videoCamaraRef.current.play().catch(() => {});
+          }
+        }, 100);
+        return;
+      } catch {
+        // Fallback a selector de cámara nativo del dispositivo
+      }
+    }
+    camaraMobileInputRef.current?.click();
+  };
+
+  const procesarImagenFactura = async (base64: string, nombreArchivo = 'foto_camara.jpg') => {
+    setFotoFacturaPreview(base64);
+    setEscaneandoFoto(true);
+    setDatosExtraidosMsg(null);
+    try {
+      const extraido = await extraerDatosFacturaDesdeFoto({
+        imageBase64: base64,
+        fileName: nombreArchivo,
+        proveedorNombre: proveedorActivo?.razonSocial,
+        cuentaHabitual: proveedorActivo?.cuentaGastoHabitual
+      });
+      setTipoFactura(extraido.tipoComprobante);
+      setCuentaImputacionFactura(extraido.cuentaImputacionSugerida);
+      setCentroCostoFactura(extraido.centroCostoSugerido);
+      setMedioPagoFactura(extraido.medioPagoSugerido);
+      setFechaVtoFactura(extraido.fechaVencimiento);
+      setDescFactura(extraido.descripcion);
+      setNetoFactura(extraido.netoGravado);
+      setDatosExtraidosMsg(
+        `✓ Datos completados automáticamente desde la foto (${extraido.tipoComprobante} ${extraido.nroComprobante} · Neto $${extraido.netoGravado.toLocaleString('es-AR')} · Confianza ${extraido.confianza}%)`
+      );
+    } finally {
+      setEscaneandoFoto(false);
+    }
+  };
+
+  const capturarFotoDesdeVideo = async () => {
+    if (!videoCamaraRef.current) return;
+    const video = videoCamaraRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 800;
+    canvas.height = video.videoHeight || 600;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      detenerCamara();
+      await procesarImagenFactura(dataUrl, `captura_${Date.now()}.jpg`);
+    }
+  };
+
+  const handleSeleccionarFotoArchivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const base64 = await imageFileToBase64(file);
+    await procesarImagenFactura(base64, file.name);
+    e.target.value = '';
+  };
 
   // Aviso interactivo post-carga de factura (Paso 1 -> Paso 2)
   const [avisoFacturaPendiente, setAvisoFacturaPendiente] = useState<{
@@ -143,6 +236,9 @@ export const ProveedoresModule: React.FC = () => {
       proveedorNombre: proveedorActivo.razonSocial
     });
 
+    detenerCamara();
+    setFotoFacturaPreview(null);
+    setDatosExtraidosMsg(null);
     setShowFacturaModal(false);
     setDescFactura('');
   };
@@ -925,15 +1021,143 @@ export const ProveedoresModule: React.FC = () => {
 
       {/* MODAL: AGREGAR FACTURA DE COMPRA (PASO 1: QUEDA PENDIENTE CON MEDIO DE PAGO PACTADO) */}
       {showFacturaModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-300 max-w-xl w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-300 max-w-xl w-full p-6 shadow-2xl space-y-3.5 my-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <h3 className="text-sm font-bold text-slate-900 font-mono uppercase">
                 AGREGAR FACTURA // {proveedorActivo?.razonSocial}
               </h3>
-              <button onClick={() => setShowFacturaModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button
+                onClick={() => {
+                  detenerCamara();
+                  setShowFacturaModal(false);
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
                 <X className="w-4 h-4" />
               </button>
+            </div>
+
+            {/* ESCÁNER INTELIGENTE DE FACTURA POR FOTO / CÁMARA (AUTOCOMPLETADO AUTOMÁTICO) */}
+            <div className="p-3 bg-emerald-50/70 border border-emerald-300 space-y-2.5">
+              <input
+                ref={fotoInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleSeleccionarFotoArchivo}
+                className="hidden"
+              />
+              <input
+                ref={camaraMobileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleSeleccionarFotoArchivo}
+                className="hidden"
+              />
+
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#064e3b] shrink-0" />
+                  <div>
+                    <span className="text-[11px] font-mono font-bold text-[#042f22] uppercase block">
+                      Autocompletar Factura con Foto / Cámara (IA OCR)
+                    </span>
+                    <span className="text-[10px] text-slate-600 block">
+                      Sacá una foto o subí la imagen del comprobante para cargar todos los campos automáticamente.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={escaneandoFoto}
+                    onClick={iniciarCamaraEnVivo}
+                    className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-[11px] font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Sacar Foto</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={escaneandoFoto}
+                    onClick={() => fotoInputRef.current?.click()}
+                    className="px-2.5 py-1.5 bg-white hover:bg-emerald-100 text-[#042f22] font-mono text-[11px] font-bold border border-emerald-400 flex items-center gap-1.5 transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Subir Foto</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Visor de cámara en vivo cuando el usuario pulsa "Sacar Foto" */}
+              {camaraActiva && (
+                <div className="p-2.5 bg-[#042f22] text-white space-y-2 border border-emerald-700">
+                  <div className="flex items-center justify-between text-[11px] font-mono">
+                    <span className="text-emerald-300 font-bold uppercase">
+                      ● Cámara Activa · Encuadrá la factura y presioná Capturar
+                    </span>
+                    <button
+                      type="button"
+                      onClick={detenerCamara}
+                      className="text-xs text-emerald-200 hover:text-white font-bold"
+                    >
+                      Cerrar Cámara ✕
+                    </button>
+                  </div>
+                  <video
+                    ref={videoCamaraRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-44 object-cover bg-black border border-emerald-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={capturarFotoDesdeVideo}
+                    className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-[#042f22] font-mono text-xs font-extrabold uppercase flex items-center justify-center gap-2"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>Capturar Foto y Autocompletar Datos</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Estado de escaneo OCR o vista previa de la foto procesada */}
+              {escaneandoFoto && (
+                <div className="p-2.5 bg-white border border-emerald-300 flex items-center gap-2.5 text-xs font-mono text-[#064e3b]">
+                  <RotateCw className="w-4 h-4 animate-spin shrink-0" />
+                  <span className="font-bold">
+                    Leyendo foto de la factura y completando Tipo, Imputación, Descripción, Neto e IVA...
+                  </span>
+                </div>
+              )}
+
+              {!escaneandoFoto && datosExtraidosMsg && (
+                <div className="p-2 bg-white border border-emerald-400 flex items-center justify-between gap-2 text-[11px] font-mono text-[#042f22]">
+                  <div className="flex items-center gap-2">
+                    {fotoFacturaPreview && (
+                      <img
+                        src={fotoFacturaPreview}
+                        alt="Factura escaneada"
+                        className="w-9 h-9 object-cover border border-emerald-300 shrink-0"
+                      />
+                    )}
+                    <span className="font-bold text-emerald-900">{datosExtraidosMsg}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFotoFacturaPreview(null);
+                      setDatosExtraidosMsg(null);
+                    }}
+                    className="text-slate-400 hover:text-slate-700 px-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* GUÍA EXPLICATIVA DESPLEGABLE PARA EL USUARIO: CÓMO FUNCIONA EL PAGO */}
@@ -1106,7 +1330,10 @@ export const ProveedoresModule: React.FC = () => {
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowFacturaModal(false)}
+                  onClick={() => {
+                    detenerCamara();
+                    setShowFacturaModal(false);
+                  }}
                   className="px-3.5 py-1.5 font-bold text-slate-600 hover:bg-slate-100 uppercase"
                 >
                   Cancelar

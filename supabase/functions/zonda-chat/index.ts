@@ -20,8 +20,48 @@ serve(async (req) => {
   }
 
   try {
-    const { messages = [], activeModule = 'tablero' } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { action, imageBase64, proveedorNombre = '', messages = [], activeModule = 'tablero' } = body;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+    if (action === 'ocr_factura' && imageBase64 && OPENAI_API_KEY) {
+      const visionResp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'system',
+              content:
+                'Extraé los datos de esta factura argentina en JSON exacto con las claves: tipoComprobante ("Factura A"|"Factura B"|"Factura C"), nroComprobante (ej "0001-00012345"), fechaEmision ("YYYY-MM-DD"), fechaVencimiento ("YYYY-MM-DD"), netoGravado (number), iva21 (number), total (number), descripcion (string), cuentaImputacionSugerida ("5.1.01 Materiales e Insumos"|"5.1.02 Combustibles y Lubricantes"|"5.1.03 Materiales de Red PEAD"|"5.2.01 Servicios Públicos y Energía"|"5.2.02 Alquiler de Maquinaria y Equipos"|"5.2.03 Honorarios y Servicios Técnicos"), centroCostoSugerido ("CC-100 · Obra Acueducto Gran Tulum - Tramo II"), medioPagoSugerido ("Transferencia Bancaria Santander"), confianza (99).'
+            },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: `Proveedor: ${proveedorNombre}. Extraé todos los importes y datos de la factura.` },
+                { type: 'image_url', image_url: { url: imageBase64 } }
+              ]
+            }
+          ]
+        })
+      });
+
+      if (visionResp.ok) {
+        const vData = await visionResp.json();
+        const rawJson = vData.choices?.[0]?.message?.content;
+        if (rawJson) {
+          const facturaExtraida = JSON.parse(rawJson);
+          return new Response(JSON.stringify({ facturaExtraida }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+    }
 
     if (OPENAI_API_KEY) {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
