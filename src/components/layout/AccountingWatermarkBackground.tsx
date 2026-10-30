@@ -141,3 +141,4 @@ export const AccountingWatermarkBackground: React.FC = () => {
     </div>
   );
 };
+

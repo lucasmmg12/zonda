@@ -57,28 +57,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
     >
       <div>
-        {/* Cabecera del Sidebar en Verde Bosque Profundo (Sin Negro) */}
-        <div className="h-14 px-3 flex items-center justify-between border-b border-[#047857] bg-[#064e3b] text-white">
+        {/* Cabecera del Sidebar — Blanca y unificada con el Header con líneas en Verde Bosque */}
+        <div className="h-14 px-3.5 flex items-center justify-between border-b border-emerald-800/25 bg-white text-[#042f22]">
           {!collapsed ? (
-            <div className="flex items-center gap-2.5">
-              <div className="h-8 w-auto px-1.5 bg-white flex items-center justify-center border border-[#047857]">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="h-8 w-8 shrink-0 bg-emerald-50/80 flex items-center justify-center border border-emerald-700/30">
                 <img src="/logogrow.png" alt="Grow Labs" className="h-5 w-auto object-contain" />
               </div>
-              <div>
-                <h1 className="text-xs font-bold tracking-widest uppercase text-white">GROW // ERP</h1>
-                <span className="text-[9px] text-emerald-300 tracking-wider block font-semibold">PRECISION ENGINE</span>
+              <div className="truncate">
+                <h1 className="text-xs font-extrabold tracking-wider uppercase text-[#064e3b] leading-tight whitespace-nowrap">
+                  GROW // ERP
+                </h1>
+                <span className="text-[9px] text-[#357a59] tracking-widest block font-semibold uppercase whitespace-nowrap">
+                  PRECISION ENGINE
+                </span>
               </div>
             </div>
           ) : (
-            <div className="mx-auto h-8 w-8 bg-white flex items-center justify-center border border-[#047857] p-1">
-              <img src="/logogrow.png" alt="Grow Labs" className="h-6 w-6 object-contain" />
+            <div className="mx-auto h-8 w-8 bg-emerald-50/80 flex items-center justify-center border border-emerald-700/30 p-1">
+              <img src="/logogrow.png" alt="Grow Labs" className="h-5 w-5 object-contain" />
             </div>
           )}
 
           <button
             onClick={onToggleCollapse}
-            title={collapsed ? 'Expandir consola' : 'Colapsar consola'}
-            className="p-1 text-emerald-200 hover:text-white hover:bg-[#047857] transition-colors hidden sm:block border border-[#047857]"
+            title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+            className="p-1 text-[#357a59] hover:text-[#064e3b] hover:bg-emerald-50 transition-colors hidden sm:block border border-emerald-700/25"
           >
             {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
           </button>

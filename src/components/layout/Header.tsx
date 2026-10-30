@@ -121,134 +121,62 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
       );
   }
 
-  return (
-    <header className="h-14 bg-white border-b border-[#047857] px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm">
-      {/* Izquierda: Empresa y Módulo activo */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-3 pr-4 border-r border-emerald-800/20">
-          <div className="h-8 px-2 bg-white flex items-center justify-center border border-[#047857] shadow-sm">
-            <img src="/logogrow.png" alt="Grow Labs" className="h-5 w-auto object-contain" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-[#042f22] tracking-tight text-xs uppercase">{empresa.razonSocial}</span>
-              <span className="text-[10px] px-1.5 py-0.2 bg-[#064e3b] text-emerald-100 border border-[#047857] font-semibold">
-                CUIT: {empresa.cuit}
-              </span>
-            </div>
-            <p className="text-[10px] text-[#047857] font-bold tracking-wider uppercase">
-              GROW LABS // ECOSYSTEM
-            </p>
-          </div>
-        </div>
+  const formatModuleLabel = (mod: string): string => {
+    const map: Record<string, string> = {
+      tablero: '01 · Tablero de Control',
+      clientes: '02 · Clientes y Ventas',
+      proveedores: '03 · Proveedores y Compras',
+      tesoreria: '04 · Tesorería y Cheques',
+      contabilidad: '05 · Contabilidad y Libros',
+      inventario: '06 · Inventario y Stock',
+      sueldos: '07 · Sueldos y Cargas',
+      migracion: '08 · Centro de Migración',
+      configuracion: '09 · Configuración Fiscal'
+    };
+    return map[mod] || mod.toUpperCase();
+  };
 
-        <div className="hidden md:flex items-center gap-2 text-xs">
-          <span className="text-[#357a59] uppercase text-[10px] font-bold">MÓDULO:</span>
-          <span className="text-white bg-[#064e3b] px-2.5 py-0.5 font-bold uppercase text-[10px] tracking-wider border border-[#047857]">
-            [ {activeModule} ]
+  return (
+    <header className="h-14 bg-white border-b border-emerald-800/25 px-4 lg:px-6 flex items-center justify-between gap-3 sticky top-0 z-30">
+      {/* Izquierda: Módulo Activo y Datos Fiscales en una sola línea limpia (sin duplicar logo) */}
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="px-2.5 py-1 bg-[#064e3b] text-white font-semibold text-[11px] tracking-wide uppercase whitespace-nowrap border border-[#047857]">
+          {formatModuleLabel(activeModule)}
+        </span>
+
+        <div className="hidden md:flex items-center gap-2 pl-3 border-l border-emerald-800/20 whitespace-nowrap overflow-hidden">
+          <span className="font-bold text-[#042f22] text-xs tracking-tight truncate">
+            {empresa.razonSocial}
+          </span>
+          <span className="text-[11px] px-2 py-0.5 bg-emerald-50 text-[#064e3b] border border-emerald-700/25 font-semibold whitespace-nowrap">
+            CUIT {empresa.cuit}
           </span>
         </div>
       </div>
 
-      {/* Derecha: Estado DB Supabase, AFIP, Mercado Pago, Buscador y Perfil */}
-      <div className="flex items-center gap-2">
-        {/* Indicador Supabase Real-Time */}
-        <button
-          onClick={refreshAllFromDb}
-          title={`Base de Datos Supabase PostgreSQL (Última sincr.: ${lastSync}). Click para refrescar.`}
-          className={`flex items-center gap-1.5 px-2.5 py-1 border text-[11px] font-bold transition-all ${
-            dbStatus === 'conectado'
-              ? 'bg-[#ecfdf5] text-[#064e3b] border-[#047857] hover:bg-[#d1fae5]'
-              : dbStatus === 'sincronizando'
-              ? 'bg-emerald-50 text-[#065f46] border-emerald-400'
-              : 'bg-emerald-50 text-[#064e3b] border-emerald-400'
-          }`}
-        >
-          {dbStatus === 'sincronizando' ? (
-            <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#047857]" />
-          ) : (
-            <Database className="w-3.5 h-3.5 text-[#047857]" />
-          )}
-          <span className="hidden lg:inline">
-            {dbStatus === 'conectado'
-              ? 'SUPABASE DB: ONLINE'
-              : dbStatus === 'sincronizando'
-              ? 'SINCRONIZANDO...'
-              : 'DB: RECONECTAR'}
-          </span>
-        </button>
-
-        {/* Botón Centro de Manuales e Instrucciones en Verde Esmeralda */}
-        <button
-          onClick={() => setModalManualesOpen(true)}
-          title="Abrir Manuales Paso a Paso e Instrucciones de cada Módulo"
-          className="flex items-center gap-1.5 px-2.5 py-1 border border-[#047857] bg-[#064e3b] hover:bg-[#047857] text-white text-[11px] font-bold transition-all shadow-sm"
-        >
-          <BookOpen className="w-3.5 h-3.5 text-emerald-300" />
-          <span>MANUALES E INSTRUCCIONES</span>
-        </button>
-
-        {/* Telemetría AFIP Dinámica */}
-        <button
-          onClick={() => abrirModalConexiones('afip')}
-          title="Haga clic para configurar o verificar Web Services de AFIP"
-          className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 border text-[11px] font-bold transition-all ${
-            afipConfig.estadoConexion === 'conectado'
-              ? 'bg-[#ecfdf5] text-[#064e3b] border-[#047857] hover:bg-[#d1fae5]'
-              : 'bg-white text-[#064e3b] border-[#047857] hover:bg-emerald-50'
-          }`}
-        >
-          <span
-            className={`w-2 h-2 ${
-              afipConfig.estadoConexion === 'conectado' ? 'bg-[#047857]' : 'bg-[#064e3b]'
-            }`}
-          ></span>
-          <span>
-            {afipConfig.estadoConexion === 'conectado'
-              ? `WS-AFIP: ${afipConfig.ambiente.toUpperCase()}`
-              : 'WS-AFIP: CONFIGURAR'}
-          </span>
-        </button>
-
-        {/* Telemetría Mercado Pago Dinámica */}
-        <button
-          onClick={() => abrirModalConexiones('mercadopago')}
-          title="Haga clic para vincular o configurar Mercado Pago (Checkout Pro y QR)"
-          className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 border text-[11px] font-bold transition-all ${
-            mpConfig.estadoConexion === 'conectado'
-              ? 'bg-[#ecfdf5] text-[#064e3b] border-[#047857] hover:bg-[#d1fae5]'
-              : 'bg-white text-[#064e3b] border-[#047857] hover:bg-emerald-50'
-          }`}
-        >
-          <CreditCard className="w-3.5 h-3.5 text-[#047857]" />
-          <span>
-            {mpConfig.estadoConexion === 'conectado'
-              ? `MP: ${mpConfig.modo.toUpperCase()}`
-              : 'MP: CONFIGURAR'}
-          </span>
-        </button>
-
-        {/* Buscador Técnico con Autocompletado */}
-        <div className="relative hidden xl:block">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+      {/* Derecha: Buscador + Barra Unificada de Conexiones + Manuales + Operador (Todo en 1 línea sin saltos) */}
+      <div className="flex items-center gap-2 shrink-0">
+        {/* Buscador Global Compacto */}
+        <div className="relative hidden lg:block">
+          <Search className="w-3.5 h-3.5 text-[#357a59] absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={globalQuery}
             onChange={(e) => setGlobalQuery(e.target.value)}
-            placeholder="BUSCAR [CUIT / CLIENTE / ITEM]..."
-            className="pl-8 pr-6 py-1 text-[11px] bg-white border border-slate-300 focus:outline-none focus:border-black focus:ring-1 focus:ring-black w-56 transition-all uppercase placeholder:text-slate-400 font-medium"
+            placeholder="Buscar CUIT, cliente o ítem..."
+            className="h-8 pl-8 pr-6 text-xs bg-emerald-50/40 border border-emerald-800/25 focus:outline-none focus:border-[#064e3b] focus:bg-white w-48 xl:w-60 transition-all placeholder:text-[#357a59]/70 font-medium text-[#042f22]"
           />
           {globalQuery && (
             <button
               onClick={() => setGlobalQuery('')}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-black"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[#357a59] hover:text-[#042f22]"
             >
               <X className="w-3 h-3" />
             </button>
           )}
 
           {q.length >= 2 && (
-            <div className="absolute right-0 mt-1 w-80 bg-white border-2 border-black shadow-xl z-50 divide-y divide-slate-200 font-mono text-xs">
+            <div className="absolute right-0 mt-1 w-80 bg-white border border-[#064e3b] shadow-xl z-50 divide-y divide-emerald-800/15 text-xs">
               {resultadosBusqueda.length > 0 ? (
                 resultadosBusqueda.map((item, idx) => (
                   <button
@@ -260,16 +188,16 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
                     className="w-full text-left p-2.5 hover:bg-emerald-50 flex flex-col gap-0.5 transition-colors"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-900 truncate">{item.titulo}</span>
-                      <span className="text-[9px] px-1.5 py-0.5 bg-slate-900 text-white font-bold">
+                      <span className="font-bold text-[#042f22] truncate">{item.titulo}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 bg-[#064e3b] text-white font-semibold">
                         {item.tipo}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-500">{item.sub}</span>
+                    <span className="text-[10px] text-[#357a59]">{item.sub}</span>
                   </button>
                 ))
               ) : (
-                <div className="p-3 text-center text-slate-500 text-[11px]">
+                <div className="p-3 text-center text-[#357a59] text-[11px]">
                   Sin coincidencias para "{globalQuery}"
                 </div>
               )}
@@ -277,30 +205,81 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           )}
         </div>
 
+        {/* Barra Segmentada Unificada: Supabase | ARCA | Mercado Pago */}
+        <div className="hidden sm:flex items-center h-8 border border-emerald-800/25 bg-white divide-x divide-emerald-800/20 whitespace-nowrap">
+          {/* Supabase */}
+          <button
+            onClick={refreshAllFromDb}
+            title={`Base de Datos Supabase PostgreSQL (Última sincr.: ${lastSync}). Click para refrescar.`}
+            className="h-full px-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#064e3b] hover:bg-emerald-50 transition-colors whitespace-nowrap"
+          >
+            {dbStatus === 'sincronizando' ? (
+              <RefreshCw className="w-3 h-3 animate-spin text-[#047857]" />
+            ) : (
+              <span className="w-2 h-2 bg-[#16a34a] inline-block"></span>
+            )}
+            <span>Supabase</span>
+          </button>
+
+          {/* ARCA */}
+          <button
+            onClick={() => abrirModalConexiones('afip')}
+            title="Configurar o verificar Web Services de ARCA (ex-AFIP)"
+            className="h-full px-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#064e3b] hover:bg-emerald-50 transition-colors whitespace-nowrap"
+          >
+            <span
+              className={`w-2 h-2 inline-block ${
+                afipConfig.estadoConexion === 'conectado' ? 'bg-[#16a34a]' : 'bg-emerald-600/50'
+              }`}
+            ></span>
+            <span>ARCA</span>
+          </button>
+
+          {/* Mercado Pago */}
+          <button
+            onClick={() => abrirModalConexiones('mercadopago')}
+            title="Configurar o verificar pasarela Mercado Pago (Checkout Pro y QR)"
+            className="h-full px-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#064e3b] hover:bg-emerald-50 transition-colors whitespace-nowrap"
+          >
+            <CreditCard className="w-3 h-3 text-[#047857]" />
+            <span>Mercado Pago</span>
+          </button>
+        </div>
+
+        {/* Botón Manuales Compacto en 1 Línea */}
+        <button
+          onClick={() => setModalManualesOpen(true)}
+          title="Abrir Manuales Paso a Paso e Instrucciones"
+          className="h-8 px-3 border border-[#047857] bg-[#064e3b] hover:bg-[#047857] text-white text-[11px] font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap"
+        >
+          <BookOpen className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+          <span>Manuales</span>
+        </button>
+
         {/* Notificaciones */}
         <div className="relative">
           <button
             onClick={() => setShowNotif(!showNotif)}
             title="Notificaciones de Auditoría y Base de Datos"
-            className="p-1.5 text-black hover:text-white hover:bg-black border border-transparent hover:border-black transition-colors relative"
+            className="h-8 w-8 flex items-center justify-center text-[#064e3b] hover:bg-emerald-50 border border-emerald-800/25 transition-colors relative"
           >
-            <Bell className="w-4 h-4" />
-            <span className="w-1.5 h-1.5 bg-[#047857] absolute top-1 right-1"></span>
+            <Bell className="w-3.5 h-3.5" />
+            <span className="w-1.5 h-1.5 bg-[#16a34a] absolute top-1.5 right-1.5"></span>
           </button>
 
           {showNotif && (
-            <div className="absolute right-0 mt-2 w-80 bg-white border-2 border-black shadow-2xl z-50 p-3 font-mono text-xs space-y-2">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
-                <span className="font-bold text-slate-900 uppercase">Centro de Alertas ERP</span>
-                <button onClick={() => setShowNotif(false)} className="text-slate-400 hover:text-black">
+            <div className="absolute right-0 mt-2 w-80 bg-white border border-[#064e3b] shadow-xl z-50 p-3 text-xs space-y-2">
+              <div className="flex items-center justify-between border-b border-emerald-800/15 pb-1.5">
+                <span className="font-bold text-[#042f22] uppercase">Centro de Alertas ERP</span>
+                <button onClick={() => setShowNotif(false)} className="text-[#357a59] hover:text-[#042f22]">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <div className="p-2 bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px]">
-                <strong>Supabase Conectado:</strong> Proyecto <code>dtjmckbrofevgfqbkzli</code> sincronizado en tiempo real ({lastSync}).
+              <div className="p-2 bg-emerald-50 border border-emerald-200 text-[#064e3b] text-[11px]">
+                <strong>Supabase Conectado:</strong> Proyecto <code>dtjmckbrofevgfqbkzli</code> sincronizado ({lastSync}).
               </div>
-              <div className="p-2 bg-amber-50 border border-amber-200 text-amber-900 text-[11px]">
-                <strong>Vencimiento Próximo:</strong> F.931 Cargas Sociales AFIP y Facturas de Cuenta Corriente.
+              <div className="p-2 bg-emerald-50/50 border border-emerald-200 text-[#065f46] text-[11px]">
+                <strong>Vencimiento Próximo:</strong> F.931 Cargas Sociales ARCA y Facturas de Cuenta Corriente.
               </div>
             </div>
           )}
@@ -310,18 +289,18 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
         <button
           onClick={() => setModalRolesOpen(true)}
           title="Cambiar Operador / Control de Roles y Permisos (RBAC)"
-          className="flex items-center gap-2 pl-2 border-l border-slate-300 hover:bg-slate-100 pr-2 py-1 transition-colors"
+          className="h-8 flex items-center gap-2 pl-2 pr-2.5 border border-emerald-800/25 bg-emerald-50/30 hover:bg-emerald-50 transition-colors whitespace-nowrap"
         >
-          <div className="w-7 h-7 bg-[#064e3b] text-white flex items-center justify-center font-bold text-[11px] border border-black">
+          <div className="w-5 h-5 bg-[#064e3b] text-white flex items-center justify-center font-bold text-[10px] shrink-0">
             {operadorActual.nombre.slice(0, 2).toUpperCase()}
           </div>
-          <div className="hidden md:block text-left">
-            <p className="text-[11px] font-bold text-black leading-tight uppercase truncate max-w-[140px]">
-              {operadorActual.nombre}
-            </p>
-            <p className="text-[9px] text-[#064e3b] font-bold tracking-wider uppercase">
+          <div className="hidden xl:flex flex-col text-left leading-none">
+            <span className="text-[11px] font-bold text-[#042f22] whitespace-nowrap">
+              {operadorActual.nombre.split('(')[0].trim()}
+            </span>
+            <span className="text-[9px] text-[#047857] font-semibold tracking-wide uppercase whitespace-nowrap">
               {operadorActual.rol}
-            </p>
+            </span>
           </div>
         </button>
       </div>
