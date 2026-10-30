@@ -73,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!collapsed ? (
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="logo-circle h-8 w-8 shrink-0 bg-emerald-50/90 flex items-center justify-center overflow-hidden">
-                <img src="/logogrow.png" alt="Grow Labs" className="h-5 w-5 object-contain" />
+                <img src="/logogrow.png?v=2" alt="Grow Labs" className="h-5 w-5 object-contain bg-transparent" />
               </div>
               <div className="truncate">
                 <h1 className="text-xs font-extrabold tracking-wider uppercase text-[#064e3b] leading-tight whitespace-nowrap">
@@ -86,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <div className="logo-circle mx-auto h-8 w-8 bg-emerald-50/90 flex items-center justify-center overflow-hidden p-1">
-              <img src="/logogrow.png" alt="Grow Labs" className="h-5 w-5 object-contain" />
+              <img src="/logogrow.png?v=2" alt="Grow Labs" className="h-5 w-5 object-contain bg-transparent" />
             </div>
           )}
 
@@ -157,17 +157,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!collapsed ? (
           <div className="logo-circle w-28 h-28 bg-emerald-50/75 flex items-center justify-center overflow-hidden p-4 transition-transform hover:scale-105">
             <img
-              src="/logogrow.png"
+              src="/logogrow.png?v=2"
               alt="Grow Labs Ecosystem"
-              className="w-full h-full object-contain select-none"
+              className="w-full h-full object-contain select-none bg-transparent"
             />
           </div>
         ) : (
           <div className="logo-circle w-10 h-10 bg-emerald-50/75 flex items-center justify-center overflow-hidden p-1.5">
             <img
-              src="/logogrow.png"
+              src="/logogrow.png?v=2"
               alt="Grow Labs"
-              className="w-full h-full object-contain select-none"
+              className="w-full h-full object-contain select-none bg-transparent"
             />
           </div>
         )}
