@@ -82,7 +82,21 @@ interface ErpContextValue {
     clienteId: string;
     tipo: TipoComprobante;
     puntoVenta?: string;
+    numero?: string;
+    fechaEmision?: string;
+    fechaVencimiento?: string;
     netoGravado: number;
+    noGravado?: number;
+    exento?: number;
+    iva21?: number;
+    iva105?: number;
+    iva27?: number;
+    percepcionIva?: number;
+    percepcionIIBB?: number;
+    impuestosInternos?: number;
+    otrosTributos?: number;
+    cae?: string;
+    caeVencimiento?: string;
     descripcion: string;
   }) => Promise<void>;
   registrarCobroCliente: (params: {
@@ -657,24 +671,60 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     clienteId: string;
     tipo: TipoComprobante;
     puntoVenta?: string;
+    numero?: string;
+    fechaEmision?: string;
+    fechaVencimiento?: string;
     netoGravado: number;
+    noGravado?: number;
+    exento?: number;
+    iva21?: number;
+    iva105?: number;
+    iva27?: number;
+    percepcionIva?: number;
+    percepcionIIBB?: number;
+    impuestosInternos?: number;
+    otrosTributos?: number;
+    cae?: string;
+    caeVencimiento?: string;
     descripcion: string;
   }) => {
     const cliente = clientes.find((c) => c.id === params.clienteId);
     if (!cliente) return;
 
     const ptoVta = params.puntoVenta || '0001';
-    const nextNum = String(415 + facturasVenta.length).padStart(8, '0');
+    const nextNum = params.numero || String(415 + facturasVenta.length).padStart(8, '0');
     const nroComprobante = `${ptoVta}-${nextNum}`;
-    const iva21 = Number((params.netoGravado * 0.21).toFixed(2));
-    const total = Number((params.netoGravado + iva21).toFixed(2));
-    const hoy = new Date().toISOString().split('T')[0];
-    const vto = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const caeVto = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const caeGenerado = `744${Math.floor(10000000000 + Math.random() * 89999999999)}`;
+
+    const noGravado = Number((params.noGravado ?? 0).toFixed(2));
+    const exento = Number((params.exento ?? 0).toFixed(2));
+    const iva105 = Number((params.iva105 ?? 0).toFixed(2));
+    const iva27 = Number((params.iva27 ?? 0).toFixed(2));
+    const iva21 =
+      params.iva21 !== undefined
+        ? Number(params.iva21.toFixed(2))
+        : iva105 === 0 && iva27 === 0
+        ? Number((params.netoGravado * 0.21).toFixed(2))
+        : 0;
+    const percepcionIva = Number((params.percepcionIva ?? 0).toFixed(2));
+    const percepcionIIBB = Number((params.percepcionIIBB ?? 0).toFixed(2));
+    const impuestosInternos = Number((params.impuestosInternos ?? 0).toFixed(2));
+    const otrosTributos = Number((params.otrosTributos ?? 0).toFixed(2));
+
+    const totalImpuestos = Number(
+      (iva21 + iva105 + iva27 + percepcionIva + percepcionIIBB + impuestosInternos + otrosTributos).toFixed(2)
+    );
+    const baseTotal = Number((params.netoGravado + noGravado + exento).toFixed(2));
+    const total = Number((baseTotal + totalImpuestos).toFixed(2));
+
+    const hoy = params.fechaEmision || new Date().toISOString().split('T')[0];
+    const vto =
+      params.fechaVencimiento || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const caeVto =
+      params.caeVencimiento || new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const caeGenerado = params.cae || `744${Math.floor(10000000000 + Math.random() * 89999999999)}`;
 
     const nuevaAdeudada: FacturaAdeudada = {
-      id: `FAC-ADE-${Date.now()}`,
+      id: `FAC-ADE-${Date.now()}-${Math.floor(Math.random() * 999)}`,
       nroComprobante,
       tipo: params.tipo,
       fechaEmision: hoy,
@@ -688,7 +738,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const nuevoMov = {
-      id: `MOV-${Date.now()}`,
+      id: `MOV-${Date.now()}-${Math.floor(Math.random() * 999)}`,
       fecha: hoy,
       comprobante: `${params.tipo} ${nroComprobante}`,
       concepto: params.descripcion || 'Emisión de Comprobante Electrónico',
@@ -705,7 +755,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const nuevoComprobanteVenta: ComprobanteVenta = {
-      id: `ZON-FV-${Date.now()}`,
+      id: `ZON-FV-${Date.now()}-${Math.floor(Math.random() * 999)}`,
       tipo: params.tipo,
       puntoVenta: ptoVta,
       numero: nextNum,
@@ -714,9 +764,9 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       clienteNombre: cliente.razonSocial,
       clienteCuit: cliente.cuit,
       condicionIva: cliente.condicionIva,
-      netoGravado: params.netoGravado,
-      iva21,
-      iva105: 0,
+      netoGravado: baseTotal,
+      iva21: Number((iva21 + iva27 + percepcionIva + percepcionIIBB + impuestosInternos + otrosTributos).toFixed(2)),
+      iva105,
       total,
       estado: 'Aprobado AFIP',
       cae: caeGenerado,
@@ -765,7 +815,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     ]);
 
-    // Generar asiento contable automático
+    // Generar asiento contable automático con desglose de impuestos
     const nextAsientoNum =
       asientosContables.length > 0 ? Math.max(...asientosContables.map((a) => a.numero)) + 1 : 4093;
     await impactarAsientoContable(
@@ -776,8 +826,13 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         tipoOrigen: 'Ventas',
         renglones: [
           { cuentaCodigo: '1.1.02', cuentaNombre: 'Créditos por Ventas (Clientes)', debe: total, haber: 0 },
-          { cuentaCodigo: '4.1', cuentaNombre: 'Ingresos por Ventas', debe: 0, haber: params.netoGravado },
-          { cuentaCodigo: '2.1.02', cuentaNombre: 'Cargas Fiscales e IVA', debe: 0, haber: iva21 }
+          { cuentaCodigo: '4.1', cuentaNombre: 'Ingresos por Ventas', debe: 0, haber: baseTotal },
+          {
+            cuentaCodigo: '2.1.02',
+            cuentaNombre: 'Cargas Fiscales, IVA y Percepciones',
+            debe: 0,
+            haber: totalImpuestos
+          }
         ],
         totalDebe: total,
         totalHaber: total

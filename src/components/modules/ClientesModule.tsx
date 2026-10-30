@@ -54,9 +54,14 @@ export const ClientesModule: React.FC = () => {
   const [showCalendarioModal, setShowCalendarioModal] = useState(false);
   const [showConfigAfipModal, setShowConfigAfipModal] = useState(false);
 
-  // Formulario Factura
+  // Formulario Factura con Desglose Completo de Impuestos Argentinos (ARCA / IIBB)
   const [tipoFactura, setTipoFactura] = useState<TipoComprobante>('Factura A');
   const [netoFactura, setNetoFactura] = useState(500000);
+  const [alicuotaIvaSelect, setAlicuotaIvaSelect] = useState<'21' | '10.5' | '27' | '0'>('21');
+  const [noGravadoExentoFactura, setNoGravadoExentoFactura] = useState(0);
+  const [percepcionIIBBFactura, setPercepcionIIBBFactura] = useState(0);
+  const [percepcionIvaFactura, setPercepcionIvaFactura] = useState(0);
+  const [impuestosInternosFactura, setImpuestosInternosFactura] = useState(0);
   const [descFactura, setDescFactura] = useState('');
   const [guardando, setGuardando] = useState(false);
 
@@ -87,21 +92,36 @@ export const ClientesModule: React.FC = () => {
 
   const clienteActivo = clientes.find((c) => c.id === clienteSeleccionadoId) || clientesFiltrados[0];
 
-  // Crear Factura con persistencia en Supabase + Contabilidad
+  // Crear Factura con persistencia en Supabase + Contabilidad + Todos los Impuestos
   const handleCrearFactura = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!clienteActivo || guardando) return;
     setGuardando(true);
     try {
+      const iva21Calc = alicuotaIvaSelect === '21' ? Number((netoFactura * 0.21).toFixed(2)) : 0;
+      const iva105Calc = alicuotaIvaSelect === '10.5' ? Number((netoFactura * 0.105).toFixed(2)) : 0;
+      const iva27Calc = alicuotaIvaSelect === '27' ? Number((netoFactura * 0.27).toFixed(2)) : 0;
+
       await emitirFacturaVenta({
         clienteId: clienteActivo.id,
         tipo: tipoFactura,
         puntoVenta: '0001',
         netoGravado: netoFactura,
+        noGravado: noGravadoExentoFactura,
+        iva21: iva21Calc,
+        iva105: iva105Calc,
+        iva27: iva27Calc,
+        percepcionIIBB: percepcionIIBBFactura,
+        percepcionIva: percepcionIvaFactura,
+        impuestosInternos: impuestosInternosFactura,
         descripcion: descFactura || 'Certificación de obra y provisión de materiales'
       });
       setShowFacturaModal(false);
       setDescFactura('');
+      setNoGravadoExentoFactura(0);
+      setPercepcionIIBBFactura(0);
+      setPercepcionIvaFactura(0);
+      setImpuestosInternosFactura(0);
     } finally {
       setGuardando(false);
     }
@@ -192,11 +212,120 @@ export const ClientesModule: React.FC = () => {
 
   const handleDescargarPlantilla = () => {
     exportToExcelCsv(
-      'Plantilla_Importacion_Facturas_ZondaERP',
-      ['CUIT_Cliente', 'Razon_Social', 'Tipo_Comprobante', 'Neto_Gravado', 'Descripcion'],
+      'Plantilla_Importacion_Facturas_Completa_ARCA_ZondaERP',
       [
-        ['30-68912443-4', 'CONSTRUCTORA CUYANA S.R.L.', 'Factura A', '1250000.00', 'Avance de Obra Red Tramo II'],
-        ['30-71458921-0', 'VALDIVIESO GROUP S. R. L.', 'Factura A', '850000.00', 'Provisión de Válvulas y Bridas']
+        'Fecha_Emision',
+        'Fecha_Vencimiento',
+        'Tipo_Comprobante',
+        'Punto_Venta',
+        'Numero_Comprobante',
+        'CUIT_Cliente',
+        'Razon_Social',
+        'Condicion_IVA',
+        'Jurisdiccion_IIBB',
+        'Moneda',
+        'Tipo_Cambio',
+        'Neto_Gravado',
+        'No_Gravado',
+        'Exento',
+        'IVA_21',
+        'IVA_10_5',
+        'IVA_27',
+        'Percepcion_IVA',
+        'Percepcion_IIBB',
+        'Impuestos_Internos',
+        'Otros_Tributos_Municipales',
+        'Total_Comprobante',
+        'CAE',
+        'Vencimiento_CAE',
+        'Cuenta_Contable',
+        'Descripcion'
+      ],
+      [
+        [
+          '2026-10-30',
+          '2026-11-29',
+          'Factura A',
+          '0001',
+          '00000425',
+          '30-68912443-4',
+          'CONSTRUCTORA CUYANA S.R.L.',
+          'Responsable Inscripto',
+          'San Juan',
+          'ARS',
+          '1.00',
+          '1250000.00',
+          '0.00',
+          '0.00',
+          '262500.00',
+          '0.00',
+          '0.00',
+          '0.00',
+          '37500.00',
+          '0.00',
+          '0.00',
+          '1550000.00',
+          '74419283746152',
+          '2026-11-09',
+          '4.1.01 - Ventas por Servicios y Suministros',
+          'Avance de Obra Red Tramo II (Con IVA 21% + Percepción IIBB 3%)'
+        ],
+        [
+          '2026-10-30',
+          '2026-11-29',
+          'Factura A',
+          '0001',
+          '00000426',
+          '30-71458921-0',
+          'VALDIVIESO GROUP S. R. L.',
+          'Responsable Inscripto',
+          'San Juan',
+          'ARS',
+          '1.00',
+          '850000.00',
+          '25000.00',
+          '0.00',
+          '0.00',
+          '89250.00',
+          '0.00',
+          '12750.00',
+          '25500.00',
+          '0.00',
+          '0.00',
+          '1002500.00',
+          '74419283746199',
+          '2026-11-09',
+          '4.1.01 - Ventas por Servicios y Suministros',
+          'Equipamiento Técnico Bienes de Capital (IVA 10.5% + No Gravado + Perc. IVA e IIBB)'
+        ],
+        [
+          '2026-10-30',
+          '2026-11-15',
+          'Factura B',
+          '0001',
+          '00000112',
+          '30-54667788-9',
+          'OBRA SOCIAL PROVINCIA',
+          'Exento',
+          'San Juan',
+          'ARS',
+          '1.00',
+          '0.00',
+          '0.00',
+          '640000.00',
+          '0.00',
+          '0.00',
+          '0.00',
+          '0.00',
+          '0.00',
+          '0.00',
+          '0.00',
+          '640000.00',
+          '74419283746215',
+          '2026-11-09',
+          '4.1.01 - Prestaciones Médicas Exentas',
+          'Liquidación Prestaciones Médicas Exentas de IVA'
+        ]
       ]
     );
   };
@@ -208,14 +337,66 @@ export const ClientesModule: React.FC = () => {
     const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
     const dataRows = lines.slice(1);
     let count = 0;
+
     for (const row of dataRows) {
       const cols = row.split(/[;,]/).map((c) => c.replace(/^"|"$/g, '').trim());
-      if (cols.length >= 4) {
+      if (cols.length >= 15) {
+        // Plantilla Completa de 26 Columnas Fiscales ARCA
+        const fechaEmision = cols[0] || undefined;
+        const fechaVto = cols[1] || undefined;
+        const tipoComp = (cols[2] as TipoComprobante) || 'Factura A';
+        const ptoVta = cols[3] || '0001';
+        const nroComp = cols[4] || undefined;
+        const cuitFila = cols[5] || '';
+        const neto = parseFloat(cols[11]) || 0;
+        const noGravado = parseFloat(cols[12]) || 0;
+        const exento = parseFloat(cols[13]) || 0;
+        const iva21 = parseFloat(cols[14]) || 0;
+        const iva105 = parseFloat(cols[15]) || 0;
+        const iva27 = parseFloat(cols[16]) || 0;
+        const percIva = parseFloat(cols[17]) || 0;
+        const percIIBB = parseFloat(cols[18]) || 0;
+        const impInternos = parseFloat(cols[19]) || 0;
+        const otrosTrib = parseFloat(cols[20]) || 0;
+        const caeFila = cols[22] || undefined;
+        const vtoCaeFila = cols[23] || undefined;
+        const desc = cols[25] || `Comprobante importado (${file.name})`;
+
+        const targetCliente = clientes.find((c) => c.cuit === cuitFila) || clienteActivo;
+
+        await emitirFacturaVenta({
+          clienteId: targetCliente.id,
+          tipo: tipoComp,
+          puntoVenta: ptoVta,
+          numero: nroComp,
+          fechaEmision,
+          fechaVencimiento: fechaVto,
+          netoGravado: neto,
+          noGravado,
+          exento,
+          iva21,
+          iva105,
+          iva27,
+          percepcionIva: percIva,
+          percepcionIIBB: percIIBB,
+          impuestosInternos: impInternos,
+          otrosTributos: otrosTrib,
+          cae: caeFila,
+          caeVencimiento: vtoCaeFila,
+          descripcion: desc
+        });
+        count++;
+      } else if (cols.length >= 4) {
+        // Retrocompatibilidad con plantilla corta de 5 columnas
+        const cuitFila = cols[0] || '';
+        const tipoComp = (cols[2] as TipoComprobante) || 'Factura A';
         const neto = parseFloat(cols[3]) || 250000;
         const desc = cols[4] || `Comprobante importado (${file.name})`;
+        const targetCliente = clientes.find((c) => c.cuit === cuitFila) || clienteActivo;
+
         await emitirFacturaVenta({
-          clienteId: clienteActivo.id,
-          tipo: 'Factura A',
+          clienteId: targetCliente.id,
+          tipo: tipoComp,
           netoGravado: neto,
           descripcion: desc
         });
@@ -231,7 +412,9 @@ export const ClientesModule: React.FC = () => {
       });
       count = 1;
     }
-    setMensajeImportacion(`Se importaron y contabilizaron ${count} comprobante(s) en Supabase exitosamente.`);
+    setMensajeImportacion(
+      `Se importaron y contabilizaron ${count} comprobante(s) con su desglose completo de impuestos en Supabase.`
+    );
     e.target.value = '';
   };
 
@@ -875,10 +1058,48 @@ export const ClientesModule: React.FC = () => {
             />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-mono text-xs font-bold uppercase"
+              className="px-4 py-2 bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-bold uppercase"
             >
               Seleccionar archivo local
             </button>
+          </div>
+
+          {/* Diccionario Fiscal de las 26 Columnas de la Plantilla Excel */}
+          <div className="border border-emerald-800/25 bg-emerald-50/30 p-4 space-y-3 text-xs">
+            <div className="flex items-center justify-between border-b border-emerald-800/20 pb-2">
+              <span className="font-bold text-[#042f22] uppercase">
+                Estructura Fiscal de la Plantilla (26 Columnas — Norma ARCA RG 4597 / WSFEv1)
+              </span>
+              <span className="text-[11px] font-semibold text-[#047857]">
+                Incluye Todos los Impuestos Nacionales, Provinciales y Municipales
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
+              <div className="bg-white p-3 border border-emerald-800/20 space-y-1">
+                <span className="font-bold text-[#064e3b] block uppercase">1. Cabecera y Receptor (Cols A - K)</span>
+                <p className="text-[#1f5e41]">
+                  <code>Fecha_Emision</code>, <code>Fecha_Vencimiento</code>, <code>Tipo_Comprobante</code> (A/B/C/NC/ND),{' '}
+                  <code>Punto_Venta</code>, <code>Numero_Comprobante</code>, <code>CUIT_Cliente</code>,{' '}
+                  <code>Razon_Social</code>, <code>Condicion_IVA</code>, <code>Jurisdiccion_IIBB</code>,{' '}
+                  <code>Moneda</code> (ARS/USD) y <code>Tipo_Cambio</code>.
+                </p>
+              </div>
+              <div className="bg-white p-3 border border-emerald-800/20 space-y-1">
+                <span className="font-bold text-[#064e3b] block uppercase">2. Bases e Impuestos (Cols L - V)</span>
+                <p className="text-[#1f5e41]">
+                  <code>Neto_Gravado</code>, <code>No_Gravado</code>, <code>Exento</code>, <code>IVA_21</code> (21%),{' '}
+                  <code>IVA_10_5</code> (10.5%), <code>IVA_27</code> (27%), <code>Percepcion_IVA</code>,{' '}
+                  <code>Percepcion_IIBB</code>, <code>Impuestos_Internos</code>, <code>Otros_Tributos_Municipales</code> y{' '}
+                  <code>Total_Comprobante</code>.
+                </p>
+              </div>
+              <div className="bg-white p-3 border border-emerald-800/20 space-y-1">
+                <span className="font-bold text-[#064e3b] block uppercase">3. Autorización ARCA y Contabilidad (Cols W - Z)</span>
+                <p className="text-[#1f5e41]">
+                  <code>CAE</code> (14 dígitos ARCA), <code>Vencimiento_CAE</code>, <code>Cuenta_Contable</code> (para asiento automático en Libro Diario) y <code>Descripcion</code>.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       ) : (
@@ -1032,32 +1253,105 @@ export const ClientesModule: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-600 font-bold mb-1">Neto Gravado ($ ARS):</label>
-                <input
-                  type="number"
-                  required
-                  step="0.01"
-                  value={netoFactura}
-                  onChange={(e) => setNetoFactura(parseFloat(e.target.value) || 0)}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-slate-900"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">Neto Gravado ($ ARS):</label>
+                  <input
+                    type="number"
+                    required
+                    step="0.01"
+                    value={netoFactura}
+                    onChange={(e) => setNetoFactura(parseFloat(e.target.value) || 0)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">Alícuota IVA:</label>
+                  <select
+                    value={alicuotaIvaSelect}
+                    onChange={(e) => setAlicuotaIvaSelect(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 text-xs font-bold"
+                  >
+                    <option value="21">IVA 21% (General)</option>
+                    <option value="10.5">IVA 10.5% (Reducida)</option>
+                    <option value="27">IVA 27% (Diferencial)</option>
+                    <option value="0">0% (Exento / No Alcanzado)</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="p-3 bg-slate-50 border border-slate-200 space-y-1">
-                <div className="flex justify-between text-slate-500">
-                  <span>Neto:</span>
-                  <span>${netoFactura.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">No Gravado / Exento ($):</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={noGravadoExentoFactura}
+                    onChange={(e) => setNoGravadoExentoFactura(parseFloat(e.target.value) || 0)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
+                  />
                 </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>IVA (21%):</span>
-                  <span>${(netoFactura * 0.21).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between font-bold text-slate-900 pt-1 border-t border-slate-200">
-                  <span>Total Comprobante:</span>
-                  <span>${(netoFactura * 1.21).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">Percepción IIBB ($):</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={percepcionIIBBFactura}
+                    onChange={(e) => setPercepcionIIBBFactura(parseFloat(e.target.value) || 0)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
+                  />
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">Percepción IVA AFIP ($):</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={percepcionIvaFactura}
+                    onChange={(e) => setPercepcionIvaFactura(parseFloat(e.target.value) || 0)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">Imp. Internos / Otros ($):</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={impuestosInternosFactura}
+                    onChange={(e) => setImpuestosInternosFactura(parseFloat(e.target.value) || 0)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
+                  />
+                </div>
+              </div>
+
+              {(() => {
+                const tasa = alicuotaIvaSelect === '21' ? 0.21 : alicuotaIvaSelect === '10.5' ? 0.105 : alicuotaIvaSelect === '27' ? 0.27 : 0;
+                const montoIva = Number((netoFactura * tasa).toFixed(2));
+                const montoOtrosImp = Number((percepcionIIBBFactura + percepcionIvaFactura + impuestosInternosFactura).toFixed(2));
+                const totalCalc = Number((netoFactura + noGravadoExentoFactura + montoIva + montoOtrosImp).toFixed(2));
+                return (
+                  <div className="p-3 bg-slate-50 border border-slate-200 space-y-1">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Neto Gravado + No Grav./Exento:</span>
+                      <span>${(netoFactura + noGravadoExentoFactura).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>IVA ({alicuotaIvaSelect}%):</span>
+                      <span>${montoIva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Percepciones (IIBB + IVA) e Imp. Internos:</span>
+                      <span>${montoOtrosImp.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-slate-900 pt-1 border-t border-slate-200">
+                      <span>Total Comprobante:</span>
+                      <span>${totalCalc.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
