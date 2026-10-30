@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useErp } from '../../context/ErpContext';
 import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
+import { CalendarioVencimientosModal } from '../modals/CalendarioVencimientosModal';
 
 export const TesoreriaModule: React.FC = () => {
   const {
@@ -1095,43 +1096,12 @@ export const TesoreriaModule: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: CALENDARIO DE VENCIMIENTOS */}
-      {showCalendarioModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-300 max-w-lg w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <h3 className="text-sm font-bold text-slate-900 uppercase flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#064e3b]" />
-                <span>CALENDARIO DE VENCIMIENTOS // TESORERÍA</span>
-              </h3>
-              <button onClick={() => setShowCalendarioModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              {cheques.map((ch) => (
-                <div key={ch.id} className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
-                  <div>
-                    <span className="font-bold text-slate-900 block">FECHA COBRO: {ch.fechaPago} ({ch.estado})</span>
-                    <p className="text-[11px] text-slate-600">Cheque {ch.bancoEmisor} N° {ch.numero} - {ch.librador}</p>
-                  </div>
-                  <span className="font-bold text-slate-900">${ch.importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="text-right pt-2">
-              <button
-                onClick={() => setShowCalendarioModal(false)}
-                className="px-4 py-1.5 bg-slate-900 text-white font-bold uppercase"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* MODAL: CALENDARIO DE VENCIMIENTOS INTERACTIVO ESTILO GOOGLE CALENDAR */}
+      <CalendarioVencimientosModal
+        isOpen={showCalendarioModal}
+        onClose={() => setShowCalendarioModal(false)}
+        defaultContext="tesoreria"
+      />
     </div>
   );
 };

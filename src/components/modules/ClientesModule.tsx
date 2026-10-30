@@ -24,6 +24,7 @@ import { useErp } from '../../context/ErpContext';
 import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
 import { printAfipElectronicInvoice } from '../../utils/afipQrInvoicePrint';
 import { sendInvoiceViaWhatsApp } from '../../utils/whatsappSender';
+import { CalendarioVencimientosModal } from '../modals/CalendarioVencimientosModal';
 
 export const ClientesModule: React.FC = () => {
   const {
@@ -1577,57 +1578,12 @@ export const ClientesModule: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: CALENDARIO DE VENCIMIENTOS */}
-      {showCalendarioModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-300 max-w-lg w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <h3 className="text-sm font-bold text-slate-900 uppercase flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#064e3b]" />
-                <span>CALENDARIO DE VENCIMIENTOS // OCT - NOV 2026</span>
-              </h3>
-              <button onClick={() => setShowCalendarioModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <div className="p-3 bg-amber-50 border border-amber-200 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-amber-900 block">28/10/2026 // PRÓXIMO VENCIMIENTO</span>
-                  <p className="text-[11px] text-amber-800">VALDIVIESO GROUP S.R.L. - Factura A 0001-00000398</p>
-                </div>
-                <span className="font-bold text-amber-900">$1.850.400,00</span>
-              </div>
-
-              <div className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-slate-900 block">23/11/2026 // EN 25 DÍAS</span>
-                  <p className="text-[11px] text-slate-600">CONSTRUCTORA CUYANA S.R.L. - Factura A 0001-00000412</p>
-                </div>
-                <span className="font-bold text-slate-900">$5.868.500,00</span>
-              </div>
-
-              <div className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-slate-900 block">24/11/2026 // EN 26 DÍAS</span>
-                  <p className="text-[11px] text-slate-600">HIDRÁULICA SAN JUAN - Factura A 0001-00000413</p>
-                </div>
-                <span className="font-bold text-slate-900">$3.872.000,00</span>
-              </div>
-            </div>
-
-            <div className="text-right pt-2">
-              <button
-                onClick={() => setShowCalendarioModal(false)}
-                className="px-4 py-1.5 bg-slate-900 text-white font-bold uppercase"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* MODAL: CALENDARIO DE VENCIMIENTOS INTERACTIVO ESTILO GOOGLE CALENDAR */}
+      <CalendarioVencimientosModal
+        isOpen={showCalendarioModal}
+        onClose={() => setShowCalendarioModal(false)}
+        defaultContext="clientes"
+      />
 
       {/* MODAL: CONFIGURAR FACTURA ELECTRÓNICA AFIP */}
       {showConfigAfipModal && (

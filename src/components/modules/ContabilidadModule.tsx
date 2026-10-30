@@ -21,6 +21,7 @@ import type { CuentaContable } from '../../types/models';
 import { useErp } from '../../context/ErpContext';
 import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
 import { generateLibroIvaDigitalRg4597, downloadTxtFile } from '../../utils/afipLibroIvaDigital';
+import { CalendarioVencimientosModal } from '../modals/CalendarioVencimientosModal';
 
 function flattenCuentasContables(nodes: CuentaContable[]): CuentaContable[] {
   const result: CuentaContable[] = [];
@@ -1181,28 +1182,12 @@ export const ContabilidadModule: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: CALENDARIO DE VENCIMIENTOS */}
-      {showCalendarioModal && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-[#064e3b] w-full max-w-md shadow-2xl">
-            <div className="bg-[#064e3b] text-white px-4 py-2.5 flex items-center justify-between font-mono text-xs font-bold">
-              <span>CALENDARIO DE VENCIMIENTOS - CONTABILIDAD</span>
-              <button onClick={() => setShowCalendarioModal(false)}><X className="w-4 h-4" /></button>
-            </div>
-            <div className="p-4 space-y-3 font-mono text-xs text-slate-700">
-              <div className="border border-slate-200 p-3 bg-slate-50 flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-slate-900 block">Cierre de Ejercicio Económico Anual</span>
-                  <span className="text-[11px] text-slate-500">Fecha límite: 31 de Diciembre de 2026</span>
-                </div>
-                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-[10px]">
-                  Programado
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* MODAL: CALENDARIO DE VENCIMIENTOS INTERACTIVO ESTILO GOOGLE CALENDAR */}
+      <CalendarioVencimientosModal
+        isOpen={showCalendarioModal}
+        onClose={() => setShowCalendarioModal(false)}
+        defaultContext="contabilidad"
+      />
 
       {/* MODAL: NUEVO PLAN DE CUENTAS */}
       {showNuevoPlanModal && (

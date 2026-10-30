@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useErp, flattenCuentasContables } from '../../context/ErpContext';
 import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
+import { CalendarioVencimientosModal } from '../modals/CalendarioVencimientosModal';
 import {
   extraerDatosFacturaDesdeFoto,
   imageFileToBase64,
@@ -1785,48 +1786,13 @@ export const ProveedoresModule: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: CALENDARIO DE VENCIMIENTOS */}
-      {showCalendarioModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-300 max-w-lg w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <h3 className="text-sm font-bold text-slate-900 uppercase flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#064e3b]" />
-                <span>CALENDARIO DE VENCIMIENTOS // COMPRAS Y PAGOS</span>
-              </h3>
-              <button onClick={() => setShowCalendarioModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {proveedores.flatMap((p) =>
-                p.facturasAdeudadas.map((f) => ({
-                  ...f,
-                  proveedorNombre: p.razonSocial
-                }))
-              ).map((item) => (
-                <div key={item.id} className="p-3 bg-slate-50 border border-slate-200 flex justify-between items-center">
-                  <div>
-                    <span className="font-bold text-slate-900 block">VENCIMIENTO: {item.fechaPago}</span>
-                    <p className="text-[11px] text-slate-600">{item.proveedorNombre} - {item.tipo} {item.nroComprobante}</p>
-                  </div>
-                  <span className="font-bold text-rose-700">${item.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="text-right pt-2">
-              <button
-                onClick={() => setShowCalendarioModal(false)}
-                className="px-4 py-1.5 bg-slate-900 text-white font-bold uppercase"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* MODAL: CALENDARIO DE VENCIMIENTOS INTERACTIVO ESTILO GOOGLE CALENDAR */}
+      <CalendarioVencimientosModal
+        isOpen={showCalendarioModal}
+        onClose={() => setShowCalendarioModal(false)}
+        initialProveedorId={selectedProv?.id}
+        defaultContext="proveedores"
+      />
     </div>
   );
 };
