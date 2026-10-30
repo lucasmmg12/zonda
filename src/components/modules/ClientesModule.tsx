@@ -19,7 +19,9 @@ import {
   X,
   FileDown,
   Sparkles,
-  Trash2
+  Trash2,
+  Boxes,
+  Plus
 } from 'lucide-react';
 import { TipoComprobante } from '../../types/models';
 import { useErp } from '../../context/ErpContext';
@@ -38,10 +40,12 @@ export const ClientesModule: React.FC = () => {
     empresa,
     clientes,
     facturasVenta,
+    inventario,
     crearCliente,
     emitirFacturaVenta,
     registrarCobroCliente,
-    refreshAllFromDb
+    refreshAllFromDb,
+    setActiveModule
   } = useErp();
 
   const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState<string>('CLI-003');
@@ -108,6 +112,94 @@ export const ClientesModule: React.FC = () => {
   const [descFactura, setDescFactura] = useState('');
   const [guardando, setGuardando] = useState(false);
 
+  // Ítems de Inventario incluidos en la Venta (descuentan unidades automáticamente al emitir la factura)
+  const [itemsVentaFactura, setItemsVentaFactura] = useState<
+    {
+      id: string;
+      articuloId: string;
+      cantidad: number;
+      precioUnitarioNeto: number;
+      deposito: string;
+    }[]
+  >([]);
+
+  const [avisoVentaEmitida, setAvisoVentaEmitida] = useState<{
+    total: number;
+    medioPactado: string;
+    clienteNombre: string;
+    unidadesDescontadas: number;
+    itemsCount: number;
+    primerArticuloId?: string;
+  } | null>(null);
+
+  const recalcularNetoDesdeItemsVenta = (
+    lista: {
+      id: string;
+      articuloId: string;
+      cantidad: number;
+      precioUnitarioNeto: number;
+      deposito: string;
+    }[]
+  ) => {
+    setItemsVentaFactura(lista);
+    if (lista.length > 0) {
+      const sumaNeto = Number(
+        lista.reduce((acc, it) => acc + it.cantidad * it.precioUnitarioNeto, 0).toFixed(2)
+      );
+      setNetoFactura(sumaNeto);
+      const resumenNombres = lista
+        .map((it) => {
+          const art = inventario.find((a) => a.id === it.articuloId);
+          return art ? `${it.cantidad}x ${art.descripcion}` : '';
+        })
+        .filter(Boolean)
+        .join(', ');
+      if (resumenNombres) {
+        setDescFactura(`Venta de materiales: ${resumenNombres}`);
+      }
+    }
+  };
+
+  const agregarItemVentaFactura = () => {
+    const prodDefault = inventario.find((a) => a.disponible > 0) || inventario[0];
+    const nuevo = {
+      id: `IT-VTA-${Date.now()}-${Math.floor(Math.random() * 999)}`,
+      articuloId: prodDefault?.id || '',
+      cantidad: 1,
+      precioUnitarioNeto: prodDefault?.precioVentaNeto || 1000,
+      deposito: 'Depósito Central'
+    };
+    recalcularNetoDesdeItemsVenta([...itemsVentaFactura, nuevo]);
+  };
+
+  const actualizarItemVentaFactura = (
+    idRow: string,
+    cambios: Partial<{
+      articuloId: string;
+      cantidad: number;
+      precioUnitarioNeto: number;
+      deposito: string;
+    }>
+  ) => {
+    const nuevaLista = itemsVentaFactura.map((it) => {
+      if (it.id !== idRow) return it;
+      const actualizado = { ...it, ...cambios };
+      if (cambios.articuloId && cambios.precioUnitarioNeto === undefined) {
+        const prod = inventario.find((a) => a.id === cambios.articuloId);
+        if (prod) {
+          actualizado.precioUnitarioNeto = prod.precioVentaNeto;
+        }
+      }
+      return actualizado;
+    });
+    recalcularNetoDesdeItemsVenta(nuevaLista);
+  };
+
+  const eliminarItemVentaFactura = (idRow: string) => {
+    const filtrada = itemsVentaFactura.filter((it) => it.id !== idRow);
+    recalcularNetoDesdeItemsVenta(filtrada);
+  };
+
   // Formulario Cobro
   const [montoCobro, setMontoCobro] = useState(100000);
   const [medioCobro, setMedioCobro] = useState('Transferencia Bancaria Santander');
@@ -159,6 +251,9 @@ export const ClientesModule: React.FC = () => {
         ).toFixed(2)
       );
 
+      const itemsValidosVenta = itemsVentaFactura.filter((it) => it.articuloId && it.cantidad > 0);
+      const totalUnidadesDescontadas = itemsValidosVenta.reduce((acc, it) => acc + it.cantidad, 0);
+
       await emitirFacturaVenta({
         clienteId: clienteActivo.id,
         tipo: tipoFactura,
@@ -172,10 +267,25 @@ export const ClientesModule: React.FC = () => {
         percepcionIva: percepcionIvaFactura,
         impuestosInternos: impuestosInternosFactura,
         descripcion: descFactura || 'Certificación de obra y provisión de materiales',
-        medioCobroPactado: medioCobroFactura
+        medioCobroPactado: medioCobroFactura,
+        itemsInventarioVenta: itemsValidosVenta.map((it) => ({
+          articuloId: it.articuloId,
+          cantidad: it.cantidad,
+          precioUnitarioNeto: it.precioUnitarioNeto,
+          deposito: it.deposito
+        }))
       });
       setMontoCobro(totalCalc);
       setMedioCobro(medioCobroFactura);
+      setAvisoVentaEmitida({
+        total: totalCalc,
+        medioPactado: medioCobroFactura,
+        clienteNombre: clienteActivo.razonSocial,
+        unidadesDescontadas: totalUnidadesDescontadas,
+        itemsCount: itemsValidosVenta.length,
+        primerArticuloId: itemsValidosVenta[0]?.articuloId
+      });
+      setItemsVentaFactura([]);
       setShowFacturaModal(false);
       setDescFactura('');
       setNoGravadoExentoFactura(0);
@@ -798,6 +908,59 @@ export const ClientesModule: React.FC = () => {
                     </button>
                   </div>
 
+                  {/* Aviso interactivo post-venta con descuento de inventario */}
+                  {avisoVentaEmitida && (
+                    <div className="mx-3 my-2 p-3 bg-emerald-50 border-2 border-emerald-400 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+                      <div>
+                        <span className="font-bold text-[#042f22] uppercase block">
+                          ✓ Factura emitida por ${avisoVentaEmitida.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })} ({avisoVentaEmitida.clienteNombre}) — Medio pactado: {avisoVentaEmitida.medioPactado}
+                        </span>
+                        <span className="text-[11px] text-emerald-800 block mt-0.5">
+                          {avisoVentaEmitida.itemsCount > 0
+                            ? `Se descontaron automáticamente ${avisoVentaEmitida.unidadesDescontadas} unidad(es) de ${avisoVentaEmitida.itemsCount} artículo(s) del Inventario.`
+                            : 'Registrado en Cuenta Corriente y Libro Diario.'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {avisoVentaEmitida.itemsCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (avisoVentaEmitida.primerArticuloId) {
+                                sessionStorage.setItem(
+                                  'zonda_global_search_target',
+                                  JSON.stringify({
+                                    modulo: 'inventario',
+                                    entityId: avisoVentaEmitida.primerArticuloId
+                                  })
+                                );
+                              }
+                              setActiveModule('inventario');
+                            }}
+                            className="px-3 py-1 bg-rose-700 hover:bg-rose-800 text-white font-bold uppercase text-[11px] flex items-center gap-1"
+                          >
+                            <Boxes className="w-3.5 h-3.5" />
+                            <span>Ver Descuento en Inventario</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setShowCobroModal(true)}
+                          className="px-3 py-1 bg-[#064e3b] hover:bg-emerald-800 text-white font-bold uppercase text-[11px]"
+                        >
+                          Registrar Cobro Ahora
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAvisoVentaEmitida(null)}
+                          className="text-slate-500 hover:text-slate-800 font-bold px-1.5"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Grilla de Facturas Adeudadas */}
                   <div className="overflow-x-auto min-h-[360px]">
                     <table className="w-full text-left text-xs border-collapse font-mono">
@@ -1042,7 +1205,21 @@ export const ClientesModule: React.FC = () => {
               </div>
 
               {/* Botonera de Acciones */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (itemsVentaFactura.length === 0) {
+                      agregarItemVentaFactura();
+                    }
+                    setShowFacturaModal(true);
+                  }}
+                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-900 font-mono text-xs font-bold border border-rose-300 flex items-center gap-1.5 transition-colors"
+                  title="Emitir factura de venta seleccionando productos y descontando unidades del Inventario automáticamente"
+                >
+                  <Boxes className="w-3.5 h-3.5 text-rose-700" />
+                  <span>Facturar Productos (Descontar Stock)</span>
+                </button>
+
                 <button
                   onClick={() => setShowFacturaModal(true)}
                   className="px-3 py-1.5 bg-[#ecfdf5] hover:bg-[#ddd6fe] text-[#064e3b] font-mono text-xs font-bold border border-[#c4b5fd] flex items-center gap-1.5 transition-colors"
@@ -1512,10 +1689,10 @@ export const ClientesModule: React.FC = () => {
       {/* MODAL: AGREGAR FACTURA */}
       {showFacturaModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-300 max-w-lg w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-white border border-slate-300 max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <h3 className="text-sm font-bold text-slate-900 font-mono uppercase">
-                AGREGAR FACTURA // {clienteActivo?.razonSocial}
+                AGREGAR FACTURA / VENTA // {clienteActivo?.razonSocial}
               </h3>
               <button onClick={() => setShowFacturaModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
@@ -1569,6 +1746,151 @@ export const ClientesModule: React.FC = () => {
                     <strong>Paso 1:</strong> Al emitir esta factura el importe queda <strong>PENDIENTE</strong> en Cuenta Corriente. <strong>Paso 2:</strong> Luego pulsá <strong>&ldquo;Agregar cobro&rdquo;</strong> para registrar el ingreso real del pago en Tesorería.
                   </p>
                 </details>
+              </div>
+
+              {/* SECCIÓN: ARTÍCULOS DE INVENTARIO A VENDER (DESCUENTA UNIDADES AUTOMÁTICAMENTE) */}
+              <div className="p-3 bg-rose-50/60 border border-rose-300 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="font-bold text-rose-900 uppercase block flex items-center gap-1.5">
+                      <Boxes className="w-3.5 h-3.5 text-rose-700" />
+                      <span>Artículos de Inventario a Facturar (Descuenta Stock)</span>
+                    </span>
+                    <span className="text-[10px] text-slate-600 block">
+                      Al emitir la venta, se descuentan automáticamente las unidades del depósito y se registra la salida en el Kárdex.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={agregarItemVentaFactura}
+                    className="px-2.5 py-1 bg-rose-700 hover:bg-rose-800 text-white font-bold text-[10px] uppercase flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Agregar Producto del Stock</span>
+                  </button>
+                </div>
+
+                {itemsVentaFactura.length > 0 ? (
+                  <div className="space-y-2 pt-1">
+                    {itemsVentaFactura.map((linea) => {
+                      const art = inventario.find((a) => a.id === linea.articuloId);
+                      const stockActual = art ? art.disponible : 0;
+                      const stockResultante = Number((stockActual - linea.cantidad).toFixed(2));
+                      const subtotalLinea = Number((linea.cantidad * linea.precioUnitarioNeto).toFixed(2));
+
+                      return (
+                        <div key={linea.id} className="p-2.5 bg-white border border-rose-200 space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                            <div className="sm:col-span-5">
+                              <label className="block text-[10px] text-slate-600 font-bold mb-0.5">
+                                Producto / Ítem en Stock:
+                              </label>
+                              <select
+                                value={linea.articuloId}
+                                onChange={(e) => {
+                                  const nuevoArt = inventario.find((a) => a.id === e.target.value);
+                                  actualizarItemVentaFactura(linea.id, {
+                                    articuloId: e.target.value,
+                                    precioUnitarioNeto: nuevoArt ? nuevoArt.precioVentaNeto : linea.precioUnitarioNeto
+                                  });
+                                }}
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-300 font-bold text-slate-900 text-[11px]"
+                              >
+                                {inventario.map((itemInv) => (
+                                  <option key={itemInv.id} value={itemInv.id}>
+                                    [{itemInv.id}] {itemInv.descripcion} (Disp: {itemInv.disponible})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="sm:col-span-2">
+                              <label className="block text-[10px] text-rose-800 font-bold mb-0.5">
+                                Cant. (-):
+                              </label>
+                              <input
+                                type="number"
+                                min="0.01"
+                                step="any"
+                                value={linea.cantidad}
+                                onChange={(e) =>
+                                  actualizarItemVentaFactura(linea.id, {
+                                    cantidad: Math.max(0.01, parseFloat(e.target.value) || 0)
+                                  })
+                                }
+                                className="w-full px-2 py-1 bg-rose-50 border border-rose-300 font-bold text-rose-900 text-right text-[11px]"
+                              />
+                            </div>
+
+                            <div className="sm:col-span-3">
+                              <label className="block text-[10px] text-slate-600 font-bold mb-0.5">
+                                Precio Unit. Neto ($):
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={linea.precioUnitarioNeto}
+                                onChange={(e) =>
+                                  actualizarItemVentaFactura(linea.id, {
+                                    precioUnitarioNeto: Math.max(0, parseFloat(e.target.value) || 0)
+                                  })
+                                }
+                                className="w-full px-2 py-1 bg-white border border-slate-300 font-bold text-slate-900 text-right text-[11px]"
+                              />
+                            </div>
+
+                            <div className="sm:col-span-2 flex items-center justify-between gap-1">
+                              <div className="text-right flex-1">
+                                <span className="block text-[9px] text-slate-400 uppercase">Subtotal</span>
+                                <span className="font-bold text-slate-900 text-[11px]">
+                                  ${subtotalLinea.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => eliminarItemVentaFactura(linea.id)}
+                                className="p-1 text-slate-400 hover:text-rose-600"
+                                title="Quitar ítem"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-[10px]">
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-500">Depósito salida:</span>
+                              <select
+                                value={linea.deposito}
+                                onChange={(e) => actualizarItemVentaFactura(linea.id, { deposito: e.target.value })}
+                                className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 font-bold text-slate-700 text-[10px]"
+                              >
+                                <option value="Depósito Central">Depósito Central</option>
+                                <option value="Obrador">Obrador</option>
+                                <option value="Almacén Técnico">Almacén Técnico</option>
+                              </select>
+                            </div>
+                            <div>
+                              <span className="text-slate-600">
+                                Impacto en Stock:{' '}
+                                <strong>{stockActual.toFixed(2)}</strong> →{' '}
+                                <strong className={stockResultante < 0 ? 'text-rose-700' : 'text-emerald-700'}>
+                                  {stockResultante.toFixed(2)} u.
+                                </strong>{' '}
+                                <span className="text-rose-700 font-bold">(-{linea.cantidad})</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-slate-500 italic">
+                    Sin productos seleccionados (facturación de servicios/certificados sin movimiento de stock). Pulsá &ldquo;+ Agregar Producto del Stock&rdquo; si esta venta entrega mercadería del inventario.
+                  </p>
+                )}
               </div>
 
               <div>

@@ -585,3 +585,4 @@ export function imprimirReciboHaberesDobleEjemplar(params: {
   printWin.document.write(html);
   printWin.document.close();
 }
+

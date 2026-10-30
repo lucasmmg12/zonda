@@ -100,6 +100,12 @@ interface ErpContextValue {
     caeVencimiento?: string;
     descripcion: string;
     medioCobroPactado?: string;
+    itemsInventarioVenta?: {
+      articuloId: string;
+      cantidad: number;
+      precioUnitarioNeto: number;
+      deposito?: string;
+    }[];
   }) => Promise<void>;
   registrarCobroCliente: (params: {
     clienteId: string;
@@ -838,6 +844,12 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     caeVencimiento?: string;
     descripcion: string;
     medioCobroPactado?: string;
+    itemsInventarioVenta?: {
+      articuloId: string;
+      cantidad: number;
+      precioUnitarioNeto: number;
+      deposito?: string;
+    }[];
   }) => {
     const cliente = clientes.find((c) => c.id === params.clienteId);
     if (!cliente) return;
@@ -845,6 +857,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const ptoVta = params.puntoVenta || '0001';
     const nextNum = params.numero || String(415 + facturasVenta.length).padStart(8, '0');
     const nroComprobante = `${ptoVta}-${nextNum}`;
+    const etiquetaComprobanteVenta = `${params.tipo} ${nroComprobante}`;
 
     const noGravado = Number((params.noGravado ?? 0).toFixed(2));
     const exento = Number((params.exento ?? 0).toFixed(2));
@@ -873,6 +886,72 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const caeVto =
       params.caeVencimiento || new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const caeGenerado = params.cae || `744${Math.floor(10000000000 + Math.random() * 89999999999)}`;
+
+    // Descontar unidades en Inventario si la venta incluye artículos del depósito
+    if (params.itemsInventarioVenta && params.itemsInventarioVenta.length > 0) {
+      let nuevoInv = [...inventario];
+      const articulosModificados: ArticuloInventario[] = [];
+
+      for (const itemVenta of params.itemsInventarioVenta) {
+        if (!itemVenta.articuloId || itemVenta.cantidad <= 0) continue;
+        const cantEgreso = -Math.abs(Number(itemVenta.cantidad));
+
+        nuevoInv = nuevoInv.map((art) => {
+          if (art.id !== itemVenta.articuloId) return art;
+          const nuevoDisponible = Number((art.disponible + cantEgreso).toFixed(2));
+          const nuevoStock = Number((art.stockActual + cantEgreso).toFixed(2));
+          const precioVentaAplicado =
+            itemVenta.precioUnitarioNeto > 0 ? Number(itemVenta.precioUnitarioNeto) : art.precioVentaNeto;
+
+          const nuevoMov = {
+            id: `MOV-INV-${Date.now()}-${Math.floor(Math.random() * 999)}`,
+            fecha: hoy,
+            deposito: itemVenta.deposito || 'Depósito Central',
+            descripcion: `Salida por Venta ${etiquetaComprobanteVenta} — Cliente: ${cliente.razonSocial}`,
+            tipoDoc: 'FAC',
+            precio: precioVentaAplicado,
+            cantidad: cantEgreso,
+            destinoEgreso: `Cliente: ${cliente.razonSocial} (${cliente.cuit})`,
+            comprobanteEgreso: etiquetaComprobanteVenta
+          };
+
+          const actualizado: ArticuloInventario = {
+            ...art,
+            disponible: nuevoDisponible,
+            stockActual: nuevoStock,
+            movimientos: [nuevoMov, ...(art.movimientos || [])]
+          };
+          articulosModificados.push(actualizado);
+          return actualizado;
+        });
+      }
+
+      setInventario(nuevoInv);
+
+      if (articulosModificados.length > 0) {
+        await supabase.from('erp_inventario').upsert(
+          articulosModificados.map((i) => ({
+            id: i.id,
+            codigo: i.codigo,
+            sku: i.sku,
+            descripcion: i.descripcion,
+            tipo: i.tipo,
+            um: i.um,
+            categoria: i.categoria,
+            unidad_medida: i.unidadMedida,
+            disponible: i.disponible,
+            stock_actual: i.stockActual,
+            stock_minimo: i.stockMinimo,
+            costo_calculado: i.costoCalculado,
+            precio_venta_neto: i.precioVentaNeto,
+            alicuota_iva: i.alicuotaIva,
+            deposito: i.deposito,
+            movimientos: i.movimientos || [],
+            updated_at: new Date().toISOString()
+          }))
+        );
+      }
+    }
 
     const nuevaAdeudada: FacturaAdeudada = {
       id: `FAC-ADE-${Date.now()}-${Math.floor(Math.random() * 999)}`,
