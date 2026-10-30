@@ -3,6 +3,7 @@ import { Bell, Search, X, BookOpen, ArrowRight } from 'lucide-react';
 import { EmpresaConfig } from '../../types/models';
 import { ManualesCentroAyudaModal } from '../modals/ManualesCentroAyudaModal';
 import { RoleAuthModal, getActiveOperator, OperadorProfile } from '../modals/RoleAuthModal';
+import { getUsuariosList } from '../../services/usuariosRbacService';
 import { useErp, flattenCuentasContables } from '../../context/ErpContext';
 import type { ModuleKey } from './Sidebar';
 
@@ -24,7 +25,8 @@ export interface GlobalSearchResultItem {
     | 'TESORERÍA'
     | 'CUENTA CONTABLE'
     | 'ASIENTO'
-    | 'LEGAJO';
+    | 'LEGAJO'
+    | 'USUARIO';
   titulo: string;
   sub: string;
   detalleExtra?: string;
@@ -332,6 +334,27 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           sub: `CUIL: ${emp.cuil} · ${emp.categoria} (${emp.cct})`,
           modulo: 'sueldos',
           queryHint: emp.nombreCompleto
+        });
+      }
+    });
+
+    // 11. Usuarios y Roles RBAC (Módulo 10)
+    getUsuariosList().forEach((usr) => {
+      if (
+        raw &&
+        matchTextOrCuit(
+          `usuario ${usr.id} ${usr.nombre} ${usr.rol} ${usr.email} ${usr.sector || ''}`,
+          usr.cuil
+        )
+      ) {
+        results.push({
+          id: `USR-${usr.id}`,
+          entityId: usr.id,
+          tipo: 'USUARIO',
+          titulo: `${usr.id} · ${usr.nombre} (${usr.rol})`,
+          sub: `${usr.email} · ${usr.modulosPermitidos.length}/10 módulos · ${usr.activo ? 'ACTIVO' : 'SUSPENDIDO'}`,
+          modulo: 'usuarios',
+          queryHint: usr.nombre
         });
       }
     });

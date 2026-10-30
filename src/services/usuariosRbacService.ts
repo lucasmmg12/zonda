@@ -187,6 +187,96 @@ export const OPERADORES_INICIALES: OperadorProfile[] = [
 
 const STORAGE_USUARIOS_KEY = 'zonda_usuarios_rbac_v2';
 const STORAGE_ACTIVE_OP_KEY = 'zonda_active_operator_v3';
+const STORAGE_AUDIT_LOG_KEY = 'zonda_usuarios_audit_log_v1';
+
+export interface RbacAuditLogEntry {
+  id: string;
+  created_at: string;
+  origen: 'AUTH_RBAC';
+  evento: string;
+  referencia_externa: string;
+  estado: string;
+  payload: {
+    accion?: string;
+    usuarioAfectado?: string;
+    detalle?: string;
+    operador?: string;
+    rol?: string;
+    email?: string;
+    modulos?: number;
+    ejecutadoPor?: string;
+    timestamp: string;
+  };
+}
+
+export function getLocalRbacAuditLogs(): RbacAuditLogEntry[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_AUDIT_LOG_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Fallback
+  }
+  const seed: RbacAuditLogEntry[] = [
+    {
+      id: 'RBAC-SEED-002',
+      created_at: new Date().toISOString(),
+      origen: 'AUTH_RBAC',
+      evento: 'session.verified',
+      referencia_externa: 'USR-001',
+      estado: 'AUTORIZADO',
+      payload: {
+        accion: 'session.verified',
+        usuarioAfectado: 'USR-001',
+        detalle: 'Sesión activa verificada: Administrador General (10/10 módulos habilitados)',
+        ejecutadoPor: 'ADMINISTRADOR GENERAL',
+        timestamp: new Date().toISOString()
+      }
+    },
+    {
+      id: 'RBAC-SEED-001',
+      created_at: new Date(Date.now() - 3600 * 1000).toISOString(),
+      origen: 'AUTH_RBAC',
+      evento: 'rbac.initialized',
+      referencia_externa: 'SYSTEM',
+      estado: 'AUTORIZADO',
+      payload: {
+        accion: 'rbac.initialized',
+        usuarioAfectado: 'PADRÓN RBAC',
+        detalle: 'Inicialización de matriz de seguridad y 4 perfiles operativos institucionales',
+        ejecutadoPor: 'SYSTEM',
+        timestamp: new Date(Date.now() - 3600 * 1000).toISOString()
+      }
+    }
+  ];
+  try {
+    localStorage.setItem(STORAGE_AUDIT_LOG_KEY, JSON.stringify(seed));
+  } catch {
+    // ignore
+  }
+  return seed;
+}
+
+export function appendLocalRbacAuditLog(entry: Omit<RbacAuditLogEntry, 'id' | 'created_at' | 'origen'>): RbacAuditLogEntry {
+  const nuevo: RbacAuditLogEntry = {
+    id: `RBAC-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+    created_at: new Date().toISOString(),
+    origen: 'AUTH_RBAC',
+    ...entry
+  };
+  try {
+    const actual = getLocalRbacAuditLogs();
+    const nuevaLista = [nuevo, ...actual].slice(0, 80);
+    localStorage.setItem(STORAGE_AUDIT_LOG_KEY, JSON.stringify(nuevaLista));
+  } catch {
+    // ignore
+  }
+  return nuevo;
+}
 
 function normalizeModulos(mods: string[]): ModuleKey[] {
   const mapped = mods.map((m) => (m === 'dashboard' ? 'tablero' : m)) as ModuleKey[];
@@ -306,6 +396,21 @@ export async function guardarUsuariosEnSupabase(
     }
   }
 
+  if (eventoAuditoria) {
+    appendLocalRbacAuditLog({
+      evento: eventoAuditoria.accion,
+      referencia_externa: eventoAuditoria.usuarioAfectado,
+      estado: 'AUTORIZADO',
+      payload: {
+        accion: eventoAuditoria.accion,
+        usuarioAfectado: eventoAuditoria.usuarioAfectado,
+        detalle: eventoAuditoria.detalle,
+        ejecutadoPor: activoActual.rol,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
   window.dispatchEvent(new Event('zonda_usuarios_updated'));
 
   try {
@@ -352,6 +457,21 @@ export async function cambiarOperadorActivo(op: OperadorProfile): Promise<void> 
   const lista = getUsuariosList().map((u) => (u.id === op.id ? actualizado : u));
   localStorage.setItem(STORAGE_USUARIOS_KEY, JSON.stringify(lista));
   localStorage.setItem(STORAGE_ACTIVE_OP_KEY, JSON.stringify(actualizado));
+
+  appendLocalRbacAuditLog({
+    evento: 'session.operator_switch',
+    referencia_externa: op.id,
+    estado: 'AUTORIZADO',
+    payload: {
+      operador: op.nombre,
+      rol: op.rol,
+      email: op.email,
+      modulos: op.modulosPermitidos.length,
+      detalle: `Cambio de sesión activa a ${op.nombre} (${op.rol} · ${op.modulosPermitidos.length}/10 módulos)`,
+      timestamp: new Date().toISOString()
+    }
+  });
+
   window.dispatchEvent(new Event('zonda_usuarios_updated'));
 
   try {
