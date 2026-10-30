@@ -17,7 +17,9 @@ import {
   FileText,
   Send,
   X,
-  FileDown
+  FileDown,
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 import { TipoComprobante } from '../../types/models';
 import { useErp } from '../../context/ErpContext';
@@ -25,6 +27,11 @@ import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils'
 import { printAfipElectronicInvoice } from '../../utils/afipQrInvoicePrint';
 import { sendInvoiceViaWhatsApp } from '../../utils/whatsappSender';
 import { CalendarioVencimientosModal } from '../modals/CalendarioVencimientosModal';
+import {
+  analizarYNormalizarArchivoConIa,
+  type ResultadoAnalisisArchivoIa,
+  type FilaComprobanteNormalizadaIa
+} from '../../services/aiCsvNormalizerService';
 
 export const ClientesModule: React.FC = () => {
   const {
@@ -383,92 +390,150 @@ export const ClientesModule: React.FC = () => {
     );
   };
 
+  const [analizandoArchivoIa, setAnalizandoArchivoIa] = useState(false);
+  const [propuestaIaArchivo, setPropuestaIaArchivo] = useState<ResultadoAnalisisArchivoIa | null>(null);
+
+  const ejecutarImportacionFilasAutorizadas = async (filas: FilaComprobanteNormalizadaIa[]) => {
+    if (!clienteActivo) return;
+    let count = 0;
+    for (const f of filas) {
+      const targetCliente =
+        clientes.find((c) => c.id === f.clienteAsociadoId) ||
+        clientes.find((c) => c.cuit === f.cuitCliente) ||
+        clienteActivo;
+
+      await emitirFacturaVenta({
+        clienteId: targetCliente.id,
+        tipo: f.tipoComprobante,
+        puntoVenta: f.puntoVenta,
+        numero: f.numeroComprobante,
+        fechaEmision: f.fechaEmision,
+        fechaVencimiento: f.fechaVencimiento,
+        netoGravado: f.netoGravado,
+        iva21: f.iva21,
+        percepcionIIBB: f.percepcionIIBB,
+        descripcion: f.descripcion
+      });
+      count++;
+    }
+    setPropuestaIaArchivo(null);
+    setMensajeImportacion(
+      `✓ Se importaron y contabilizaron ${count} comprobante(s) en Supabase con autorización del usuario.`
+    );
+  };
+
+  const procesarTextoArchivoConVerificacionIa = async (text: string, fileName: string) => {
+    setAnalizandoArchivoIa(true);
+    setMensajeImportacion(null);
+    try {
+      const resultado = await analizarYNormalizarArchivoConIa({
+        rawText: text,
+        fileName,
+        clientes
+      });
+
+      if (!resultado.requiereAutorizacionIa && resultado.filasPropuestas.length > 0) {
+        // El archivo ingresó exactamente con la estructura esperada: importar directo
+        await ejecutarImportacionFilasAutorizadas(resultado.filasPropuestas);
+      } else {
+        // El archivo NO ingresó como corresponde: mostrar propuesta de corrección IA para autorización del usuario
+        setPropuestaIaArchivo(resultado);
+      }
+    } finally {
+      setAnalizandoArchivoIa(false);
+    }
+  };
+
   const handleArchivoImportacion = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !clienteActivo) return;
     const text = await file.text();
-    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-    const dataRows = lines.slice(1);
-    let count = 0;
-
-    for (const row of dataRows) {
-      const cols = row.split(/[;,]/).map((c) => c.replace(/^"|"$/g, '').trim());
-      if (cols.length >= 15) {
-        // Plantilla Completa de 26 Columnas Fiscales ARCA
-        const fechaEmision = cols[0] || undefined;
-        const fechaVto = cols[1] || undefined;
-        const tipoComp = (cols[2] as TipoComprobante) || 'Factura A';
-        const ptoVta = cols[3] || '0001';
-        const nroComp = cols[4] || undefined;
-        const cuitFila = cols[5] || '';
-        const neto = parseFloat(cols[11]) || 0;
-        const noGravado = parseFloat(cols[12]) || 0;
-        const exento = parseFloat(cols[13]) || 0;
-        const iva21 = parseFloat(cols[14]) || 0;
-        const iva105 = parseFloat(cols[15]) || 0;
-        const iva27 = parseFloat(cols[16]) || 0;
-        const percIva = parseFloat(cols[17]) || 0;
-        const percIIBB = parseFloat(cols[18]) || 0;
-        const impInternos = parseFloat(cols[19]) || 0;
-        const otrosTrib = parseFloat(cols[20]) || 0;
-        const caeFila = cols[22] || undefined;
-        const vtoCaeFila = cols[23] || undefined;
-        const desc = cols[25] || `Comprobante importado (${file.name})`;
-
-        const targetCliente = clientes.find((c) => c.cuit === cuitFila) || clienteActivo;
-
-        await emitirFacturaVenta({
-          clienteId: targetCliente.id,
-          tipo: tipoComp,
-          puntoVenta: ptoVta,
-          numero: nroComp,
-          fechaEmision,
-          fechaVencimiento: fechaVto,
-          netoGravado: neto,
-          noGravado,
-          exento,
-          iva21,
-          iva105,
-          iva27,
-          percepcionIva: percIva,
-          percepcionIIBB: percIIBB,
-          impuestosInternos: impInternos,
-          otrosTributos: otrosTrib,
-          cae: caeFila,
-          caeVencimiento: vtoCaeFila,
-          descripcion: desc
-        });
-        count++;
-      } else if (cols.length >= 4) {
-        // Retrocompatibilidad con plantilla corta de 5 columnas
-        const cuitFila = cols[0] || '';
-        const tipoComp = (cols[2] as TipoComprobante) || 'Factura A';
-        const neto = parseFloat(cols[3]) || 250000;
-        const desc = cols[4] || `Comprobante importado (${file.name})`;
-        const targetCliente = clientes.find((c) => c.cuit === cuitFila) || clienteActivo;
-
-        await emitirFacturaVenta({
-          clienteId: targetCliente.id,
-          tipo: tipoComp,
-          netoGravado: neto,
-          descripcion: desc
-        });
-        count++;
-      }
-    }
-    if (count === 0) {
-      await emitirFacturaVenta({
-        clienteId: clienteActivo.id,
-        tipo: 'Factura A',
-        netoGravado: 450000,
-        descripcion: `Lote importado desde ${file.name}`
-      });
-      count = 1;
-    }
-    setMensajeImportacion(
-      `Se importaron y contabilizaron ${count} comprobante(s) con su desglose completo de impuestos en Supabase.`
-    );
     e.target.value = '';
+    await procesarTextoArchivoConVerificacionIa(text, file.name);
+  };
+
+  const simularArchivoConErroresParaIa = async () => {
+    const csvMalFormateado = [
+      'Cliente;CUIT_Sin_Guiones;Fecha_Fact;Importe_Neto;Concepto_Facturado;Tipo',
+      'CONSTRUCTORA CUYANA;30689124434;30/10/2026;$ 980.000,00;Certificación Avance Obra Tramo Norte;FC A',
+      'VALDIVIESO GROUP;30714589210;29/10/2026;$ 640.000,00;Provisión Equipos de Bombeo;Factura A',
+      'HIDRAULICA SAN JUAN;30612299812;28/10/2026;$ 425.000,00;Mantenimiento Preventivo Red Matriz;Factura A'
+    ].join('\n');
+    await procesarTextoArchivoConVerificacionIa(
+      csvMalFormateado,
+      'exportacion_sistema_externo_desordenada.csv'
+    );
+  };
+
+  const actualizarFilaPropuestaIa = (
+    idFila: string,
+    cambios: Partial<FilaComprobanteNormalizadaIa>
+  ) => {
+    if (!propuestaIaArchivo) return;
+    const nuevasFilas = propuestaIaArchivo.filasPropuestas.map((f) => {
+      if (f.id !== idFila) return f;
+      const actualizada = { ...f, ...cambios };
+      if (cambios.clienteAsociadoId) {
+        const cliObj = clientes.find((c) => c.id === cambios.clienteAsociadoId);
+        if (cliObj) {
+          actualizada.cuitCliente = cliObj.cuit;
+          actualizada.razonSocialCliente = cliObj.razonSocial;
+        }
+      }
+      if (cambios.netoGravado !== undefined || cambios.iva21 !== undefined || cambios.percepcionIIBB !== undefined) {
+        actualizada.total = Number(
+          (actualizada.netoGravado + actualizada.iva21 + actualizada.percepcionIIBB).toFixed(2)
+        );
+      }
+      return actualizada;
+    });
+    setPropuestaIaArchivo({
+      ...propuestaIaArchivo,
+      filasPropuestas: nuevasFilas
+    });
+  };
+
+  const eliminarFilaPropuestaIa = (idFila: string) => {
+    if (!propuestaIaArchivo) return;
+    setPropuestaIaArchivo({
+      ...propuestaIaArchivo,
+      filasPropuestas: propuestaIaArchivo.filasPropuestas.filter((f) => f.id !== idFila)
+    });
+  };
+
+  const handleDescargarCsvCorregidoIa = () => {
+    if (!propuestaIaArchivo) return;
+    exportToExcelCsv(
+      `Corregido_IA_${propuestaIaArchivo.nombreArchivo.replace(/\.[^.]+$/, '')}`,
+      [
+        'Fecha_Emision',
+        'Fecha_Vencimiento',
+        'Tipo_Comprobante',
+        'Punto_Venta',
+        'Numero_Comprobante',
+        'CUIT_Cliente',
+        'Razon_Social',
+        'Neto_Gravado',
+        'IVA_21',
+        'Percepcion_IIBB',
+        'Total_Comprobante',
+        'Descripcion'
+      ],
+      propuestaIaArchivo.filasPropuestas.map((f) => [
+        f.fechaEmision,
+        f.fechaVencimiento,
+        f.tipoComprobante,
+        f.puntoVenta,
+        f.numeroComprobante,
+        f.cuitCliente,
+        f.razonSocialCliente,
+        f.netoGravado.toFixed(2),
+        f.iva21.toFixed(2),
+        f.percepcionIIBB.toFixed(2),
+        f.total.toFixed(2),
+        f.descripcion
+      ])
+    );
   };
 
   // Totales dinámicos para pestaña Resumen
@@ -1071,22 +1136,35 @@ export const ClientesModule: React.FC = () => {
           </div>
         </div>
       ) : tabPrincipal === 'importacion' ? (
-        /* PESTAÑA: IMPORTACIÓN DE FACTURAS */
+        /* PESTAÑA: IMPORTACIÓN DE FACTURAS CON CORRECCIÓN IA Y AUTORIZACIÓN PREVIA */
         <div className="bg-white border border-slate-300 p-6 space-y-6">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
             <div>
               <h3 className="text-sm font-bold text-slate-900 font-mono uppercase">
                 IMPORTACIÓN MASIVA DE FACTURAS Y COMPROBANTES
               </h3>
-              <p className="text-xs text-slate-500 font-mono">Carga por lotes mediante plantilla Excel o CSV hacia Supabase</p>
+              <p className="text-xs text-slate-500 font-mono">
+                Si el archivo no ingresa con el formato esperado, la IA propone corregirlo y adaptarlo previa autorización tuya
+              </p>
             </div>
-            <button
-              onClick={handleDescargarPlantilla}
-              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-mono font-bold flex items-center gap-1.5"
-            >
-              <FileDown className="w-4 h-4" />
-              <span>Descargar Plantilla Excel Modelo</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={simularArchivoConErroresParaIa}
+                className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-mono font-bold flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+                <span>Probar Corrección IA con Archivo Desordenado</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDescargarPlantilla}
+                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-mono font-bold flex items-center gap-1.5"
+              >
+                <FileDown className="w-4 h-4" />
+                <span>Descargar Plantilla Excel Modelo</span>
+              </button>
+            </div>
           </div>
 
           {mensajeImportacion && (
@@ -1096,12 +1174,14 @@ export const ClientesModule: React.FC = () => {
             </div>
           )}
 
-          <div className="border-2 border-dashed border-slate-300 p-10 text-center space-y-3 bg-slate-50">
+          <div className="border-2 border-dashed border-slate-300 p-8 text-center space-y-3 bg-slate-50">
             <Upload className="w-8 h-8 text-slate-400 mx-auto" />
             <p className="text-xs font-mono font-bold text-slate-700 uppercase">
-              SELECCIONE SU ARCHIVO CSV / EXCEL PARA INGERIR COMPROBANTES EN SUPABASE
+              SELECCIONE SU ARCHIVO CSV / EXCEL PARA INGERIR COMPROBANTES
             </p>
-            <p className="text-[11px] text-slate-400 font-mono">Formatos soportados: .csv, .txt (UTF-8) hasta 10.000 filas</p>
+            <p className="text-[11px] text-slate-500 font-mono">
+              Formatos soportados: .csv, .txt (UTF-8). Si las columnas, fechas, CUITs o montos vienen de otro sistema, la IA los normaliza y te pide autorización antes de modificar e importar.
+            </p>
             <input
               ref={fileInputRef}
               type="file"
@@ -1109,13 +1189,219 @@ export const ClientesModule: React.FC = () => {
               onChange={handleArchivoImportacion}
               className="hidden"
             />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2 bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-bold uppercase"
-            >
-              Seleccionar archivo local
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+              <button
+                type="button"
+                disabled={analizandoArchivoIa}
+                onClick={() => fileInputRef.current?.click()}
+                className="px-4 py-2 bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-bold uppercase disabled:opacity-50"
+              >
+                {analizandoArchivoIa ? 'Analizando estructura con IA...' : 'Seleccionar archivo local'}
+              </button>
+            </div>
           </div>
+
+          {/* PANEL DE AUTORIZACIÓN DE MODIFICACIÓN CON IA CUANDO EL ARCHIVO NO INGRESA COMO CORRESPONDE */}
+          {propuestaIaArchivo && (
+            <div className="border-2 border-amber-400 bg-amber-50/40 p-4 space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-amber-300 pb-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-amber-600 text-white text-[10px] font-extrabold uppercase">
+                      Requiere tu Autorización Previa
+                    </span>
+                    <h4 className="text-xs font-extrabold text-[#042f22] uppercase flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-700" />
+                      <span>
+                        Corrección Inteligente de Archivo con IA ({propuestaIaArchivo.nombreArchivo})
+                      </span>
+                    </h4>
+                  </div>
+                  <p className="text-xs text-slate-700">{propuestaIaArchivo.resumenIa}</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDescargarCsvCorregidoIa}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 text-xs font-bold flex items-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Descargar CSV Corregido</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPropuestaIaArchivo(null)}
+                    className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 text-xs font-bold"
+                  >
+                    Rechazar Modificación
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => ejecutarImportacionFilasAutorizadas(propuestaIaArchivo.filasPropuestas)}
+                    className="px-4 py-1.5 bg-[#064e3b] hover:bg-[#042f22] text-white text-xs font-extrabold uppercase flex items-center gap-1.5 shadow-md"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>
+                      Autorizar Modificación IA e Importar ({propuestaIaArchivo.filasPropuestas.length})
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Diagnóstico de diferencias detectadas por IA */}
+              <div className="bg-white border border-amber-300 p-3 space-y-1.5 text-xs">
+                <span className="text-[10px] font-extrabold text-amber-900 uppercase block">
+                  Diagnóstico de Inconsistencias Detectadas y Corregidas por IA:
+                </span>
+                <ul className="list-disc list-inside text-[11px] text-slate-700 space-y-0.5">
+                  {propuestaIaArchivo.problemasDetectados.map((prob, idx) => (
+                    <li key={idx}>{prob}</li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Tabla editable de filas modificadas por IA antes de autorizar */}
+              <div className="overflow-x-auto bg-white border border-slate-300">
+                <table className="w-full text-left text-[11px] border-collapse">
+                  <thead>
+                    <tr className="bg-[#064e3b] text-white font-bold">
+                      <th className="py-2 px-2.5 border-r border-emerald-800">Cliente Asociado (CUIT)</th>
+                      <th className="py-2 px-2.5 border-r border-emerald-800">Comprobante</th>
+                      <th className="py-2 px-2.5 border-r border-emerald-800">Fecha Normalizada</th>
+                      <th className="py-2 px-2.5 border-r border-emerald-800 text-right">Neto ($)</th>
+                      <th className="py-2 px-2.5 border-r border-emerald-800 text-right">IVA 21% ($)</th>
+                      <th className="py-2 px-2.5 border-r border-emerald-800 text-right">Total ($)</th>
+                      <th className="py-2 px-2.5 border-r border-emerald-800">Concepto / Cambios IA</th>
+                      <th className="py-2 px-2 text-center w-9"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {propuestaIaArchivo.filasPropuestas.map((fila) => (
+                      <tr key={fila.id} className="hover:bg-emerald-50/30 align-top">
+                        <td className="py-2 px-2.5 border-r border-slate-200">
+                          <select
+                            value={fila.clienteAsociadoId}
+                            onChange={(e) =>
+                              actualizarFilaPropuestaIa(fila.id, { clienteAsociadoId: e.target.value })
+                            }
+                            className="w-full p-1 bg-emerald-50/70 border border-emerald-300 font-bold text-[#042f22] text-[11px]"
+                          >
+                            {clientes.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.razonSocial} ({c.cuit})
+                              </option>
+                            ))}
+                          </select>
+                          <span className="text-[10px] text-slate-400 block mt-0.5 truncate max-w-[210px]">
+                            Orig: {fila.lineaOriginal}
+                          </span>
+                        </td>
+                        <td className="py-2 px-2.5 border-r border-slate-200">
+                          <select
+                            value={fila.tipoComprobante}
+                            onChange={(e) =>
+                              actualizarFilaPropuestaIa(fila.id, {
+                                tipoComprobante: e.target.value as TipoComprobante
+                              })
+                            }
+                            className="w-full p-1 bg-white border border-slate-300 font-bold text-[11px] mb-1"
+                          >
+                            <option value="Factura A">Factura A</option>
+                            <option value="Factura B">Factura B</option>
+                            <option value="Factura C">Factura C</option>
+                            <option value="Nota de Crédito A">Nota de Crédito A</option>
+                          </select>
+                          <input
+                            type="text"
+                            value={fila.numeroComprobante}
+                            onChange={(e) =>
+                              actualizarFilaPropuestaIa(fila.id, { numeroComprobante: e.target.value })
+                            }
+                            className="w-full p-1 bg-slate-50 border border-slate-200 text-[10px]"
+                          />
+                        </td>
+                        <td className="py-2 px-2.5 border-r border-slate-200">
+                          <input
+                            type="date"
+                            value={fila.fechaEmision}
+                            onChange={(e) =>
+                              actualizarFilaPropuestaIa(fila.id, {
+                                fechaEmision: e.target.value,
+                                fechaVencimiento: e.target.value
+                              })
+                            }
+                            className="p-1 bg-white border border-slate-300 font-bold text-[11px]"
+                          />
+                        </td>
+                        <td className="py-2 px-2.5 border-r border-slate-200 text-right">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={fila.netoGravado}
+                            onChange={(e) => {
+                              const nuevoNeto = parseFloat(e.target.value) || 0;
+                              actualizarFilaPropuestaIa(fila.id, {
+                                netoGravado: nuevoNeto,
+                                iva21: Number((nuevoNeto * 0.21).toFixed(2))
+                              });
+                            }}
+                            className="w-24 p-1 bg-white border border-slate-300 text-right font-bold"
+                          />
+                        </td>
+                        <td className="py-2 px-2.5 border-r border-slate-200 text-right">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={fila.iva21}
+                            onChange={(e) =>
+                              actualizarFilaPropuestaIa(fila.id, {
+                                iva21: parseFloat(e.target.value) || 0
+                              })
+                            }
+                            className="w-24 p-1 bg-white border border-slate-300 text-right"
+                          />
+                        </td>
+                        <td className="py-2 px-2.5 border-r border-slate-200 text-right font-extrabold text-[#042f22]">
+                          ${fila.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-2 px-2.5 border-r border-slate-200">
+                          <input
+                            type="text"
+                            value={fila.descripcion}
+                            onChange={(e) =>
+                              actualizarFilaPropuestaIa(fila.id, { descripcion: e.target.value })
+                            }
+                            className="w-full p-1 bg-white border border-slate-300 text-[11px] mb-1"
+                          />
+                          <div className="flex flex-wrap gap-1">
+                            {fila.cambiosAplicados.map((cambio, cIdx) => (
+                              <span
+                                key={cIdx}
+                                className="px-1.5 py-0.2 bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-bold"
+                              >
+                                ✨ {cambio}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-2 px-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => eliminarFilaPropuestaIa(fila.id)}
+                            className="text-slate-400 hover:text-rose-600"
+                            title="Quitar fila"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         /* PESTAÑA: MERCADO PAGO / COBROS ONLINE */
