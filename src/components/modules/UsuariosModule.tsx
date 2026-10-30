@@ -34,7 +34,7 @@ import {
 } from '../../services/usuariosRbacService';
 import type { ModuleKey } from '../layout/Sidebar';
 import { supabase } from '../../lib/supabase';
-import { exportarACsv } from '../../utils/exportUtils';
+import { exportToExcelCsv } from '../../utils/exportUtils';
 
 export const UsuariosModule: React.FC = () => {
   const [usuarios, setUsuarios] = useState<OperadorProfile[]>(getUsuariosList());
@@ -373,7 +373,7 @@ export const UsuariosModule: React.FC = () => {
       Fecha_Alta: u.fechaAlta,
       Ultimo_Acceso: u.ultimoAcceso || '-'
     }));
-    exportarACsv('Padron_Usuarios_y_Permisos_RBAC_GrowERP', filas);
+    exportToExcelCsv('Padron_Usuarios_y_Permisos_RBAC_GrowERP', filas);
   };
 
   const usuariosFiltrados = usuarios.filter((u) => {
