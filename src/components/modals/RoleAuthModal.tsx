@@ -15,43 +15,43 @@ export interface OperadorProfile {
 export const OPERADORES_PREDEFINIDOS: OperadorProfile[] = [
   {
     id: 'OP-ADMIN',
-    nombre: 'Dr. Lucas M. (Dirección / Admin)',
+    nombre: 'Administrador General',
     rol: 'ADMINISTRADOR GENERAL',
-    email: 'direccion@sanatorioargentino.com.ar',
+    email: 'admin@growsanjuan.com',
     pin: '1234',
     modulosPermitidos: ['dashboard', 'clientes', 'proveedores', 'tesoreria', 'contabilidad', 'inventario', 'sueldos', 'migracion', 'configuracion'],
     descripcionPermisos: 'Acceso total a los 9 módulos, configuración de certificados ARCA, Mercado Pago y cierres contables.'
   },
   {
     id: 'OP-CONTADOR',
-    nombre: 'Cr. Martín Gómez (Auditoría Fiscal)',
+    nombre: 'Contador / Auditoría',
     rol: 'CONTADOR / AUDITORÍA',
-    email: 'auditoria@sanatorioargentino.com.ar',
+    email: 'auditoria@growsanjuan.com',
     pin: '2026',
     modulosPermitidos: ['dashboard', 'contabilidad', 'sueldos', 'clientes', 'proveedores', 'tesoreria', 'configuracion'],
     descripcionPermisos: 'Libro Diario, Plan de Cuentas, Libro IVA Digital RG 4597, Sueldos F.931 y Auditoría Fiscal.'
   },
   {
     id: 'OP-TESORERIA',
-    nombre: 'Lic. Valeria Quiroga (Tesorería)',
+    nombre: 'Tesorería y Finanzas',
     rol: 'TESORERÍA Y FINANZAS',
-    email: 'tesoreria@sanatorioargentino.com.ar',
+    email: 'tesoreria@growsanjuan.com',
     pin: '5555',
     modulosPermitidos: ['dashboard', 'tesoreria', 'clientes', 'proveedores'],
     descripcionPermisos: 'Conciliación bancaria, custodia y depósito de cheques, órdenes de pago y cobranzas Mercado Pago.'
   },
   {
     id: 'OP-FACTURACION',
-    nombre: 'Sofía Sarmiento (Facturación & Stock)',
+    nombre: 'Facturación y Ventas',
     rol: 'FACTURACIÓN Y VENTAS',
-    email: 'facturacion@sanatorioargentino.com.ar',
+    email: 'facturacion@growsanjuan.com',
     pin: '1111',
     modulosPermitidos: ['dashboard', 'clientes', 'inventario'],
     descripcionPermisos: 'Emisión de Facturas Electrónicas con CAE, cobros QR/Link Mercado Pago, envío por WhatsApp y Kardex.'
   }
 ];
 
-const STORAGE_OPERADOR_KEY = 'zonda_active_operator_v1';
+const STORAGE_OPERADOR_KEY = 'zonda_active_operator_v2';
 
 export function getActiveOperator(): OperadorProfile {
   try {

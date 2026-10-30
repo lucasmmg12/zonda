@@ -292,16 +292,11 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           className="h-8 flex items-center gap-2 pl-2 pr-2.5 border border-emerald-800/25 bg-emerald-50/30 hover:bg-emerald-50 transition-colors whitespace-nowrap"
         >
           <div className="w-5 h-5 bg-[#064e3b] text-white flex items-center justify-center font-bold text-[10px] shrink-0">
-            {operadorActual.nombre.slice(0, 2).toUpperCase()}
+            {operadorActual.rol.slice(0, 2).toUpperCase()}
           </div>
-          <div className="hidden xl:flex flex-col text-left leading-none">
-            <span className="text-[11px] font-bold text-[#042f22] whitespace-nowrap">
-              {operadorActual.nombre.split('(')[0].trim()}
-            </span>
-            <span className="text-[9px] text-[#047857] font-semibold tracking-wide uppercase whitespace-nowrap">
-              {operadorActual.rol}
-            </span>
-          </div>
+          <span className="hidden xl:inline text-[10px] font-bold text-[#042f22] tracking-wide uppercase whitespace-nowrap">
+            {operadorActual.rol}
+          </span>
         </button>
       </div>
 
