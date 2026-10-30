@@ -9,7 +9,6 @@ import {
   KeyRound,
   Lock,
   Unlock,
-  Download,
   Search,
   Eye,
   EyeOff,
@@ -34,7 +33,6 @@ import {
 } from '../../services/usuariosRbacService';
 import type { ModuleKey } from '../layout/Sidebar';
 import { supabase } from '../../lib/supabase';
-import { exportToExcelCsv } from '../../utils/exportUtils';
 
 export const UsuariosModule: React.FC = () => {
   const [usuarios, setUsuarios] = useState<OperadorProfile[]>(getUsuariosList());
@@ -431,28 +429,6 @@ export const UsuariosModule: React.FC = () => {
     void cargarAuditoria();
   };
 
-  const handleExportarExcel = () => {
-    const filas = usuarios.map((u) => ({
-      ID_Usuario: u.id,
-      Nombre_Identificacion: u.nombre,
-      Rol_RBAC: u.rol,
-      Email: u.email,
-      CUIL: u.cuil || '-',
-      Sector: u.sector || '-',
-      Estado: u.activo ? 'ACTIVO' : 'SUSPENDIDO',
-      Cantidad_Modulos: `${u.modulosPermitidos.length}/10`,
-      Modulos_Habilitados: u.modulosPermitidos.join(' | '),
-      Emite_Facturas_AFIP: u.permisosEspeciales.emitirFacturasAfip ? 'SI' : 'NO',
-      Aprueba_Pagos_Tesoreria: u.permisosEspeciales.aprobarPagosTesoreria ? 'SI' : 'NO',
-      Modifica_Contabilidad: u.permisosEspeciales.modificarPlanCuentas ? 'SI' : 'NO',
-      Elimina_Registros: u.permisosEspeciales.eliminarRegistros ? 'SI' : 'NO',
-      Exporta_Libros_Fiscales: u.permisosEspeciales.exportarReportesFiscales ? 'SI' : 'NO',
-      Fecha_Alta: u.fechaAlta,
-      Ultimo_Acceso: u.ultimoAcceso || '-'
-    }));
-    exportToExcelCsv('Padron_Usuarios_y_Permisos_RBAC_GrowERP', filas);
-  };
-
   const usuariosFiltrados = usuarios.filter((u) => {
     const q = busqueda.trim().toLowerCase();
     const coincideTexto =
@@ -500,14 +476,6 @@ export const UsuariosModule: React.FC = () => {
           >
             <UserPlus className="w-4 h-4" />
             <span>+ Agregar Nuevo Usuario</span>
-          </button>
-
-          <button
-            onClick={handleExportarExcel}
-            className="px-3.5 py-2 bg-white hover:bg-emerald-50 text-[#064e3b] border border-emerald-800/30 text-xs font-bold uppercase flex items-center gap-1.5 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Exportar Padrón (.CSV)</span>
           </button>
         </div>
       </div>
