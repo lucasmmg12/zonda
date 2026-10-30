@@ -79,9 +79,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <h1 className="text-xs font-extrabold tracking-wider uppercase text-[#064e3b] leading-tight whitespace-nowrap">
                   GROW // ERP
                 </h1>
-                <span className="text-[9px] text-[#357a59] tracking-widest block font-semibold uppercase whitespace-nowrap">
-                  PRECISION ENGINE
-                </span>
               </div>
             </div>
           ) : (
