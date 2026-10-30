@@ -248,8 +248,7 @@ export const DashboardModule: React.FC = () => {
             <rect x="61" y="25" width="14" height="70" fill="currentColor" />
             <rect x="84" y="10" width="14" height="85" fill="currentColor" />
           </svg>
-          <div className="relative z-10 flex items-center justify-between text-[10px] text-[#357a59] uppercase">
-            <span>[METRIC // 01]</span>
+          <div className="relative z-10 flex items-center justify-end text-[10px] text-[#357a59] uppercase">
             <span className="text-[#047857] font-bold">FACTURADO AFIP ({facturasVenta.length})</span>
           </div>
           <div className="relative z-10 mt-2">
@@ -273,8 +272,7 @@ export const DashboardModule: React.FC = () => {
             <circle cx="70" cy="55" r="36" stroke="currentColor" strokeWidth="6" strokeDasharray="45 15" />
             <path d="M70 55 L95 30" stroke="currentColor" strokeWidth="4" />
           </svg>
-          <div className="relative z-10 flex items-center justify-between text-[10px] text-[#357a59] uppercase">
-            <span>[METRIC // 02]</span>
+          <div className="relative z-10 flex items-center justify-end text-[10px] text-[#357a59] uppercase">
             <span className="text-[#065f46] font-bold">EGRESOS & GASTOS ({facturasCompra.length})</span>
           </div>
           <div className="relative z-10 mt-2">
@@ -297,8 +295,7 @@ export const DashboardModule: React.FC = () => {
             <path d="M10 75 Q 35 35, 60 55 T 110 20" stroke="currentColor" strokeWidth="5" fill="none" />
             <line x1="10" y1="85" x2="110" y2="85" stroke="currentColor" strokeWidth="3" />
           </svg>
-          <div className="relative z-10 flex items-center justify-between text-[10px] text-[#357a59] uppercase">
-            <span>[METRIC // 03]</span>
+          <div className="relative z-10 flex items-center justify-end text-[10px] text-[#357a59] uppercase">
             <span className="text-[#064e3b] font-bold">DISPONIBILIDAD BANCARIA</span>
           </div>
           <div className="relative z-10 mt-2">
@@ -321,8 +318,7 @@ export const DashboardModule: React.FC = () => {
             <line x1="20" y1="30" x2="105" y2="30" stroke="currentColor" strokeWidth="5" />
             <line x1="62" y1="30" x2="62" y2="90" stroke="currentColor" strokeWidth="5" />
           </svg>
-          <div className="relative z-10 flex items-center justify-between text-[10px] text-[#357a59] uppercase">
-            <span>[METRIC // 04]</span>
+          <div className="relative z-10 flex items-center justify-end text-[10px] text-[#357a59] uppercase">
             <span className="text-[#047857] font-bold">VALORES EN CUSTODIA</span>
           </div>
           <div className="relative z-10 mt-2">
