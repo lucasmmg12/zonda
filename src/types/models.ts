@@ -350,7 +350,12 @@ export type ConvenioColectivo =
   | 'CCT 76/75 (UOCRA - Construcción)'
   | 'CCT 130/75 (Comercio y Servicios)'
   | 'CCT 122/75 (Sanidad - Clínicas y Sanatorios)'
-  | 'Fuera de Convenio (Dirección)';
+  | 'CCT 108/75 (Sanidad - Diagnóstico y Consultorios)'
+  | 'CCT 260/75 (UOM - Metalúrgicos)'
+  | 'CCT 40/89 (Camioneros y Logística)'
+  | 'CCT 389/04 (UTHGRA - Gastronómicos y Hotelería)'
+  | 'Fuera de Convenio (Dirección)'
+  | string;
 
 export interface ConceptoRecibo {
   codigo: string;

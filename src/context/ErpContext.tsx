@@ -214,7 +214,12 @@ interface ErpContextValue {
     categoria: string;
     sueldoBasico: number;
     banco?: string;
+    conceptosLiquidacion?: EmpleadoLegajo['conceptosLiquidacion'];
   }) => Promise<EmpleadoLegajo>;
+  actualizarEmpleadoLegajo: (
+    empleadoId: string,
+    cambios: Partial<EmpleadoLegajo>
+  ) => Promise<void>;
   actualizarLiquidacionPeriodo: (params: {
     periodo: string;
     tipoLiquidacion: LiquidacionPeriodo['tipoLiquidacion'];
@@ -1989,6 +1994,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     categoria: string;
     sueldoBasico: number;
     banco?: string;
+    conceptosLiquidacion?: EmpleadoLegajo['conceptosLiquidacion'];
   }) => {
     const nuevoLegajoNum = String(100 + empleados.length + 1);
     const adicionalPresentismo =
@@ -2018,11 +2024,11 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       modalidadContratacion: 'Tiempo Indeterminado',
       sueldoBasico: params.sueldoBasico,
       activo: true,
-      conceptosLiquidacion: [
+      conceptosLiquidacion: params.conceptosLiquidacion || [
         {
-          codigo: '101',
+          codigo: '100',
           codigoAfipLsd: '110000',
-          descripcion: 'Sueldo Básico de Convenio',
+          descripcion: 'SUELDO BÁSICO DE CONVENIO',
           unidades: '30 días',
           tipo: 'Remunerativo',
           remunerativo: params.sueldoBasico,
@@ -2030,9 +2036,9 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           descuento: 0
         },
         {
-          codigo: '102',
+          codigo: '240',
           codigoAfipLsd: '130000',
-          descripcion: 'Adicional Presentismo / Asistencia Perfecta',
+          descripcion: 'ADICIONAL PRESENTISMO / OBJETIVOS',
           unidades: 'Convenio',
           tipo: 'Remunerativo',
           remunerativo: adicionalPresentismo,
@@ -2040,9 +2046,9 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           descuento: 0
         },
         {
-          codigo: '301',
+          codigo: '20000',
           codigoAfipLsd: '810000',
-          descripcion: 'Jubilación SIPA (Ley 24.241)',
+          descripcion: 'JUBILACIÓN 11% (SIPA LEY 24.241)',
           unidades: '11%',
           tipo: 'Descuento',
           remunerativo: 0,
@@ -2050,9 +2056,9 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           descuento: jubilacion
         },
         {
-          codigo: '302',
+          codigo: '20001',
           codigoAfipLsd: '810001',
-          descripcion: 'INSSJyP Ley 19.032 (PAMI)',
+          descripcion: 'LEY 19.032 3% (INSSJyP)',
           unidades: '3%',
           tipo: 'Descuento',
           remunerativo: 0,
@@ -2060,9 +2066,9 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           descuento: pami
         },
         {
-          codigo: '303',
+          codigo: '20002',
           codigoAfipLsd: '810002',
-          descripcion: 'Aporte Obra Social Sindical',
+          descripcion: 'OBRA SOCIAL 3%',
           unidades: '3%',
           tipo: 'Descuento',
           remunerativo: 0,
@@ -2070,9 +2076,9 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           descuento: obraSocial
         },
         {
-          codigo: '304',
+          codigo: '20004',
           codigoAfipLsd: '820000',
-          descripcion: 'Cuota Sindical CCT',
+          descripcion: 'APORTE SOLIDARIO / SINDICAL CCT',
           unidades: '2%',
           tipo: 'Descuento',
           remunerativo: 0,
@@ -2137,6 +2143,77 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ]);
     setLastSync(new Date().toLocaleTimeString('es-AR'));
     return nuevo;
+  };
+
+  const actualizarEmpleadoLegajo = async (
+    empleadoId: string,
+    cambios: Partial<EmpleadoLegajo>
+  ) => {
+    const actual = empleados.find((e) => e.id === empleadoId);
+    if (!actual) return;
+
+    const actualizado: EmpleadoLegajo = {
+      ...actual,
+      ...cambios
+    };
+
+    const nuevaNomina = empleados.map((e) => (e.id === empleadoId ? actualizado : e));
+    setEmpleados(nuevaNomina);
+
+    const totBruto = nuevaNomina.reduce(
+      (acc, e) => acc + e.conceptosLiquidacion.reduce((s, c) => s + (c.remunerativo || 0) + (c.noRemunerativo || 0), 0),
+      0
+    );
+    const totRet = nuevaNomina.reduce(
+      (acc, e) => acc + e.conceptosLiquidacion.reduce((s, c) => s + (c.descuento || 0), 0),
+      0
+    );
+    const nuevaLiq: LiquidacionPeriodo = {
+      ...liquidacionActual,
+      totalBruto: Number(totBruto.toFixed(2)),
+      totalRetenciones: Number(totRet.toFixed(2)),
+      totalNeto: Number((totBruto - totRet).toFixed(2)),
+      totalContribucionesPatronales: Number((Math.max(0, totBruto) * 0.24).toFixed(2)),
+      empleadosCount: nuevaNomina.length
+    };
+    setLiquidacionActual(nuevaLiq);
+
+    try {
+      await Promise.all([
+        supabase.from('erp_empleados').upsert({
+          id: actualizado.id,
+          legajo: actualizado.legajo,
+          cuil: actualizado.cuil,
+          nombre_completo: actualizado.nombreCompleto,
+          cct: actualizado.cct,
+          categoria: actualizado.categoria,
+          fecha_ingreso: actualizado.fechaIngreso,
+          antiguedad_anios: actualizado.antiguedadAnios,
+          banco: actualizado.banco,
+          cbu: actualizado.cbu,
+          modalidad_contratacion: actualizado.modalidadContratacion,
+          sueldo_basico: actualizado.sueldoBasico,
+          activo: actualizado.activo,
+          conceptos_liquidacion: actualizado.conceptosLiquidacion
+        }),
+        supabase.from('erp_liquidaciones').upsert({
+          id: 'ACTUAL',
+          periodo: nuevaLiq.periodo,
+          tipo_liquidacion: nuevaLiq.tipoLiquidacion,
+          numero_liquidacion: nuevaLiq.numeroLiquidacion,
+          fecha_pago: nuevaLiq.fechaPago,
+          total_bruto: nuevaLiq.totalBruto,
+          total_retenciones: nuevaLiq.totalRetenciones,
+          total_neto: nuevaLiq.totalNeto,
+          total_contribuciones_patronales: nuevaLiq.totalContribucionesPatronales,
+          empleados_count: nuevaLiq.empleadosCount,
+          updated_at: new Date().toISOString()
+        })
+      ]);
+      setLastSync(new Date().toLocaleTimeString('es-AR'));
+    } catch {
+      // ignore network error
+    }
   };
 
   const actualizarLiquidacionPeriodo = async (params: {
@@ -2244,6 +2321,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         actualizarPreciosInventario,
         registrarMovimientoStock,
         crearEmpleadoLegajo,
+        actualizarEmpleadoLegajo,
         actualizarLiquidacionPeriodo,
         guardarConfiguracionEmpresa
       }}
