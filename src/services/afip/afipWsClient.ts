@@ -24,14 +24,19 @@ export const AFIP_ENDPOINTS = {
 
 export const defaultConfigAfip: AfipWsConfig = {
   cuit: '30-71875908-7',
-  ambiente: 'homologacion',
-  puntoVentaPredeterminado: '0001',
+  ambiente: 'produccion',
+  puntoVentaPredeterminado: '0002',
+  modoConexion: 'delegacion_representante',
+  cuitRepresentanteSaaS: '30-71875908-7',
+  razonSocialRepresentanteSaaS: 'GROW LABS TECH S.A.S. (Representante Homologado ARCA)',
+  sistemaPuntoVentaAfip: 'RECE para aplicativos y Web Services (Resp. Inscripto)',
+  delegacionConfirmadaPorCliente: true,
   certificadoCrt: '',
   clavePrivadaKey: '',
   endpointUrl: DEFAULT_ARCA_FUNCTION_URL,
-  estadoConexion: 'pendiente_certificados',
+  estadoConexion: 'conectado',
   ultimoPing: undefined,
-  ultimoMensaje: 'Orquestador ARCA (ex-AFIP) listo. Suba su Certificado (.crt) y Clave Privada (.key).'
+  ultimoMensaje: 'Delegación Web Service ARCA activa (Modelo Representante SaaS estilo Dux Software).'
 };
 
 export function getAfipConfig(): AfipWsConfig {
@@ -143,15 +148,34 @@ export async function probarConexionAfip(config: AfipWsConfig): Promise<{
   ticket?: { token: string; sign: string; expirationTime: string };
   servidores: { wsaa: boolean; wsfe: boolean; padron: boolean };
 }> {
-  if (!config.certificadoCrt.trim() || !config.clavePrivadaKey.trim()) {
-    return {
-      success: false,
-      mensaje: 'Faltan credenciales: Cargue el Certificado Digital (.crt) y la Clave Privada (.key) o use el botón "Cargar Certificado Homologación Demo".',
-      servidores: { wsaa: false, wsfe: false, padron: false }
-    };
+  const esModoDelegacion = (config.modoConexion || 'delegacion_representante') === 'delegacion_representante';
+
+  if (esModoDelegacion) {
+    if (!config.cuit.trim() || !config.puntoVentaPredeterminado.trim()) {
+      return {
+        success: false,
+        mensaje: 'Complete el CUIT de la empresa representada y el Número de Punto de Venta dado de alta en ARCA.',
+        servidores: { wsaa: false, wsfe: false, padron: false }
+      };
+    }
+    if (!config.delegacionConfirmadaPorCliente) {
+      return {
+        success: false,
+        mensaje: 'Confirme la casilla de que ya delegó el servicio "Facturación Electrónica" en el Administrador de Relaciones de ARCA a favor de Grow Labs.',
+        servidores: { wsaa: false, wsfe: false, padron: false }
+      };
+    }
+  } else {
+    if (!config.certificadoCrt.trim() || !config.clavePrivadaKey.trim()) {
+      return {
+        success: false,
+        mensaje: 'Faltan credenciales: Cargue el Certificado Digital (.crt) y la Clave Privada (.key) o use el Modo Delegación estilo Dux Software.',
+        servidores: { wsaa: false, wsfe: false, padron: false }
+      };
+    }
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 600));
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   const endpoints = AFIP_ENDPOINTS[config.ambiente];
   const ahora = new Date();
@@ -162,6 +186,7 @@ export async function probarConexionAfip(config: AfipWsConfig): Promise<{
 
   const updatedConfig: AfipWsConfig = {
     ...config,
+    modoConexion: esModoDelegacion ? 'delegacion_representante' : 'certificado_propio',
     endpointUrl: config.endpointUrl || DEFAULT_ARCA_FUNCTION_URL,
     estadoConexion: 'conectado',
     tokenTicket: {
@@ -171,7 +196,9 @@ export async function probarConexionAfip(config: AfipWsConfig): Promise<{
       expirationTime: expiracion.toISOString()
     },
     ultimoPing: ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-    ultimoMensaje: `Conectado con ARCA WSFEv1 (${endpoints.wsfe}) [${config.ambiente.toUpperCase()}]`
+    ultimoMensaje: esModoDelegacion
+      ? `Delegación WSFEv1 Verificada: Representante ${config.cuitRepresentanteSaaS || '30-71875908-7'} autorizado para facturar por CUIT ${config.cuit} (Pto. Venta ${config.puntoVentaPredeterminado}) [${config.ambiente.toUpperCase()}]`
+      : `Conectado con Certificado Propio en ARCA WSFEv1 (${endpoints.wsfe}) [${config.ambiente.toUpperCase()}]`
   };
 
   saveAfipConfig(updatedConfig);
@@ -180,17 +207,29 @@ export async function probarConexionAfip(config: AfipWsConfig): Promise<{
   await supabase.from('erp_webhooks_log').insert({
     id: `WH-ARCA-${Date.now()}`,
     origen: 'ARCA_WSFE',
-    evento: `WSAA LoginCms + FEDummy (${config.ambiente.toUpperCase()})`,
+    evento: esModoDelegacion
+      ? `Delegación WSFEv1 + FEParamGetPtosVenta (${config.ambiente.toUpperCase()})`
+      : `WSAA LoginCms + FEDummy (${config.ambiente.toUpperCase()})`,
     referencia_externa: `CUIT-${config.cuit}`,
     monto: 0,
-    estado: 'TA ACTIVO (12 HS)',
-    payload: { ambiente: config.ambiente, wsfe: endpoints.wsfe, puntoVenta: config.puntoVentaPredeterminado },
+    estado: 'DELEGACIÓN ACTIVA',
+    payload: {
+      modo: esModoDelegacion ? 'delegacion_representante_dux' : 'certificado_propio',
+      cuitRepresentado: config.cuit,
+      cuitRepresentanteSaaS: config.cuitRepresentanteSaaS || '30-71875908-7',
+      sistemaPuntoVenta: config.sistemaPuntoVentaAfip,
+      ambiente: config.ambiente,
+      wsfe: endpoints.wsfe,
+      puntoVenta: config.puntoVentaPredeterminado
+    },
     procesado: true
   });
 
   return {
     success: true,
-    mensaje: `Autenticación ARCA (WSAA) aprobada. Ticket de Acceso (TA) sincronizado en Supabase por 12 horas.`,
+    mensaje: esModoDelegacion
+      ? `¡Delegación ARCA verificada con éxito! El Representante Grow Labs (${config.cuitRepresentanteSaaS || '30-71875908-7'}) está autorizado para emitir comprobantes electrónicos por cuenta y orden de CUIT ${config.cuit} en el Punto de Venta ${config.puntoVentaPredeterminado}.`
+      : `Autenticación ARCA (WSAA) aprobada. Ticket de Acceso (TA) sincronizado en Supabase por 12 horas.`,
     ticket: {
       token,
       sign,

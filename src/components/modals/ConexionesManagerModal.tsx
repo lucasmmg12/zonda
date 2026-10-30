@@ -51,7 +51,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
   onClose,
   defaultTab = 'afip'
 }) => {
-  const { clientes, registrarCobroCliente } = useErp();
+  const { clientes, registrarCobroCliente, cuentasBancarias } = useErp();
   const [tab, setTab] = useState<'afip' | 'mercadopago' | 'webhooks'>(defaultTab);
 
   // Estados ARCA / AFIP
@@ -64,6 +64,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
   const [verOpenSsl, setVerOpenSsl] = useState(false);
   const [copiadoComando, setCopiadoComando] = useState(false);
   const [copiadoEndpointArca, setCopiadoEndpointArca] = useState(false);
+  const [copiadoCuitRep, setCopiadoCuitRep] = useState(false);
 
   // Estados Mercado Pago
   const [mpConfig, setMpConfigState] = useState<MercadoPagoConfig>(getMercadoPagoConfig());
@@ -398,6 +399,184 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
 
               {/* Formulario de Configuración ARCA */}
               <form onSubmit={handleGuardarYProbarAfip} className="space-y-4">
+                {/* Selector de Modalidad de Conexión ARCA (Estilo Dux Software vs Certificado Propio) */}
+                <div className="bg-emerald-50/70 border border-emerald-800/25 p-3.5 rounded-lg space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[11px] font-extrabold text-[#042f22] uppercase block">
+                        Modalidad de Vinculación con ARCA (ex-AFIP):
+                      </span>
+                      <span className="text-[11px] text-[#357a59]">
+                        Elija cómo delegar la emisión de comprobantes electrónicos
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAfipConfigState({
+                            ...afipConfig,
+                            modoConexion: 'delegacion_representante'
+                          })
+                        }
+                        className={`px-3 py-1.5 text-[11px] font-bold uppercase border transition-colors ${
+                          (afipConfig.modoConexion || 'delegacion_representante') ===
+                          'delegacion_representante'
+                            ? 'bg-[#064e3b] text-white border-[#064e3b]'
+                            : 'bg-white text-[#064e3b] border-emerald-800/30 hover:bg-emerald-50'
+                        }`}
+                      >
+                        1. Delegación Web Service (Estilo Dux)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAfipConfigState({
+                            ...afipConfig,
+                            modoConexion: 'certificado_propio'
+                          })
+                        }
+                        className={`px-3 py-1.5 text-[11px] font-bold uppercase border transition-colors ${
+                          afipConfig.modoConexion === 'certificado_propio'
+                            ? 'bg-[#064e3b] text-white border-[#064e3b]'
+                            : 'bg-white text-[#064e3b] border-emerald-800/30 hover:bg-emerald-50'
+                        }`}
+                      >
+                        2. Certificado Propio (.CRT / .KEY)
+                      </button>
+                    </div>
+                  </div>
+
+                  {(afipConfig.modoConexion || 'delegacion_representante') ===
+                    'delegacion_representante' && (
+                    <div className="bg-white border border-emerald-800/20 p-3.5 space-y-3 text-xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-emerald-800/15">
+                        <div>
+                          <span className="text-[10px] font-bold text-[#047857] uppercase block">
+                            CUIT Representante Tecnológico (Grow Labs SaaS) para delegar en ARCA:
+                          </span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <input
+                              type="text"
+                              value={afipConfig.cuitRepresentanteSaaS || '30-71875908-7'}
+                              onChange={(e) =>
+                                setAfipConfigState({
+                                  ...afipConfig,
+                                  cuitRepresentanteSaaS: e.target.value
+                                })
+                              }
+                              className="px-2.5 py-1 border border-emerald-800/30 font-mono font-bold text-[#042f22] text-xs w-40"
+                            />
+                            <span className="text-[11px] font-semibold text-[#064e3b]">
+                              {afipConfig.razonSocialRepresentanteSaaS ||
+                                'GROW LABS TECH S.A.S. (Representante WSFE)'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              (afipConfig.cuitRepresentanteSaaS || '30-71875908-7').replace(
+                                /[^0-9]/g,
+                                ''
+                              )
+                            );
+                            setCopiadoCuitRep(true);
+                            setTimeout(() => setCopiadoCuitRep(false), 2000);
+                          }}
+                          className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white text-[11px] font-bold uppercase flex items-center gap-1.5 shrink-0"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>
+                            {copiadoCuitRep
+                              ? '¡CUIT Representante Copiado!'
+                              : 'Copiar CUIT Representante'}
+                          </span>
+                        </button>
+                      </div>
+
+                      {/* Guía de 3 Pasos Estilo Dux Software */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-[11px]">
+                        <div className="p-2.5 bg-emerald-50/40 border border-emerald-800/20">
+                          <div className="font-extrabold text-[#064e3b] uppercase mb-1">
+                            PASO 1 · Punto de Venta en ARCA
+                          </div>
+                          <p className="text-[#1e4635] leading-snug">
+                            En ARCA entrá a <strong>"Administración de Puntos de Venta y Domicilios"</strong> &rarr; <em>A/B/M de Puntos de Venta</em> y creá un punto nuevo con sistema <strong>"RECE para aplicativos y Web Services"</strong> (o Monotributo WS).
+                          </p>
+                        </div>
+
+                        <div className="p-2.5 bg-emerald-50/40 border border-emerald-800/20">
+                          <div className="font-extrabold text-[#064e3b] uppercase mb-1">
+                            PASO 2 · Delegar Web Service
+                          </div>
+                          <p className="text-[#1e4635] leading-snug">
+                            En ARCA entrá a <strong>"Administrador de Relaciones de Clave Fiscal"</strong> &rarr; <strong>"Nueva Relación"</strong>. Buscá el servicio <strong>AFIP &rarr; WebServices &rarr; Facturación Electrónica</strong> y en <em>Representante</em> pegá el CUIT <strong>{afipConfig.cuitRepresentanteSaaS || '30-71875908-7'}</strong>.
+                          </p>
+                        </div>
+
+                        <div className="p-2.5 bg-emerald-50/40 border border-emerald-800/20">
+                          <div className="font-extrabold text-[#064e3b] uppercase mb-1">
+                            PASO 3 · Vincular acá en 1 Clic
+                          </div>
+                          <p className="text-[#1e4635] leading-snug">
+                            Colocá abajo tu <strong>CUIT</strong> y el <strong>Número de Punto de Venta</strong> creado en el Paso 1, marcá la casilla de confirmación y presioná <strong>"Guardar y Verificar Delegación"</strong>.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#042f22] mb-1">
+                            Sistema del Punto de Venta dado de alta en ARCA:
+                          </label>
+                          <select
+                            value={
+                              afipConfig.sistemaPuntoVentaAfip ||
+                              'RECE para aplicativos y Web Services (Resp. Inscripto)'
+                            }
+                            onChange={(e) =>
+                              setAfipConfigState({
+                                ...afipConfig,
+                                sistemaPuntoVentaAfip: e.target.value as any
+                              })
+                            }
+                            className="w-full px-2.5 py-1.5 border border-emerald-800/30 bg-white text-xs font-semibold"
+                          >
+                            <option value="RECE para aplicativos y Web Services (Resp. Inscripto)">
+                              RECE para aplicativos y Web Services (Resp. Inscripto)
+                            </option>
+                            <option value="Factura Electrónica - Monotributo - Web Services">
+                              Factura Electrónica - Monotributo - Web Services
+                            </option>
+                          </select>
+                        </div>
+
+                        <div className="flex items-end">
+                          <label className="w-full p-2 bg-emerald-50 border border-[#064e3b] flex items-center gap-2 cursor-pointer font-bold text-[#042f22]">
+                            <input
+                              type="checkbox"
+                              checked={afipConfig.delegacionConfirmadaPorCliente ?? true}
+                              onChange={(e) =>
+                                setAfipConfigState({
+                                  ...afipConfig,
+                                  delegacionConfirmadaPorCliente: e.target.checked
+                                })
+                              }
+                              className="accent-[#064e3b] w-4 h-4"
+                            />
+                            <span className="text-[11px]">
+                              Ya delegué el Web Service en ARCA al Representante
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">
@@ -417,7 +596,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
 
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      CUIT Emisor del Titular:
+                      CUIT de la Empresa Representada (Cliente):
                     </label>
                     <input
                       type="text"
@@ -430,7 +609,7 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
 
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Punto de Venta Predeterminado:
+                      Punto de Venta Web Service (ARCA):
                     </label>
                     <input
                       type="text"
@@ -441,66 +620,68 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
                           puntoVentaPredeterminado: e.target.value
                         })
                       }
-                      placeholder="0001"
+                      placeholder="0002"
                       className="w-full px-3 py-1.5 border border-slate-300 text-xs font-semibold focus:outline-none focus:border-[#064e3b] rounded"
                     />
                   </div>
                 </div>
 
-                {/* Certificado Digital y Clave Privada */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                  {/* CRT */}
-                  <div className="border border-slate-300 p-3 bg-slate-50 space-y-2 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                        <FileCode className="w-4 h-4 text-[#064e3b]" />
-                        <span>Certificado Digital X.509 (.crt / .pem)</span>
-                      </label>
-                      <label className="text-[11px] text-[#064e3b] font-bold hover:underline cursor-pointer">
-                        Subir archivo .crt
-                        <input
-                          type="file"
-                          accept=".crt,.pem,.txt"
-                          onChange={(e) => handleUploadArchivo('crt', e)}
-                          className="hidden"
-                        />
-                      </label>
+                {/* Certificado Digital y Clave Privada (Solo visible en Modo Certificado Propio) */}
+                {afipConfig.modoConexion === 'certificado_propio' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    {/* CRT */}
+                    <div className="border border-slate-300 p-3 bg-slate-50 space-y-2 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                          <FileCode className="w-4 h-4 text-[#064e3b]" />
+                          <span>Certificado Digital X.509 (.crt / .pem)</span>
+                        </label>
+                        <label className="text-[11px] text-[#064e3b] font-bold hover:underline cursor-pointer">
+                          Subir archivo .crt
+                          <input
+                            type="file"
+                            accept=".crt,.pem,.txt"
+                            onChange={(e) => handleUploadArchivo('crt', e)}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                      <textarea
+                        rows={4}
+                        value={afipCrtTexto}
+                        onChange={(e) => setAfipCrtTexto(e.target.value)}
+                        placeholder="-----BEGIN CERTIFICATE-----\nMIIFpzCCBI+gAwIBAgIQDJy6vN...\n-----END CERTIFICATE-----"
+                        className="w-full p-2 bg-white border border-slate-300 text-[10px] font-mono focus:outline-none focus:border-[#064e3b] leading-tight rounded"
+                      />
                     </div>
-                    <textarea
-                      rows={4}
-                      value={afipCrtTexto}
-                      onChange={(e) => setAfipCrtTexto(e.target.value)}
-                      placeholder="-----BEGIN CERTIFICATE-----\nMIIFpzCCBI+gAwIBAgIQDJy6vN...\n-----END CERTIFICATE-----"
-                      className="w-full p-2 bg-white border border-slate-300 text-[10px] font-mono focus:outline-none focus:border-[#064e3b] leading-tight rounded"
-                    />
-                  </div>
 
-                  {/* KEY */}
-                  <div className="border border-slate-300 p-3 bg-slate-50 space-y-2 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                        <Key className="w-4 h-4 text-amber-700" />
-                        <span>Clave Privada RSA (.key)</span>
-                      </label>
-                      <label className="text-[11px] text-[#064e3b] font-bold hover:underline cursor-pointer">
-                        Subir archivo .key
-                        <input
-                          type="file"
-                          accept=".key,.txt"
-                          onChange={(e) => handleUploadArchivo('key', e)}
-                          className="hidden"
-                        />
-                      </label>
+                    {/* KEY */}
+                    <div className="border border-slate-300 p-3 bg-slate-50 space-y-2 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                          <Key className="w-4 h-4 text-amber-700" />
+                          <span>Clave Privada RSA (.key)</span>
+                        </label>
+                        <label className="text-[11px] text-[#064e3b] font-bold hover:underline cursor-pointer">
+                          Subir archivo .key
+                          <input
+                            type="file"
+                            accept=".key,.txt"
+                            onChange={(e) => handleUploadArchivo('key', e)}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                      <textarea
+                        rows={4}
+                        value={afipKeyTexto}
+                        onChange={(e) => setAfipKeyTexto(e.target.value)}
+                        placeholder="-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA2yK...\n-----END RSA PRIVATE KEY-----"
+                        className="w-full p-2 bg-white border border-slate-300 text-[10px] font-mono focus:outline-none focus:border-[#064e3b] leading-tight rounded"
+                      />
                     </div>
-                    <textarea
-                      rows={4}
-                      value={afipKeyTexto}
-                      onChange={(e) => setAfipKeyTexto(e.target.value)}
-                      placeholder="-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA2yK...\n-----END RSA PRIVATE KEY-----"
-                      className="w-full p-2 bg-white border border-slate-300 text-[10px] font-mono focus:outline-none focus:border-[#064e3b] leading-tight rounded"
-                    />
                   </div>
-                </div>
+                )}
 
                 {/* Feedback de Test */}
                 {resultadoAfip && (
@@ -732,6 +913,90 @@ export const ConexionesManagerModal: React.FC<ConexionesManagerModalProps> = ({
                       placeholder="Firma secreta de notificaciones Webhook"
                       className="w-full px-3 py-1.5 border border-slate-300 text-xs font-mono focus:outline-none focus:border-[#009ee3] rounded"
                     />
+                  </div>
+                </div>
+
+                {/* Vinculación de Caja / Cuenta de Tesorería y Terminal Point Smart (Estilo Dux Software) */}
+                <div className="p-3.5 bg-emerald-50/50 border border-emerald-800/25 rounded-lg space-y-3">
+                  <span className="text-[11px] font-extrabold text-[#042f22] uppercase block">
+                    Imputación en Tesorería, Cajas QR y Lectores Mercado Pago Point (Estilo Dux Software)
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#064e3b] uppercase mb-1">
+                        Caja / Cuenta Destino en ERP:
+                      </label>
+                      <select
+                        value={mpConfig.cuentaBancariaDestinoId || 'CTA-01'}
+                        onChange={(e) =>
+                          setMpConfigState({
+                            ...mpConfig,
+                            cuentaBancariaDestinoId: e.target.value
+                          })
+                        }
+                        className="w-full px-2.5 py-1.5 border border-emerald-800/30 bg-white text-xs font-bold text-[#042f22]"
+                      >
+                        {cuentasBancarias.map((cb) => (
+                          <option key={cb.id} value={cb.id}>
+                            {cb.nombre} ({cb.banco})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#064e3b] uppercase mb-1">
+                        Sucursal MP (Store ID):
+                      </label>
+                      <input
+                        type="text"
+                        value={mpConfig.sucursalExternalId || 'SUC001'}
+                        onChange={(e) =>
+                          setMpConfigState({
+                            ...mpConfig,
+                            sucursalExternalId: e.target.value
+                          })
+                        }
+                        placeholder="SUC001"
+                        className="w-full px-2.5 py-1.5 border border-emerald-800/30 bg-white text-xs font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#064e3b] uppercase mb-1">
+                        Caja QR Mostrador (POS ID):
+                      </label>
+                      <input
+                        type="text"
+                        value={mpConfig.cajaPosExternalId || 'CAJA01'}
+                        onChange={(e) =>
+                          setMpConfigState({
+                            ...mpConfig,
+                            cajaPosExternalId: e.target.value
+                          })
+                        }
+                        placeholder="CAJA01"
+                        className="w-full px-2.5 py-1.5 border border-emerald-800/30 bg-white text-xs font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#064e3b] uppercase mb-1">
+                        Lector Físico Point (Device ID):
+                      </label>
+                      <input
+                        type="text"
+                        value={mpConfig.pointDeviceId || 'PAX_A910__SMARTPOS01'}
+                        onChange={(e) =>
+                          setMpConfigState({
+                            ...mpConfig,
+                            pointDeviceId: e.target.value
+                          })
+                        }
+                        placeholder="PAX_A910__SMARTPOS01"
+                        className="w-full px-2.5 py-1.5 border border-emerald-800/30 bg-white text-xs font-mono"
+                      />
+                    </div>
                   </div>
                 </div>
 

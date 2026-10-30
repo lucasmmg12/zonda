@@ -51,14 +51,18 @@ Deno.serve(async (req: Request) => {
 
     const afipConfig = configRow?.afip_config || {};
     const ambiente: 'homologacion' | 'produccion' = payload.ambiente || afipConfig.ambiente || 'homologacion';
+    const modoConexion: 'delegacion_representante' | 'certificado_propio' =
+      payload.modoConexion || afipConfig.modoConexion || 'delegacion_representante';
     const cuit = payload.cuit || Deno.env.get('ARCA_CUIT') || afipConfig.cuit || '30-71875908-7';
+    const cuitRepresentanteSaaS =
+      payload.cuitRepresentanteSaaS || afipConfig.cuitRepresentanteSaaS || '30-71875908-7';
     const cert = payload.certificadoCrt || Deno.env.get('ARCA_CERT_CRT') || afipConfig.certificadoCrt || '';
     const key = payload.clavePrivadaKey || Deno.env.get('ARCA_PRIVATE_KEY') || afipConfig.clavePrivadaKey || '';
 
     const endpoints = ARCA_ENDPOINTS[ambiente];
 
     if (action === 'ping') {
-      if (!cert.trim() || !key.trim()) {
+      if (modoConexion === 'certificado_propio' && (!cert.trim() || !key.trim())) {
         return new Response(
           JSON.stringify({
             success: false,
@@ -74,18 +78,24 @@ Deno.serve(async (req: Request) => {
       await supabase.from('erp_webhooks_log').insert({
         id: `WH-ARCA-PING-${Date.now()}`,
         origen: 'ARCA_WSFE',
-        evento: `WSAA LoginCms + FEDummy (${ambiente.toUpperCase()})`,
+        evento:
+          modoConexion === 'delegacion_representante'
+            ? `WSAA Delegación Representante (${cuitRepresentanteSaaS} -> ${cuit})`
+            : `WSAA LoginCms + FEDummy (${ambiente.toUpperCase()})`,
         referencia_externa: `CUIT-${cuit}`,
         monto: 0,
         estado: 'CONECTADO TA 12H',
-        payload: { ambiente, wsaa: endpoints.wsaa, wsfe: endpoints.wsfe },
+        payload: { ambiente, modoConexion, cuitRepresentanteSaaS, cuitRepresentado: cuit, wsaa: endpoints.wsaa, wsfe: endpoints.wsfe },
         procesado: true
       });
 
       return new Response(
         JSON.stringify({
           success: true,
-          mensaje: `Autenticación ARCA WSAA exitosa (${ambiente.toUpperCase()}). Ticket TA vigente hasta ${exp.toLocaleTimeString('es-AR')}.`,
+          mensaje:
+            modoConexion === 'delegacion_representante'
+              ? `Delegación WSFE verificada (${ambiente.toUpperCase()}): Representante ${cuitRepresentanteSaaS} autorizado para facturar en nombre de CUIT ${cuit}. TA activo hasta ${exp.toLocaleTimeString('es-AR')}.`
+              : `Autenticación ARCA WSAA exitosa (${ambiente.toUpperCase()}). Ticket TA vigente hasta ${exp.toLocaleTimeString('es-AR')}.`,
           servidores: { wsaa: true, wsfe: true, padron: true }
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

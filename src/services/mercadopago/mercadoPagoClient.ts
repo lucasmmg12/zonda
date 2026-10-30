@@ -14,6 +14,10 @@ export const defaultConfigMercadoPago: MercadoPagoConfig = {
   webhookSecret: '',
   webhookUrl: DEFAULT_MP_WEBHOOK_URL,
   integradorId: 'ZONDA_ERP_INTEGRATION_01',
+  cuentaBancariaDestinoId: 'CTA-01',
+  sucursalExternalId: 'SUC001',
+  cajaPosExternalId: 'CAJA01',
+  pointDeviceId: 'PAX_A910__SMARTPOS01',
   estadoConexion: 'pendiente_token',
   nombreComercio: 'Sanatorio Argentino / ECAR SAS',
   emailCuenta: '',
@@ -41,7 +45,7 @@ export async function cargarMercadoPagoConfigDesdeSupabase(): Promise<MercadoPag
     const { data, error } = await supabase
       .from('erp_integraciones_config')
       .select('mercadopago_config')
-      .eq('id', 1)
+      .eq('id', 'PRINCIPAL')
       .maybeSingle();
 
     if (!error && data?.mercadopago_config && Object.keys(data.mercadopago_config).length > 0) {
@@ -69,14 +73,16 @@ export function saveMercadoPagoConfig(config: MercadoPagoConfig): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     window.dispatchEvent(new Event('mercadopago_config_updated'));
 
-    supabase
+    void supabase
       .from('erp_integraciones_config')
-      .update({
-        mercadopago_config: normalized,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', 1)
-      .then();
+      .upsert(
+        {
+          id: 'PRINCIPAL',
+          mercadopago_config: normalized,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'id' }
+      );
   } catch (err) {
     console.error('Error guardando configuración de Mercado Pago:', err);
   }

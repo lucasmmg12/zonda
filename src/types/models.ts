@@ -260,6 +260,13 @@ export interface AfipWsConfig {
   cuit: string;
   ambiente: AfipAmbiente;
   puntoVentaPredeterminado: string;
+  modoConexion?: 'delegacion_representante' | 'certificado_propio';
+  cuitRepresentanteSaaS?: string; // CUIT de Grow Labs que actúa como Representante WSFE (Estilo Dux Software)
+  razonSocialRepresentanteSaaS?: string;
+  sistemaPuntoVentaAfip?:
+    | 'RECE para aplicativos y Web Services (Resp. Inscripto)'
+    | 'Factura Electrónica - Monotributo - Web Services';
+  delegacionConfirmadaPorCliente?: boolean;
   certificadoCrt: string; // Certificado Digital X.509 (.crt / .pem)
   clavePrivadaKey: string; // Clave privada RSA (.key)
   endpointUrl?: string; // URL de la Edge Function puente ARCA WSAA/WSFE
@@ -283,6 +290,10 @@ export interface MercadoPagoConfig {
   webhookSecret?: string;
   webhookUrl?: string; // URL de recepción de notificaciones Webhook/IPN en Supabase
   integradorId?: string;
+  cuentaBancariaDestinoId?: string; // Caja / Cuenta interna del ERP donde impactan los cobros (Estilo Dux)
+  sucursalExternalId?: string; // External Store ID en Mercado Pago
+  cajaPosExternalId?: string; // External POS ID (QR Mostrador)
+  pointDeviceId?: string; // Terminal Lector Mercado Pago Point Smart
   estadoConexion: 'desconectado' | 'pendiente_token' | 'conectado' | 'error';
   nombreComercio?: string;
   emailCuenta?: string;
