@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Bell, Search, X, BookOpen, ArrowRight } from 'lucide-react';
+import { Bell, Search, X, BookOpen, ArrowRight, FileDown } from 'lucide-react';
 import { EmpresaConfig } from '../../types/models';
 import { ManualesCentroAyudaModal } from '../modals/ManualesCentroAyudaModal';
 import { RoleAuthModal, getActiveOperator, OperadorProfile } from '../modals/RoleAuthModal';
@@ -597,6 +597,19 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
             </div>
           )}
         </div>
+
+        {/* Botón Dossier Comercial PDF (Problema -> Revelación -> Solución) */}
+        <a
+          href="/DOSSIER_COMERCIAL_ZONDA_ERP.pdf"
+          download="DOSSIER_COMERCIAL_ZONDA_ERP.pdf"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Descargar Dossier Comercial persuasivo en PDF (Problema, Revelación y Solución de cada módulo)"
+          className="h-8 px-2.5 border border-emerald-700/40 bg-emerald-50 hover:bg-emerald-100 text-[#042f22] text-[11px] font-bold transition-all flex items-center gap-1.5 whitespace-nowrap"
+        >
+          <FileDown className="w-3.5 h-3.5 text-[#064e3b] shrink-0" />
+          <span className="hidden sm:inline">Dossier PDF</span>
+        </a>
 
         {/* Botón Manuales Compacto en 1 Línea */}
         <button
