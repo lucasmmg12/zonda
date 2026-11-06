@@ -35,6 +35,7 @@ import {
 export const ProveedoresModule: React.FC = () => {
   const {
     proveedores,
+    facturasCompra,
     cuentasBancarias,
     cheques,
     planDeCuentas,
@@ -60,7 +61,7 @@ export const ProveedoresModule: React.FC = () => {
   const [tabPrincipal, setTabPrincipal] = useState<'resumen' | 'gestion'>('gestion');
 
   // Pestañas de detalle del proveedor (Panel derecho)
-  const [tabDetalle, setTabDetalle] = useState<'adeudadas' | 'cuenta' | 'general' | 'otra'>('adeudadas');
+  const [tabDetalle, setTabDetalle] = useState<'adeudadas' | 'comprobantes' | 'cuenta' | 'general' | 'otra'>('adeudadas');
 
   // Escuchar selección directa desde el Buscador Global del Header
   useEffect(() => {
@@ -863,7 +864,21 @@ export const ProveedoresModule: React.FC = () => {
               {/* Sub-Pestañas de Detalle */}
               <div className="bg-slate-50 border-b border-slate-300 px-3 pt-1 flex items-center gap-1 text-xs font-mono">
                 {[
-                  { key: 'adeudadas', label: 'Facturas adeudadas' },
+                  { key: 'adeudadas', label: `Facturas adeudadas (${proveedorActivo?.facturasAdeudadas.length || 0})` },
+                  {
+                    key: 'comprobantes',
+                    label: `Comprobantes recibidos (${
+                      proveedorActivo
+                        ? facturasCompra.filter(
+                            (fc) =>
+                              fc.proveedorCuit.replace(/[^0-9]/g, '') ===
+                                proveedorActivo.cuit.replace(/[^0-9]/g, '') ||
+                              fc.proveedorNombre.trim().toUpperCase() ===
+                                proveedorActivo.razonSocial.trim().toUpperCase()
+                          ).length
+                        : 0
+                    })`
+                  },
                   { key: 'cuenta', label: 'Cuenta proveedor' },
                   { key: 'general', label: 'Información general' },
                   { key: 'otra', label: 'Otra información' }
@@ -872,7 +887,7 @@ export const ProveedoresModule: React.FC = () => {
                   return (
                     <button
                       key={t.key}
-                      onClick={() => setTabDetalle(t.key as 'adeudadas' | 'cuenta' | 'general' | 'otra')}
+                      onClick={() => setTabDetalle(t.key as any)}
                       className={`px-3 py-1.5 font-bold transition-colors border-t-2 ${
                         isActive
                           ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
@@ -1197,6 +1212,145 @@ export const ProveedoresModule: React.FC = () => {
                       </div>
                     );
                   })()}
+                </div>
+              )}
+
+              {/* CONTENIDO DE LA PESTAÑA: COMPROBANTES RECIBIDOS DEL PROVEEDOR (TODAS LAS FACTURAS + ÍTEMS INGRESADOS A STOCK) */}
+              {tabDetalle === 'comprobantes' && proveedorActivo && (
+                <div>
+                  <div className="bg-emerald-50/70 px-4 py-1.5 border-b border-slate-200 flex items-center justify-between text-xs font-mono text-[#042f22]">
+                    <span>
+                      Todas las Facturas de Compra asociadas a <strong>{proveedorActivo.razonSocial}</strong> (Pendientes + Pagadas + Ingresos de Stock)
+                    </span>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-white border border-emerald-300">
+                      Trazabilidad 360° Compras ↔ Stock ↔ Contabilidad
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto min-h-[360px]">
+                    <table className="w-full text-left text-xs border-collapse font-mono">
+                      <thead>
+                        <tr className="bg-slate-100 border-b border-slate-300 text-[11px] font-bold text-slate-700">
+                          <th className="py-2 px-3 border-r border-slate-200">Fecha</th>
+                          <th className="py-2 px-3 border-r border-slate-200">Comprobante</th>
+                          <th className="py-2 px-3 border-r border-slate-200">Cuenta Imputación</th>
+                          <th className="py-2 px-3 border-r border-slate-200">Ítems Ingresados a Stock</th>
+                          <th className="py-2 px-3 border-r border-slate-200 text-right">Neto ($)</th>
+                          <th className="py-2 px-3 border-r border-slate-200 text-right">IVA ($)</th>
+                          <th className="py-2 px-3 border-r border-slate-200 text-right">Total ($)</th>
+                          <th className="py-2 px-3 border-r border-slate-200 text-center">Estado de Pago</th>
+                          <th className="py-2 px-3 text-center">Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {(() => {
+                          const cuitPrv = proveedorActivo.cuit.replace(/[^0-9]/g, '');
+                          const comprasPrv = facturasCompra.filter(
+                            (fc) =>
+                              (cuitPrv && fc.proveedorCuit.replace(/[^0-9]/g, '') === cuitPrv) ||
+                              fc.proveedorNombre.trim().toUpperCase() ===
+                                proveedorActivo.razonSocial.trim().toUpperCase()
+                          );
+                          if (comprasPrv.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={9} className="py-16 text-center text-slate-400 font-mono text-xs">
+                                  No hay comprobantes de compra asociados a este proveedor
+                                </td>
+                              </tr>
+                            );
+                          }
+                          return comprasPrv.map((fc) => {
+                            const adeudadaMatch = proveedorActivo.facturasAdeudadas.find(
+                              (fa) => fa.nroComprobante === fc.numero || fa.nroComprobante.includes(fc.numero)
+                            );
+                            const itemsStockIngresados = inventario.flatMap((art) =>
+                              (art.movimientos || [])
+                                .filter(
+                                  (m) =>
+                                    m.cantidad > 0 &&
+                                    ((m.facturaNro && m.facturaNro.includes(fc.numero)) ||
+                                      (m.descripcion && m.descripcion.includes(fc.numero)))
+                                )
+                                .map((m) => ({
+                                  codigo: art.codigo,
+                                  descripcion: art.descripcion,
+                                  cantidad: m.cantidad
+                                }))
+                            );
+                            const estaPendiente =
+                              (adeudadaMatch && adeudadaMatch.saldo > 0) ||
+                              (fc.estadoPago === 'Pendiente' && (!adeudadaMatch || adeudadaMatch.saldo > 0));
+                            return (
+                              <tr key={fc.id} className="hover:bg-slate-50">
+                                <td className="py-2 px-3 border-r border-slate-200">{fc.fechaComprobante}</td>
+                                <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-900">
+                                  {fc.tipo} {fc.numero}
+                                </td>
+                                <td className="py-2 px-3 border-r border-slate-200 text-[11px] font-sans text-slate-700">
+                                  {fc.cuentaGasto}
+                                </td>
+                                <td className="py-2 px-3 border-r border-slate-200 text-[11px] font-sans">
+                                  {itemsStockIngresados.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {itemsStockIngresados.map((it, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="px-1.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-mono font-bold"
+                                        >
+                                          +{it.cantidad} u. [{it.codigo}] {it.descripcion}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400">Imputación directa a gasto/servicio</span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-3 border-r border-slate-200 text-right">
+                                  ${fc.netoGravado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-2 px-3 border-r border-slate-200 text-right">
+                                  ${fc.iva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-slate-900">
+                                  ${fc.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-2 px-3 border-r border-slate-200 text-center">
+                                  {estaPendiente ? (
+                                    <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold uppercase">
+                                      Pendiente (${(adeudadaMatch?.saldo || fc.total).toLocaleString('es-AR')})
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-bold uppercase">
+                                      ✓ Pagado
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-3 text-center">
+                                  {estaPendiente && adeudadaMatch ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        abrirModalPagoConMedio(
+                                          adeudadaMatch.saldo,
+                                          adeudadaMatch.medioPagoPactado,
+                                          adeudadaMatch.id
+                                        )
+                                      }
+                                      className="px-2 py-0.5 bg-[#064e3b] hover:bg-[#047857] text-white text-[10px] font-bold uppercase"
+                                    >
+                                      $ Sacar Pago
+                                    </button>
+                                  ) : (
+                                    <span className="text-[10px] text-emerald-700 font-bold">Cancelada</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
@@ -1642,6 +1796,47 @@ export const ProveedoresModule: React.FC = () => {
             </details>
 
             <form onSubmit={handleCrearFactura} className="space-y-3.5 font-mono text-xs">
+              {/* SELECTOR EXPLÍCITO DE PROVEEDOR ASOCIADO A LA COMPRA */}
+              <div className="p-3 bg-[#f0fdf4] border-2 border-[#064e3b] space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[#042f22] font-extrabold uppercase text-[11px]">
+                    1. Proveedor Emisor de la Factura (Obligatorio):
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFacturaModal(false);
+                      setShowNuevoProveedorModal(true);
+                    }}
+                    className="text-[10px] font-bold text-[#064e3b] hover:underline flex items-center gap-1"
+                  >
+                    <UserPlus className="w-3 h-3" />
+                    <span>+ Crear Nuevo Proveedor</span>
+                  </button>
+                </div>
+                <select
+                  value={proveedorActivo?.id || ''}
+                  onChange={(e) => {
+                    const nuevoId = e.target.value;
+                    setProveedorSeleccionadoId(nuevoId);
+                    const prv = proveedores.find((p) => p.id === nuevoId);
+                    if (prv?.cuentaGastoHabitual) {
+                      setCuentaImputacionFactura(prv.cuentaGastoHabitual);
+                    }
+                  }}
+                  className="w-full px-2.5 py-1.5 bg-white border border-[#064e3b] font-bold text-[#042f22] text-xs"
+                >
+                  {proveedores.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.razonSocial} — CUIT: {p.cuit} ({p.condicionIva})
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[10px] text-emerald-800 block font-sans">
+                  Al cargar la compra, se asocia automáticamente a la Cuenta Corriente de <strong>{proveedorActivo?.razonSocial}</strong>, al Libro IVA Compras y al Libro Diario.
+                </span>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-slate-600 font-bold mb-1">Tipo de Comprobante:</label>
@@ -1993,6 +2188,25 @@ export const ProveedoresModule: React.FC = () => {
             </div>
 
             <form onSubmit={handleAgregarPago} className="space-y-4">
+              {/* Selector explícito de Proveedor */}
+              <div className="p-2.5 bg-[#f0fdf4] border border-[#064e3b]">
+                <label className="block text-[#042f22] font-bold mb-1">0. Proveedor Beneficiario de la Orden de Pago:</label>
+                <select
+                  value={proveedorActivo?.id || ''}
+                  onChange={(e) => {
+                    setProveedorSeleccionadoId(e.target.value);
+                    setFacturaPagoId('');
+                  }}
+                  className="w-full px-2.5 py-1.5 bg-white border border-emerald-400 font-bold text-[#042f22]"
+                >
+                  {proveedores.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.razonSocial} (Saldo Adeudado: ${p.saldo.toLocaleString('es-AR')})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Selección de Factura a Pagar y Modalidad de Cuotas */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 border border-slate-200">
                 <div>

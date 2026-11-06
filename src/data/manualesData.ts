@@ -783,26 +783,28 @@ npx supabase functions deploy arca-wsfe --project-ref dtjmckbrofevgfqbkzli --no-
   {
     id: 'zondacloud',
     codigo: 'MAN-13',
-    titulo: 'Arquitectura Multi-Tenant (Aislamiento por CUIT) & Zonda Cloud ARCA',
-    subtitulo: 'Separación estricta de empresas y usuarios en Zonda ERP + Consola Fiscal Delegada Zonda Cloud para liquidar impuestos bajo ARCA',
+    titulo: 'Arquitectura Multi-Tenant (Aislamiento por CUIT) & Zonda Cloud ARCA (Impuestos + Balances)',
+    subtitulo: 'Separación estricta de empresas y usuarios en Zonda ERP + Consola Fiscal Delegada Zonda Cloud para liquidar todos los impuestos y confeccionar los Balances de ARCA (PUB RG 4626 + Ganancias F.713 RG 5908)',
     moduloRelacionado: '11 - Zonda Cloud (ARCA)',
     tablasSupabase: [
       'erp_tenants',
       'erp_tenant_users',
       'erp_zonda_cloud_autorizaciones',
+      'erp_clientes',
+      'erp_proveedores',
       'erp_comprobantes_venta',
       'erp_comprobantes_compra',
+      'erp_asientos_contables',
       'erp_webhooks_log'
     ],
     resumenEjecutivo:
-      'Zonda ERP opera bajo una arquitectura Multi-Tenant con aislamiento criptográfico y lógico por tenant_id (CUIT de cada organización): los usuarios, clientes, proveedores, bancos, stock y legajos de una empresa jamás se mezclan con los de otra. A su vez, mediante autorización explícita del usuario titular de Zonda ERP, el hub fiscal Zonda Cloud permite gestionar Compras y Ventas de las empresas autorizadas, cruzar "Mis Comprobantes" de ARCA y liquidar IVA F.2002, Libro IVA Digital RG 4597, SICORE/SIRE e Ingresos Brutos.',
+      'Zonda ERP opera bajo una arquitectura Multi-Tenant con aislamiento criptográfico y lógico por tenant_id (CUIT de cada organización): los usuarios, clientes, proveedores, bancos, stock y legajos de una empresa jamás se mezclan con los de otra. A su vez, mediante autorización explícita del usuario titular de Zonda ERP, el hub fiscal Zonda Cloud permite gestionar Compras y Ventas (asociándolas 100% a la Cuenta Corriente del Cliente/Proveedor y al Libro Diario), liquidar TODOS los impuestos (IVA Simple RG 5705 F.2051/F.2083, Libro IVA Digital RG 4597, SICORE/SIRE, IIBB DGR/SIFERE CM03, Cargas Sociales F.931 y Ganancias Personas Jurídicas F.713 Web RG 5908) y emitir los Balances y Estados Contables bajo RT 54 FACPCE con Ajuste por Inflación (RECPAM) en un único PDF listo para el servicio web Presentación Única de Balances (PUB - RG 4626) de ARCA.',
     funcionesPrincipales: [
       'Selector Multi-Tenant en el Header superior: conmutación instantánea entre organizaciones (ej. ECAR S.A.S., Sanatorio Argentino S.R.L., Distribuidora Mayorista Andina S.A. o alta de una Nueva Empresa).',
-      'Aislamiento 100% estricto por tenant_id: cada empresa posee su propio padrón de usuarios RBAC, clientes, proveedores, facturas, cajas, inventario y nómina sin contaminación cruzada.',
-      'Puente de Consentimiento y Delegación Zonda ERP -> Zonda Cloud: el titular de la empresa otorga o revoca el token de vinculación y define 6 permisos granulares bajo normativa ARCA.',
-      'Auditoría de Ventas ARCA y Clasificación de Compras ARCA: imputación por comprobante del Crédito Fiscal Computable (100% Gravado, Prorrateo Art. 13 Ley IVA o No Computable / Exento) y Rubro F.2002.',
-      'Cruce en 1 clic con "Mis Comprobantes Recibidos / Emitidos" de ARCA: detección de facturas electrónicas emitidas al CUIT en AFIP pero aún no cargadas en el ERP.',
-      'Liquidación Impositiva Integral ARCA: cálculo en vivo de Posición Mensual IVA F.2002, descarga de los 4 archivos .TXT RG 4597 (Libro IVA Digital), TXT SICORE/SIRE (RG 2233/3726) y Papel de Trabajo IIBB / SIFERE.'
+      'Trazabilidad Relacional 360°: toda venta, compra, cobro, pago o comprobante incorporado desde Zonda Cloud / Mis Comprobantes ARCA se vincula automáticamente por CUIT al Cliente o Proveedor, actualiza su Cuenta Corriente, su pestaña de "Comprobantes asociados / recibidos" y genera el asiento en el Libro Diario.',
+      'Portal IVA e "IVA Simple" (RG 5705 - F.2051 y F.2083) + Libro IVA Digital (RG 4597): cálculo del Saldo Técnico, Prorrateo Art. 13, Saldo de Libre Disponibilidad y descarga de los 4 archivos .TXT posicionales.',
+      'Centro de Liquidación de Todos los Impuestos (Pestaña 2): consolida IVA F.2051, Ingresos Brutos (DGR Provincial / Convenio Multilateral SIFERE CM03), Seguridad Social F.931 (calculado en vivo desde la nómina de Sueldos), Retenciones/Percepciones SICORE/SIRE y Ganancias Sociedades F.713.',
+      'Confección de Balances y Estados Contables ARCA (Pestaña 3 - PUB RG 4626 + Ganancias F.713 Web RG 5908): genera el Estado de Situación Patrimonial (Rubros Resumidos RG 5908), Estado de Resultados con Ajuste por Inflación Contable (RECPAM - RT 54 FACPCE) e Impositivo (AXII), cálculo por escala progresiva Art. 73 LIG (25%, 30%, 35%) y descarga del PDF Único Consolidado para Presentación Única de Balances (PUB).'
     ],
     pasosOperativos: [
       {
@@ -823,36 +825,44 @@ npx supabase functions deploy arca-wsfe --project-ref dtjmckbrofevgfqbkzli --no-
       },
       {
         numero: 3,
-        titulo: 'Cruzar "Mis Comprobantes" de ARCA y Clasificar Crédito Fiscal (Art. 13 Ley IVA)',
+        titulo: 'Cruzar "Mis Comprobantes" de ARCA o Cargar Comprobantes Asociados a Clientes/Proveedores',
         descripcion:
-          'Dentro del módulo "11 - Zonda Cloud (ARCA)", seleccione una empresa que haya otorgado autorización. En la pestaña "4. Cruce Mis Comprobantes ARCA" incorpore en 1 clic las facturas detectadas en ARCA y en "3. Compras & Crédito Fiscal" defina si cada compra es 100% Computable, Prorrateo Art. 13 o No Computable.',
-        accionClave: 'Pestañas "Compras & Crédito Fiscal" y "Cruce Mis Comprobantes ARCA".',
-        impactoContableODb: 'Actualiza el Crédito Fiscal Computable del período e impacta la factura incorporada en el tenant correspondiente.'
+          'Dentro del módulo "11 - Zonda Cloud (ARCA)", incorpore en 1 clic las facturas desde "6. Cruce Mis Comprobantes ARCA" o use "+ Cargar Compra / Venta Fiscal" eligiendo el Cliente o Proveedor del padrón. El motor reconcilia automáticamente por CUIT la factura con la Cuenta Corriente del Cliente/Proveedor y genera el Asiento Contable.',
+        accionClave: 'Botón "Incorporar e Imputar en 1 Clic" o "+ Cargar Compra / Venta Fiscal".',
+        impactoContableODb: 'Actualiza facturasVenta/facturasCompra, erp_clientes/erp_proveedores (facturasAdeudadas, movimientos y saldo) y erp_asientos_contables.'
       },
       {
         numero: 4,
-        titulo: 'Liquidar IVA F.2002, Libro IVA Digital (RG 4597), SICORE y IIBB',
+        titulo: 'Liquidar Todos los Impuestos (IVA Simple F.2051, IIBB CM03, F.931, SICORE y Ganancias F.713)',
         descripcion:
-          'Abra la pestaña "5. Liquidación IVA F.2002 / RG 4597 / SICORE", verifique el Débito Fiscal, Crédito Fiscal Computable, Retenciones/Percepciones y Saldo Técnico o de Libre Disponibilidad, y descargue los archivos TXT oficiales listos para presentar en el portal de ARCA.',
-        accionClave: 'Botones de descarga RG 4597 (.TXT), SICORE (.TXT) y DDJJ F.2002 (PDF/CSV).',
-        impactoContableODb: 'Genera los archivos posicionales reglamentarios bajo las especificaciones de ARCA (ex-AFIP).'
+          'Abra las pestañas "1. Portal IVA Simple" y "2. Todos los Impuestos (IIBB CM03 / SICORE / F.931 / Ganancias F.713)" para auditar las bases imponibles, alícuotas, retenciones y cargas sociales de la nómina, y descargar los archivos .TXT oficiales (RG 4597 y SICORE) junto con la Sábana Consolidada de Impuestos en PDF.',
+        accionClave: 'Pestañas 1 y 2 de Zonda Cloud -> Descargar TXT RG 4597 / SICORE / Sábana PDF.',
+        impactoContableODb: 'Genera los archivos posicionales reglamentarios y papeles de trabajo oficiales bajo normativa ARCA.'
+      },
+      {
+        numero: 5,
+        titulo: 'Generar el Balance Anual (RT 54) y Presentar PUB (RG 4626) + Ganancias Web (F.713 RG 5908)',
+        descripcion:
+          'Abra la pestaña "3. Balances ARCA (PUB RG 4626 + Ganancias Web RG 5908 + RT 54)", ajuste la variación anual del IPC/IPIM para el cálculo de RECPAM y Ajuste por Inflación Impositivo, revise los Rubros Resumidos de Activo, Pasivo, Patrimonio Neto y Resultado Impositivo, y pulse "Descargar PDF Único Oficial PUB (RG 4626) + F.713".',
+        accionClave: 'Botón "Descargar PDF Único Oficial PUB (RG 4626) + F.713".',
+        impactoContableODb: 'Emite el documento consolidado para subir al servicio web Presentación Única de Balances (PUB) y volcar en Ganancias Personas Jurídicas Web.'
       }
     ],
     reglasDeNegocioYValidaciones: [
       'Aislamiento Multi-Tenant Estricto: ninguna consulta ni operación mezcla registros entre distintos tenant_id.',
-      'Bloqueo por Falta de Consentimiento: si el usuario titular de Zonda ERP revoca o no otorga la autorización, Zonda Cloud bloquea inmediatamente la lectura y liquidación de Compras y Ventas de ese CUIT.',
-      'Prorrateo Art. 13 Ley de IVA 23.349: cuando una empresa realiza simultáneamente operaciones gravadas y exentas (ej. clínicas o sanatorios), Zonda Cloud permite aplicar el porcentaje de prorrateo exacto sobre cada factura de compra vinculada a actividad mixta.'
+      'Reconciliación Relacional Automática por CUIT: ninguna venta ni compra queda huérfana; siempre se asocia al Cliente o Proveedor correspondiente (creándolo automáticamente si el CUIT es nuevo).',
+      'Prorrateo Art. 13 Ley de IVA 20.631 y Escala Progresiva Art. 73 Ley de Impuesto a las Ganancias (25%, 30% y 35%) integrados en tiempo real.'
     ],
     preguntasFrecuentes: [
       {
-        pregunta: '¿Qué sucede si en Zonda Cloud el contador incorpora un comprobante olvidado desde "Mis Comprobantes ARCA"?',
+        pregunta: '¿Qué sucede si cobro o pago una factura desde Tesorería o desde Clientes/Proveedores?',
         respuesta:
-          'Siempre que el titular de Zonda ERP le haya habilitado el permiso de gestionar Compras/Ventas y cruzar Mis Comprobantes, el comprobante se incorpora directamente en la contabilidad y libro de IVA del tenant autorizado sin afectar a ninguna otra empresa.'
+          'Todos los módulos están comunicados bidireccionalmente: registrar un cobro o pago en Tesorería permite elegir el Cliente/Proveedor y la factura adeudada, descontando la deuda en Clientes/Proveedores, cambiando el estado del comprobante a Pagado/Cobrado, impactando el saldo bancario y asentando el movimiento en el Libro Diario. Y en la pestaña "Comprobantes asociados / recibidos" del Cliente o Proveedor siempre queda visible el histórico completo (pendientes + pagadas + ítems de stock).'
       },
       {
-        pregunta: '¿Dónde encuentro el script SQL oficial para aplicar Row Level Security (RLS) Multi-Tenant en Supabase?',
+        pregunta: '¿Cómo cumple Zonda Cloud con la RG 4626 (PUB) y la RG 5908/2026 (Ganancias Personas Jurídicas Web)?',
         respuesta:
-          'En la raíz del proyecto se encuentra el archivo supabase_multitenant_zonda_cloud.sql con las tablas erp_tenants, erp_tenant_users, erp_zonda_cloud_autorizaciones y las políticas RLS para PostgreSQL.'
+          'En la pestaña "3. Balances ARCA", Zonda Cloud estructura el Estado de Situación Patrimonial exactamente en los rubros globales que pide el nuevo servicio web Ganancias Personas Jurídicas (RG 5908), calcula el Ajuste por Inflación Contable (RT 54 FACPCE) e Impositivo, determina el impuesto por tramos (25%/30%/35%) y exporta el PDF único consolidado para subir al servicio Presentación Única de Balances (PUB - RG 4626).'
       }
     ]
   }

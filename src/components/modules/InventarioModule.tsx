@@ -34,6 +34,7 @@ export const InventarioModule: React.FC = () => {
     actualizarPreciosInventario,
     registrarMovimientoStock,
     registrarFacturaCompra,
+    emitirFacturaVenta,
     refreshAllFromDb,
     setActiveModule
   } = useErp();
@@ -352,7 +353,48 @@ export const InventarioModule: React.FC = () => {
   const handleRegistrarEgresoStock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!articuloActivo) return;
-    const cantSalida = -Math.abs(egresoCantidad || 1);
+    const cantPositiva = Math.abs(egresoCantidad || 1);
+    const cantSalida = -cantPositiva;
+
+    // Si es FAC (Despacho por Venta) o si eligió un Cliente como destino, emitir y asociar Factura al Cliente
+    const cliMatch =
+      clientes.find((c) => egresoDestino === `Cliente: ${c.razonSocial}`) ||
+      (egresoTipoDoc === 'FAC' ? clientes[0] : undefined);
+
+    if (egresoTipoDoc === 'FAC' && cliMatch) {
+      const netoVenta = Number((cantPositiva * articuloActivo.precioVentaNeto).toFixed(2));
+      const ivaVenta = Number((netoVenta * 0.21).toFixed(2));
+      const partesNro = egresoComprobanteNro.replace(/[^0-9-]/g, '').split('-');
+      const ptoVta = partesNro[0]?.length === 4 ? partesNro[0] : '0001';
+      const nroSimple = partesNro[1] || partesNro[0] || undefined;
+
+      await emitirFacturaVenta({
+        clienteId: cliMatch.id,
+        tipo: 'Factura A',
+        puntoVenta: ptoVta,
+        numero: nroSimple,
+        netoGravado: netoVenta,
+        iva21: ivaVenta,
+        descripcion: `Venta de ${cantPositiva} u. [${articuloActivo.codigo}] ${articuloActivo.descripcion}${
+          egresoObservacion.trim() ? ` (${egresoObservacion.trim()})` : ''
+        }`,
+        itemsInventarioVenta: [
+          {
+            articuloId: articuloActivo.id,
+            cantidad: cantPositiva,
+            precioUnitarioNeto: articuloActivo.precioVentaNeto,
+            deposito: egresoDeposito
+          }
+        ]
+      });
+
+      setShowEgresoStockModal(false);
+      setFeedbackBanner(
+        `✓ Salida de ${cantSalida} u. registrada en [${articuloActivo.codigo}] ${articuloActivo.descripcion} y Factura de Venta asociada en Cuenta Corriente del Cliente ${cliMatch.razonSocial}.`
+      );
+      return;
+    }
+
     const compLabel =
       egresoTipoDoc === 'REM'
         ? `Remito ${egresoComprobanteNro}`
@@ -1618,7 +1660,13 @@ export const InventarioModule: React.FC = () => {
                   <label className="text-slate-600 font-bold block text-[11px] mb-1">Tipo Comprobante Salida:</label>
                   <select
                     value={egresoTipoDoc}
-                    onChange={(e) => setEgresoTipoDoc(e.target.value as 'REM' | 'FAC' | 'CON' | 'AJU')}
+                    onChange={(e) => {
+                      const val = e.target.value as 'REM' | 'FAC' | 'CON' | 'AJU';
+                      setEgresoTipoDoc(val);
+                      if (val === 'FAC' && clientes[0] && !egresoDestino.startsWith('Cliente:')) {
+                        setEgresoDestino(`Cliente: ${clientes[0].razonSocial}`);
+                      }
+                    }}
                     className="w-full px-2 py-1.5 border border-slate-300 bg-slate-50 font-bold"
                   >
                     <option value="REM">REM - Remito Salida a Obra</option>

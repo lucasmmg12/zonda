@@ -138,3 +138,4 @@ INSERT INTO public.erp_tenants (
     '463199 - Venta al por mayor de productos alimenticios e insumos industriales', '0005', 100.00
 )
 ON CONFLICT (tenant_id) DO NOTHING;
+

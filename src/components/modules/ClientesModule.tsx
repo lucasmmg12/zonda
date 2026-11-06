@@ -57,7 +57,7 @@ export const ClientesModule: React.FC = () => {
   const [tabPrincipal, setTabPrincipal] = useState<'resumen' | 'gestion' | 'importacion' | 'pasarela'>('gestion');
 
   // Pestañas de detalle del cliente (Panel derecho)
-  const [tabDetalle, setTabDetalle] = useState<'adeudadas' | 'cuenta' | 'general' | 'otra'>('adeudadas');
+  const [tabDetalle, setTabDetalle] = useState<'adeudadas' | 'comprobantes' | 'cuenta' | 'general' | 'otra'>('adeudadas');
 
   // Escuchar selección directa desde el Buscador Global del Header
   useEffect(() => {
@@ -204,6 +204,7 @@ export const ClientesModule: React.FC = () => {
   const [montoCobro, setMontoCobro] = useState(100000);
   const [medioCobro, setMedioCobro] = useState('Transferencia Bancaria Santander');
   const [medioCobroFactura, setMedioCobroFactura] = useState('Transferencia Bancaria Santander');
+  const [facturaCobroId, setFacturaCobroId] = useState<string>('');
 
   // Formulario Nuevo Cliente
   const [nuevoNombre, setNuevoNombre] = useState('');
@@ -303,12 +304,16 @@ export const ClientesModule: React.FC = () => {
     if (!clienteActivo || guardando) return;
     setGuardando(true);
     try {
+      const facSel = clienteActivo.facturasAdeudadas.find((f) => f.id === facturaCobroId);
       await registrarCobroCliente({
         clienteId: clienteActivo.id,
         monto: montoCobro,
-        medioCobro
+        medioCobro,
+        facturaId: facSel?.id,
+        facturaNro: facSel ? `${facSel.tipo} ${facSel.nroComprobante}` : undefined
       });
       setShowCobroModal(false);
+      setFacturaCobroId('');
     } finally {
       setGuardando(false);
     }
@@ -868,9 +873,23 @@ export const ClientesModule: React.FC = () => {
               </div>
 
               {/* Sub-Pestañas de Detalle */}
-              <div className="bg-slate-50 border-b border-slate-300 px-3 pt-1 flex items-center gap-1 text-xs font-mono">
+              <div className="bg-slate-50 border-b border-slate-300 px-3 pt-1 flex flex-wrap items-center gap-1 text-xs font-mono">
                 {[
-                  { key: 'adeudadas', label: 'Facturas adeudadas' },
+                  { key: 'adeudadas', label: `Facturas adeudadas (${clienteActivo?.facturasAdeudadas.length || 0})` },
+                  {
+                    key: 'comprobantes',
+                    label: `Comprobantes asociados (${
+                      clienteActivo
+                        ? facturasVenta.filter(
+                            (fv) =>
+                              fv.clienteCuit.replace(/[^0-9]/g, '') ===
+                                clienteActivo.cuit.replace(/[^0-9]/g, '') ||
+                              fv.clienteNombre.trim().toUpperCase() ===
+                                clienteActivo.razonSocial.trim().toUpperCase()
+                          ).length
+                        : 0
+                    })`
+                  },
                   { key: 'cuenta', label: 'Cuenta cliente' },
                   { key: 'general', label: 'Información general' },
                   { key: 'otra', label: 'Otra información' }
@@ -1008,6 +1027,18 @@ export const ClientesModule: React.FC = () => {
                               <td className="py-2 px-3 text-center">
                                 <div className="flex items-center justify-center gap-1">
                                   <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFacturaCobroId(f.id);
+                                      setMontoCobro(f.saldo);
+                                      setShowCobroModal(true);
+                                    }}
+                                    className="px-2 py-0.5 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-bold uppercase"
+                                    title="Registrar Cobro imputado directamente a esta factura"
+                                  >
+                                    $ Cobrar
+                                  </button>
+                                  <button
                                     onClick={() =>
                                       printAfipElectronicInvoice({
                                         nroComprobante: f.nroComprobante,
@@ -1057,6 +1088,167 @@ export const ClientesModule: React.FC = () => {
                             </td>
                           </tr>
                         )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* CONTENIDO DE LA PESTAÑA: COMPROBANTES ASOCIADOS AL CLIENTE (TODAS LAS FACTURAS + ÍTEMS DE STOCK) */}
+              {tabDetalle === 'comprobantes' && clienteActivo && (
+                <div>
+                  <div className="bg-emerald-50/70 px-4 py-1.5 border-b border-slate-200 flex items-center justify-between text-xs font-mono text-[#042f22]">
+                    <span>
+                      Todas las Facturas Emitidas asociadas a <strong>{clienteActivo.razonSocial}</strong> (Pendientes + Cobradas + Artículos de Stock)
+                    </span>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-white border border-emerald-300">
+                      Trazabilidad 360° Ventas ↔ Stock ↔ Contabilidad
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto min-h-[360px]">
+                    <table className="w-full text-left text-xs border-collapse font-mono">
+                      <thead>
+                        <tr className="bg-slate-100 border-b border-slate-300 text-[11px] font-bold text-slate-700">
+                          <th className="py-2 px-3 border-r border-slate-200">Fecha</th>
+                          <th className="py-2 px-3 border-r border-slate-200">Comprobante</th>
+                          <th className="py-2 px-3 border-r border-slate-200">CAE ARCA</th>
+                          <th className="py-2 px-3 border-r border-slate-200">Ítems de Stock Asociados</th>
+                          <th className="py-2 px-3 border-r border-slate-200 text-right">Neto ($)</th>
+                          <th className="py-2 px-3 border-r border-slate-200 text-right">IVA ($)</th>
+                          <th className="py-2 px-3 border-r border-slate-200 text-right">Total ($)</th>
+                          <th className="py-2 px-3 border-r border-slate-200 text-center">Estado Cobranza</th>
+                          <th className="py-2 px-3 text-center">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {(() => {
+                          const cuitCli = clienteActivo.cuit.replace(/[^0-9]/g, '');
+                          const comprobantesCliente = facturasVenta.filter(
+                            (fv) =>
+                              (cuitCli && fv.clienteCuit.replace(/[^0-9]/g, '') === cuitCli) ||
+                              fv.clienteNombre.trim().toUpperCase() ===
+                                clienteActivo.razonSocial.trim().toUpperCase()
+                          );
+                          if (comprobantesCliente.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={9} className="py-16 text-center text-slate-400 font-mono text-xs">
+                                  No hay comprobantes emitidos para este cliente
+                                </td>
+                              </tr>
+                            );
+                          }
+                          return comprobantesCliente.map((fv) => {
+                            const nroFull = `${fv.puntoVenta}-${fv.numero}`;
+                            const adeudadaMatch = clienteActivo.facturasAdeudadas.find(
+                              (fa) =>
+                                fa.nroComprobante === nroFull || fa.nroComprobante.includes(fv.numero)
+                            );
+                            const itemsStockDescontados = inventario.flatMap((art) =>
+                              (art.movimientos || [])
+                                .filter(
+                                  (m) =>
+                                    m.cantidad < 0 &&
+                                    ((m.comprobanteEgreso && m.comprobanteEgreso.includes(fv.numero)) ||
+                                      (m.descripcion && m.descripcion.includes(fv.numero)))
+                                )
+                                .map((m) => ({
+                                  codigo: art.codigo,
+                                  descripcion: art.descripcion,
+                                  cantidad: Math.abs(m.cantidad)
+                                }))
+                            );
+                            return (
+                              <tr key={fv.id} className="hover:bg-slate-50">
+                                <td className="py-2 px-3 border-r border-slate-200">{fv.fechaEmision}</td>
+                                <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-900">
+                                  {fv.tipo} {nroFull}
+                                </td>
+                                <td className="py-2 px-3 border-r border-slate-200 text-emerald-800 font-bold">
+                                  {fv.cae || 'Homologado'}
+                                </td>
+                                <td className="py-2 px-3 border-r border-slate-200 text-[11px] font-sans">
+                                  {itemsStockDescontados.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {itemsStockDescontados.map((it, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="px-1.5 py-0.5 bg-rose-50 text-rose-800 border border-rose-200 text-[10px] font-mono font-bold"
+                                        >
+                                          -{it.cantidad} u. [{it.codigo}] {it.descripcion}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-500">Servicios / Certificación de Obra</span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-3 border-r border-slate-200 text-right">
+                                  ${fv.netoGravado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-2 px-3 border-r border-slate-200 text-right">
+                                  ${(fv.iva21 + fv.iva105).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-slate-900">
+                                  ${fv.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-2 px-3 border-r border-slate-200 text-center">
+                                  {adeudadaMatch && adeudadaMatch.saldo > 0 ? (
+                                    <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold uppercase">
+                                      Pendiente (${adeudadaMatch.saldo.toLocaleString('es-AR')})
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-bold uppercase">
+                                      ✓ Cobrada Total
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-3 text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                    {adeudadaMatch && adeudadaMatch.saldo > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setFacturaCobroId(adeudadaMatch.id);
+                                          setMontoCobro(adeudadaMatch.saldo);
+                                          setShowCobroModal(true);
+                                        }}
+                                        className="px-2 py-0.5 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-bold uppercase"
+                                      >
+                                        $ Cobrar
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        printAfipElectronicInvoice({
+                                          nroComprobante: nroFull,
+                                          tipo: fv.tipo,
+                                          fechaEmision: fv.fechaEmision,
+                                          fechaVencimiento: fv.fechaVencimiento,
+                                          clienteNombre: clienteActivo.razonSocial,
+                                          clienteCuit: clienteActivo.cuit,
+                                          clienteCondicionIva: clienteActivo.condicionIva,
+                                          clienteDomicilio: clienteActivo.domicilio,
+                                          descripcion: `Comprobante ${fv.tipo} ${nroFull}`,
+                                          netoGravado: fv.netoGravado,
+                                          iva21: fv.iva21,
+                                          total: fv.total,
+                                          cae: fv.cae,
+                                          caeVencimiento: fv.caeVencimiento,
+                                          empresa
+                                        })
+                                      }
+                                      className="px-2 py-0.5 bg-slate-900 hover:bg-slate-700 text-white text-[10px] font-bold uppercase"
+                                    >
+                                      PDF QR
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
                       </tbody>
                     </table>
                   </div>
@@ -1700,6 +1892,40 @@ export const ClientesModule: React.FC = () => {
             </div>
 
             <form onSubmit={handleCrearFactura} className="space-y-4 font-mono text-xs">
+              {/* SELECTOR EXPLÍCITO DE CLIENTE ASOCIADO A LA VENTA */}
+              <div className="p-3 bg-[#f0fdf4] border-2 border-[#064e3b] space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[#042f22] font-extrabold uppercase text-[11px]">
+                    1. Cliente Asociado a esta Venta (Obligatorio):
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFacturaModal(false);
+                      setShowNuevoClienteModal(true);
+                    }}
+                    className="text-[10px] font-bold text-[#064e3b] hover:underline flex items-center gap-1"
+                  >
+                    <UserPlus className="w-3 h-3" />
+                    <span>+ Crear Nuevo Cliente</span>
+                  </button>
+                </div>
+                <select
+                  value={clienteActivo?.id || ''}
+                  onChange={(e) => setClienteSeleccionadoId(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-[#064e3b] font-bold text-[#042f22] text-xs"
+                >
+                  {clientes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.razonSocial} — CUIT: {c.cuit} ({c.condicionIva})
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[10px] text-emerald-800 block font-sans">
+                  Al emitir, esta venta se imputa automáticamente en la Cuenta Corriente de <strong>{clienteActivo?.razonSocial}</strong>, en el Libro IVA Ventas y en el Libro Diario.
+                </span>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-600 font-bold mb-1">Tipo de Comprobante:</label>
@@ -2041,6 +2267,49 @@ export const ClientesModule: React.FC = () => {
             </div>
 
             <form onSubmit={handleAgregarCobro} className="space-y-4">
+              <div>
+                <label className="block text-[#042f22] font-bold mb-1">1. Cliente que abona:</label>
+                <select
+                  value={clienteActivo?.id || ''}
+                  onChange={(e) => {
+                    setClienteSeleccionadoId(e.target.value);
+                    setFacturaCobroId('');
+                  }}
+                  className="w-full px-2.5 py-1.5 bg-emerald-50 border border-emerald-400 font-bold text-[#042f22]"
+                >
+                  {clientes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.razonSocial} (Saldo: ${c.saldo.toLocaleString('es-AR')})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">2. Factura Adeudada a Imputar:</label>
+                <select
+                  value={facturaCobroId}
+                  onChange={(e) => {
+                    const idFac = e.target.value;
+                    setFacturaCobroId(idFac);
+                    const facObj = clienteActivo?.facturasAdeudadas.find((f) => f.id === idFac);
+                    if (facObj && facObj.saldo > 0) {
+                      setMontoCobro(facObj.saldo);
+                    }
+                  }}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-300 font-bold text-slate-900"
+                >
+                  <option value="">-- Imputación Automática (Más antigua) --</option>
+                  {clienteActivo?.facturasAdeudadas
+                    .filter((f) => f.saldo > 0)
+                    .map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.tipo} {f.nroComprobante} — Saldo: ${f.saldo.toLocaleString('es-AR')}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-slate-600 font-bold mb-1">Monto a Cobrar ($ ARS):</label>
                 <input

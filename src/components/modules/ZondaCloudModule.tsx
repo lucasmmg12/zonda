@@ -39,10 +39,23 @@ export const ZondaCloudModule: React.FC = () => {
 
   const [selectedCloudTenantId, setSelectedCloudTenantId] = useState<string>(activeTenantId);
   const [subTabCloud, setSubTabCloud] = useState<
-    'ventas_arca' | 'compras_arca' | 'mis_comprobantes' | 'liquidacion_f2002' | 'bitacora'
+    | 'ventas_arca'
+    | 'compras_arca'
+    | 'mis_comprobantes'
+    | 'liquidacion_f2002'
+    | 'impuestos_integrales'
+    | 'balances_arca'
+    | 'bitacora'
   >('liquidacion_f2002');
   const [periodoFiscal, setPeriodoFiscal] = useState('2026-10');
   const [avisoOperacion, setAvisoOperacion] = useState<string | null>(null);
+
+  // Parámetros de Balance Anual y Ajuste por Inflación (RT 54 FACPCE + RG 5908 F.713 + RG 4626 PUB)
+  const [coefInflacionAnualIpc, setCoefInflacionAnualIpc] = useState<number>(38.5);
+  const [bienesDeUsoNetos, setBienesDeUsoNetos] = useState<number>(48500000);
+  const [capitalSocialHistorico, setCapitalSocialHistorico] = useState<number>(25000000);
+  const [anticiposGananciasPagados, setAnticiposGananciasPagados] = useState<number>(1850000);
+  const [gastosNoDeduciblesImpositivos, setGastosNoDeduciblesImpositivos] = useState<number>(420000);
 
   // Modal Nueva Empresa (Nuevo Tenant Aislado)
   const [showNuevoTenantModal, setShowNuevoTenantModal] = useState(false);
@@ -156,6 +169,124 @@ export const ZondaCloudModule: React.FC = () => {
       Number((impuestoDeterminadoIibb - percepcionesIibbCompras).toFixed(2))
     );
 
+    // 6. Cargas Sociales y Seguridad Social (F.931 ARCA desde Nómina de Empleados del Tenant)
+    const masaSalarialRemunerativa = snapTenant.empleados.reduce(
+      (acc, emp) => acc + (emp.sueldoBasico || 0) * 1.25,
+      0
+    );
+    const aportesSipa11 = Number((masaSalarialRemunerativa * 0.11).toFixed(2));
+    const aportesPami3 = Number((masaSalarialRemunerativa * 0.03).toFixed(2));
+    const aportesObraSocial3 = Number((masaSalarialRemunerativa * 0.03).toFixed(2));
+    const contribucionesPatronales204 = Number((masaSalarialRemunerativa * 0.204).toFixed(2));
+    const cuotaArt35 = Number((masaSalarialRemunerativa * 0.035).toFixed(2));
+    const totalF931APagar = Number(
+      (aportesSipa11 + aportesPami3 + aportesObraSocial3 + contribucionesPatronales204 + cuotaArt35).toFixed(2)
+    );
+
+    // 7. Estados Contables (RT 54 FACPCE) + Ajuste por Inflación (RECPAM / AXII) + Ganancias F.713 (RG 5908)
+    const cajaYBancos = Math.max(
+      0,
+      Number(snapTenant.cuentasBancarias.reduce((acc, c) => acc + c.saldoActual, 0).toFixed(2))
+    );
+    const creditosPorVentas = Math.max(
+      0,
+      Number(snapTenant.clientes.reduce((acc, c) => acc + c.saldo, 0).toFixed(2))
+    );
+    const bienesDeCambio = Math.max(
+      0,
+      Number(
+        snapTenant.inventario
+          .reduce((acc, art) => acc + Math.max(0, art.stockActual) * art.costoCalculado, 0)
+          .toFixed(2)
+      )
+    );
+    const otrosCreditosFiscales = Number(
+      (saldoTecnicoAFavorContribuyente + sldRemanenteProximoMes + anticiposGananciasPagados).toFixed(2)
+    );
+    const totalActivoCorriente = Number(
+      (cajaYBancos + creditosPorVentas + bienesDeCambio + otrosCreditosFiscales).toFixed(2)
+    );
+    const totalActivoNoCorriente = Number(bienesDeUsoNetos.toFixed(2));
+    const totalActivo = Number((totalActivoCorriente + totalActivoNoCorriente).toFixed(2));
+
+    const deudasComercialesProveedores = Math.max(
+      0,
+      Number(snapTenant.proveedores.reduce((acc, p) => acc + p.saldo, 0).toFixed(2))
+    );
+    const deudasFiscalesYSociales = Number(
+      (saldoFinalIvaAPagar + saldoIibbAPagar + totalF931APagar).toFixed(2)
+    );
+    const totalPasivoCorriente = Number(
+      (deudasComercialesProveedores + deudasFiscalesYSociales).toFixed(2)
+    );
+    const totalPasivo = totalPasivoCorriente;
+
+    // Estado de Resultados y Ajuste por Inflación
+    const ventasNetasAnuales = Number(((netoVentasGravado + netoVentasExento) * 12).toFixed(2));
+    const cmvYGastosOperativosAnuales = Number((netoComprasTotal * 12).toFixed(2));
+    const gastosLaboralesAnuales = Number(((masaSalarialRemunerativa + contribucionesPatronales204 + cuotaArt35) * 12).toFixed(2));
+    const resultadoOperativoAntesRecpam = Number(
+      (ventasNetasAnuales - cmvYGastosOperativosAnuales - gastosLaboralesAnuales).toFixed(2)
+    );
+
+    // Exposición monetaria neta al inicio / cierre para RECPAM y AXII Estático
+    const posicionMonetariaNeta = Number(
+      (cajaYBancos + creditosPorVentas - totalPasivo).toFixed(2)
+    );
+    const recpamContable = Number(
+      ((-posicionMonetariaNeta * (coefInflacionAnualIpc / 100))).toFixed(2)
+    );
+    const ajusteInflacionImpositivoEstatico = Number(
+      ((-posicionMonetariaNeta * (coefInflacionAnualIpc / 100))).toFixed(2)
+    );
+
+    const resultadoContableAntesImpuesto = Number(
+      (resultadoOperativoAntesRecpam + recpamContable).toFixed(2)
+    );
+    const resultadoImpositivoGravadoF713 = Math.max(
+      0,
+      Number(
+        (
+          resultadoOperativoAntesRecpam +
+          ajusteInflacionImpositivoEstatico +
+          gastosNoDeduciblesImpositivos
+        ).toFixed(2)
+      )
+    );
+
+    // Escala Progresiva Art. 73 LIG (25% / 30% / 35%)
+    const topeTramo1 = 34000000;
+    const topeTramo2 = 340000000;
+    let impuestoGananciasDeterminado = 0;
+    let alicuotaMarginalAplicada = '25%';
+    if (resultadoImpositivoGravadoF713 <= topeTramo1) {
+      impuestoGananciasDeterminado = resultadoImpositivoGravadoF713 * 0.25;
+      alicuotaMarginalAplicada = '25% (Tramo 1)';
+    } else if (resultadoImpositivoGravadoF713 <= topeTramo2) {
+      impuestoGananciasDeterminado =
+        topeTramo1 * 0.25 + (resultadoImpositivoGravadoF713 - topeTramo1) * 0.3;
+      alicuotaMarginalAplicada = '30% (Tramo 2)';
+    } else {
+      impuestoGananciasDeterminado =
+        topeTramo1 * 0.25 +
+        (topeTramo2 - topeTramo1) * 0.3 +
+        (resultadoImpositivoGravadoF713 - topeTramo2) * 0.35;
+      alicuotaMarginalAplicada = '35% (Tramo 3)';
+    }
+    impuestoGananciasDeterminado = Number(impuestoGananciasDeterminado.toFixed(2));
+    const saldoGananciasF713APagar = Math.max(
+      0,
+      Number((impuestoGananciasDeterminado - anticiposGananciasPagados).toFixed(2))
+    );
+
+    const resultadoNetoDelEjercicio = Number(
+      (resultadoContableAntesImpuesto - impuestoGananciasDeterminado).toFixed(2)
+    );
+    const patrimonioNetoTotal = Number((totalActivo - totalPasivo).toFixed(2));
+    const ajusteDeCapital = Number(
+      Math.max(0, patrimonioNetoTotal - capitalSocialHistorico - resultadoNetoDelEjercicio).toFixed(2)
+    );
+
     return {
       netoVentasGravado,
       netoVentasExento,
@@ -179,9 +310,49 @@ export const ZondaCloudModule: React.FC = () => {
       baseImponibleIibb,
       alicuotaIibb,
       impuestoDeterminadoIibb,
-      saldoIibbAPagar
+      saldoIibbAPagar,
+      masaSalarialRemunerativa,
+      aportesSipa11,
+      aportesPami3,
+      aportesObraSocial3,
+      contribucionesPatronales204,
+      cuotaArt35,
+      totalF931APagar,
+      cajaYBancos,
+      creditosPorVentas,
+      bienesDeCambio,
+      otrosCreditosFiscales,
+      totalActivoCorriente,
+      totalActivoNoCorriente,
+      totalActivo,
+      deudasComercialesProveedores,
+      deudasFiscalesYSociales,
+      totalPasivoCorriente,
+      totalPasivo,
+      patrimonioNetoTotal,
+      ajusteDeCapital,
+      ventasNetasAnuales,
+      cmvYGastosOperativosAnuales,
+      gastosLaboralesAnuales,
+      resultadoOperativoAntesRecpam,
+      recpamContable,
+      ajusteInflacionImpositivoEstatico,
+      resultadoContableAntesImpuesto,
+      resultadoImpositivoGravadoF713,
+      impuestoGananciasDeterminado,
+      alicuotaMarginalAplicada,
+      saldoGananciasF713APagar,
+      resultadoNetoDelEjercicio
     };
-  }, [snapTenant, authCloud]);
+  }, [
+    snapTenant,
+    authCloud,
+    coefInflacionAnualIpc,
+    bienesDeUsoNetos,
+    capitalSocialHistorico,
+    anticiposGananciasPagados,
+    gastosNoDeduciblesImpositivos
+  ]);
 
   const handleCrearNuevoTenant = (e: React.FormEvent) => {
     e.preventDefault();
@@ -554,23 +725,31 @@ export const ZondaCloudModule: React.FC = () => {
             {[
               {
                 id: 'liquidacion_f2002',
-                label: '1. Liquidación IVA (F.2002), Libro IVA Digital (RG 4597) e IIBB'
+                label: '1. Portal IVA Simple (F.2051 / F.2002) & Libro IVA Digital'
+              },
+              {
+                id: 'impuestos_integrales',
+                label: '2. Todos los Impuestos (IIBB CM03 / SICORE / F.931 / Ganancias F.713)'
+              },
+              {
+                id: 'balances_arca',
+                label: '3. Balances ARCA (PUB RG 4626 + Ganancias Web RG 5908 + RT 54)'
               },
               {
                 id: 'compras_arca',
-                label: `2. Gestión Compras y Crédito Fiscal (${snapTenant.facturasCompra.length})`
+                label: `4. Compras y Crédito Fiscal (${snapTenant.facturasCompra.length})`
               },
               {
                 id: 'ventas_arca',
-                label: `3. Gestión Ventas y Débito Fiscal (${snapTenant.facturasVenta.length})`
+                label: `5. Ventas y Débito Fiscal (${snapTenant.facturasVenta.length})`
               },
               {
                 id: 'mis_comprobantes',
-                label: `4. Cruce "Mis Comprobantes" ARCA (${pendientesSinIncorporar.length} pendientes)`
+                label: `6. Cruce "Mis Comprobantes" ARCA (${pendientesSinIncorporar.length})`
               },
               {
                 id: 'bitacora',
-                label: `5. Bitácora de Auditoría Delegada (${authCloud.bitacoraCloud.length})`
+                label: `7. Bitácora Delegada (${authCloud.bitacoraCloud.length})`
               }
             ].map((t) => (
               <button
@@ -1202,6 +1381,426 @@ export const ZondaCloudModule: React.FC = () => {
               </div>
             )}
 
+            {subTabCloud === 'impuestos_integrales' && (
+              <div className="space-y-5 font-mono text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                  <div>
+                    <h4 className="text-sm font-extrabold text-slate-900 uppercase">
+                      CENTRO DE LIQUIDACIÓN DE TODOS LOS IMPUESTOS NACIONALES Y PROVINCIALES ({tenantCloudActual.razonSocial})
+                    </h4>
+                    <p className="text-[11px] text-slate-600 font-sans">
+                      Consolida automáticamente IVA Simple (RG 5705 - F.2051/F.2083), Ingresos Brutos (DGR / Convenio Multilateral SIFERE CM03), Retenciones SICORE/SIRE, Seguridad Social (F.931 LSD) e Impuesto a las Ganancias Sociedades (F.713 RG 5908).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      printFinancialReport(
+                        `Liquidación Integral de Impuestos ARCA y DGR - ${tenantCloudActual.razonSocial}`,
+                        `CUIT ${tenantCloudActual.cuit} · Período ${periodoFiscal}`,
+                        ['Impuesto / Régimen', 'Formulario Oficial', 'Base Imponible / Bruto', 'Deducciones / Retenciones', 'Saldo Neto a Ingresar ($)'],
+                        [
+                          [
+                            'IVA Simple (Portal IVA RG 5705)',
+                            'F. 2051 / F. 2083',
+                            `$${liquidacionCalculada.totalDebitoFiscal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+                            `$${(liquidacionCalculada.creditoFiscalComputable + liquidacionCalculada.totalLibreDisponibilidad).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+                            `$${liquidacionCalculada.saldoFinalIvaAPagar.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                          ],
+                          [
+                            `Ingresos Brutos (${tenantCloudActual.jurisdiccionPrincipal})`,
+                            tenantCloudActual.convenioMultilateral ? 'SIFERE Web CM03' : 'DGR Provincial',
+                            `$${liquidacionCalculada.baseImponibleIibb.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+                            `$${liquidacionCalculada.percepcionesIibbCompras.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+                            `$${liquidacionCalculada.saldoIibbAPagar.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                          ],
+                          [
+                            'Seguridad Social y Cargas Sociales',
+                            'F. 931 (LSD RG 3781)',
+                            `$${liquidacionCalculada.masaSalarialRemunerativa.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+                            '$0,00',
+                            `$${liquidacionCalculada.totalF931APagar.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                          ],
+                          [
+                            'Retenciones y Percepciones Practicadas',
+                            'SICORE / SIRE (F. 744)',
+                            `$${liquidacionCalculada.percepcionesIvaCompras.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+                            '$0,00',
+                            `$${liquidacionCalculada.percepcionesIvaCompras.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                          ],
+                          [
+                            'Impuesto a las Ganancias Personas Jurídicas (Anual)',
+                            'F. 713 Web (RG 5908)',
+                            `$${liquidacionCalculada.resultadoImpositivoGravadoF713.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+                            `$${anticiposGananciasPagados.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+                            `$${liquidacionCalculada.saldoGananciasF713APagar.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                          ]
+                        ]
+                      )
+                    }
+                    className="px-3.5 py-2 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase flex items-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Descargar Sabana Consolidada de Impuestos (PDF)</span>
+                  </button>
+                </div>
+
+                {/* Grilla de los 5 Impuestos Principales */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* 1. IVA Simple RG 5705 (F.2051 + F.2083) */}
+                  <div className="border border-slate-300 p-4 space-y-2 bg-white">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <span className="font-extrabold text-[#042f22] uppercase">
+                        1. PORTAL IVA — "IVA SIMPLE" (RG 5705 · F. 2051 y F. 2083)
+                      </span>
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 text-[10px] font-bold">
+                        MENSUAL
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Débito Fiscal Ventas ({snapTenant.facturasVenta.length} comp.):</span>
+                      <span className="font-bold text-rose-700">
+                        ${liquidacionCalculada.totalDebitoFiscal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>(-) Crédito Fiscal Computable ({snapTenant.facturasCompra.length} comp.):</span>
+                      <span className="font-bold text-emerald-700">
+                        -${liquidacionCalculada.creditoFiscalComputable.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>(-) Saldo Técnico Ant. + Ret./Perc. SIRE/SICORE:</span>
+                      <span className="font-bold text-emerald-700">
+                        -${(liquidacionCalculada.saldoTecnicoAnterior + liquidacionCalculada.totalLibreDisponibilidad).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1.5 bg-emerald-50 px-2 font-extrabold text-[#042f22]">
+                      <span>VEP IVA F. 2051 A INGRESAR:</span>
+                      <span>${liquidacionCalculada.saldoFinalIvaAPagar.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+
+                  {/* 2. Ingresos Brutos DGR / Convenio Multilateral SIFERE CM03 */}
+                  <div className="border border-slate-300 p-4 space-y-2 bg-white">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <span className="font-extrabold text-amber-900 uppercase">
+                        2. INGRESOS BRUTOS ({tenantCloudActual.convenioMultilateral ? 'SIFERE CM03' : 'DGR PROVINCIAL'})
+                      </span>
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-bold">
+                        {tenantCloudActual.jurisdiccionPrincipal}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Base Imponible Neta Ventas del Mes:</span>
+                      <span className="font-bold">
+                        ${liquidacionCalculada.baseImponibleIibb.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Impuesto Determinado (Alícuota {liquidacionCalculada.alicuotaIibb}%):</span>
+                      <span className="font-bold text-rose-700">
+                        ${liquidacionCalculada.impuestoDeterminadoIibb.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>(-) Percepciones IIBB Sufridas en Compras / SIRCREB:</span>
+                      <span className="font-bold text-emerald-700">
+                        -${liquidacionCalculada.percepcionesIibbCompras.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1.5 bg-amber-50 px-2 font-extrabold text-amber-950">
+                      <span>SALDO IIBB A INGRESAR:</span>
+                      <span>${liquidacionCalculada.saldoIibbAPagar.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+
+                  {/* 3. Seguridad Social F.931 (Libro de Sueldos Digital RG 3781) */}
+                  <div className="border border-slate-300 p-4 space-y-2 bg-white">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <span className="font-extrabold text-slate-900 uppercase">
+                        3. SEGURIDAD SOCIAL Y CARGAS SOCIALES (F. 931 · LSD RG 3781)
+                      </span>
+                      <span className="px-2 py-0.5 bg-slate-100 text-slate-800 text-[10px] font-bold">
+                        {snapTenant.empleados.length} LEGAJOS ACTIVOS
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Masa Salarial Remunerativa Liquidada:</span>
+                      <span className="font-bold">
+                        ${liquidacionCalculada.masaSalarialRemunerativa.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Aportes SIPA (11%) + Ley 19.032 (3%) + Obra Social (3%):</span>
+                      <span className="font-bold">
+                        ${(liquidacionCalculada.aportesSipa11 + liquidacionCalculada.aportesPami3 + liquidacionCalculada.aportesObraSocial3).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Contribuciones Patronales (20.40%) + ART (3.50%):</span>
+                      <span className="font-bold">
+                        ${(liquidacionCalculada.contribucionesPatronales204 + liquidacionCalculada.cuotaArt35).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1.5 bg-slate-100 px-2 font-extrabold text-slate-900">
+                      <span>TOTAL VEP F. 931 A INGRESAR:</span>
+                      <span>${liquidacionCalculada.totalF931APagar.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+
+                  {/* 4. Ganancias Personas Jurídicas F.713 Web (RG 5908/2026) */}
+                  <div className="border border-slate-300 p-4 space-y-2 bg-white">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <span className="font-extrabold text-indigo-950 uppercase">
+                        4. GANANCIAS PERSONAS JURÍDICAS (F. 713 WEB · RG 5908/2026)
+                      </span>
+                      <span className="px-2 py-0.5 bg-indigo-100 text-indigo-900 text-[10px] font-bold">
+                        ESCALA {liquidacionCalculada.alicuotaMarginalAplicada}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Resultado Impositivo Gravado (c/Ajuste por Inflación):</span>
+                      <span className="font-bold">
+                        ${liquidacionCalculada.resultadoImpositivoGravadoF713.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Impuesto Determinado (Art. 73 LIG 25% / 30% / 35%):</span>
+                      <span className="font-bold text-rose-700">
+                        ${liquidacionCalculada.impuestoGananciasDeterminado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>(-) Anticipos Ingresados y Retenciones RG 830:</span>
+                      <span className="font-bold text-emerald-700">
+                        -${anticiposGananciasPagados.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1.5 bg-indigo-50 px-2 font-extrabold text-indigo-950">
+                      <span>SALDO DDJJ F. 713 A INGRESAR:</span>
+                      <span>${liquidacionCalculada.saldoGananciasF713APagar.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {subTabCloud === 'balances_arca' && (
+              <div className="space-y-5 font-mono text-xs">
+                {/* Encabezado y Botón de Exportación PDF Único para Presentación Única de Balances (PUB RG 4626) */}
+                <div className="p-4 bg-[#f0fdf4] border-2 border-[#064e3b] flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 bg-[#064e3b] text-white text-[10px] font-extrabold uppercase">
+                        RG 4626 (PUB) + RG 5908/2026 (F. 713 WEB) + RT 54 FACPCE (NUA)
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-extrabold text-[#042f22] uppercase">
+                      BALANCES Y ESTADOS CONTABLES PARA PRESENTAR EN ARCA — {tenantCloudActual.razonSocial}
+                    </h4>
+                    <p className="text-[11px] text-slate-700 font-sans max-w-3xl">
+                      Genera en vivo los <strong>4 Estados Contables Básicos bajo RT 54 (NUA)</strong> reexpresados en moneda homogénea (<strong>RECPAM</strong>), la grilla de <strong>Rubros Resumidos del nuevo servicio web &ldquo;Ganancias Personas Jurídicas (RG 5908)&rdquo;</strong> y el <strong>Archivo PDF Único Consolidado</strong> exigido por el servicio web <strong>&ldquo;Presentación Única de Balances (PUB - RG 4626)&rdquo;</strong>.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      printFinancialReport(
+                        `PRESENTACIÓN ÚNICA DE BALANCES (PUB - RG 4626 ARCA) y F. 713 (RG 5908)`,
+                        `${tenantCloudActual.razonSocial} · CUIT ${tenantCloudActual.cuit} · Estados Contables en Moneda Homogénea (RT 54 FACPCE - IPC ${coefInflacionAnualIpc}%)`,
+                        ['Estado Contable / Rubro Oficial ARCA', 'Norma / Anexo', 'Importe Cierre ($ ARS)'],
+                        [
+                          ['--- I. ESTADO DE SITUACIÓN PATRIMONIAL (ACTIVO) ---', 'RT 54 FACPCE / RG 5908', ''],
+                          ['1.1 Caja y Bancos (Disponibilidades)', 'Activo Corriente', `$${liquidacionCalculada.cajaYBancos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['1.2 Créditos por Ventas (Clientes Cta. Cte.)', 'Activo Corriente', `$${liquidacionCalculada.creditosPorVentas.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['1.3 Otros Créditos (Saldos Fiscales y Anticipos)', 'Activo Corriente', `$${liquidacionCalculada.otrosCreditosFiscales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['1.4 Bienes de Cambio (Inventario Valorizado)', 'Activo Corriente', `$${liquidacionCalculada.bienesDeCambio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['1.5 Bienes de Uso (Netos de Amortización)', 'Activo No Corriente', `$${liquidacionCalculada.totalActivoNoCorriente.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['TOTAL DEL ACTIVO', 'Suma Activo Corriente + No Corriente', `$${liquidacionCalculada.totalActivo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['--- II. ESTADO DE SITUACIÓN PATRIMONIAL (PASIVO Y P. NETO) ---', 'RT 54 FACPCE / RG 5908', ''],
+                          ['2.1 Deudas Comerciales (Proveedores)', 'Pasivo Corriente', `$${liquidacionCalculada.deudasComercialesProveedores.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['2.2 Cargas Fiscales y Sociales (IVA, IIBB, F.931)', 'Pasivo Corriente', `$${liquidacionCalculada.deudasFiscalesYSociales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['TOTAL DEL PASIVO', 'Pasivo Exigible', `$${liquidacionCalculada.totalPasivo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['3.1 Capital Social Suscripto', 'Patrimonio Neto', `$${capitalSocialHistorico.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['3.2 Ajuste de Capital y Reservas (RT 6 / RT 54)', 'Patrimonio Neto', `$${liquidacionCalculada.ajusteDeCapital.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['3.3 Resultado Neto del Ejercicio', 'Patrimonio Neto', `$${liquidacionCalculada.resultadoNetoDelEjercicio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['TOTAL PATRIMONIO NETO', 'Activo - Pasivo', `$${liquidacionCalculada.patrimonioNetoTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['--- III. ESTADO DE RESULTADOS Y CONCILIACIÓN IMPOSITIVA F.713 ---', 'RG 5908 ARCA', ''],
+                          ['Ventas Netas de Bienes y Servicios (Anualizadas)', 'Estado de Resultados', `$${liquidacionCalculada.ventasNetasAnuales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['(-) Costo Operativo de Compras e Insumos', 'Estado de Resultados', `-$${liquidacionCalculada.cmvYGastosOperativosAnuales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['(-) Gastos de Personal y Cargas Sociales (Sueldos)', 'Art. 64 Ley 19.550', `-$${liquidacionCalculada.gastosLaboralesAnuales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['(+/-) RECPAM / Ajuste por Inflación (IPC ' + coefInflacionAnualIpc + '%)', 'RT 6 / LIG AXII', `$${liquidacionCalculada.recpamContable.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['Resultado Impositivo Sujeto a Impuesto (F.713)', 'RG 5908 Columna II', `$${liquidacionCalculada.resultadoImpositivoGravadoF713.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['(-) Impuesto a las Ganancias Determinado (' + liquidacionCalculada.alicuotaMarginalAplicada + ')', 'Art. 73 LIG', `-$${liquidacionCalculada.impuestoGananciasDeterminado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                          ['RESULTADO NETO FINAL DEL EJERCICIO', 'Memoria y Balance PUB', `$${liquidacionCalculada.resultadoNetoDelEjercicio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`]
+                        ]
+                      )
+                    }
+                    className="px-4 py-2.5 bg-[#064e3b] hover:bg-[#042f22] text-white font-extrabold uppercase flex items-center gap-2 shadow-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Descargar PDF Único Oficial PUB (RG 4626) + F.713</span>
+                  </button>
+                </div>
+
+                {/* Parámetros Editables del Balance Anual y Ajuste por Inflación */}
+                <div className="p-4 bg-slate-50 border border-slate-300 grid grid-cols-1 sm:grid-cols-5 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                      Variación Anual IPC / IPIM (%):
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={coefInflacionAnualIpc}
+                      onChange={(e) => setCoefInflacionAnualIpc(parseFloat(e.target.value) || 0)}
+                      className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold text-[#042f22]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                      Bienes de Uso Netos ($):
+                    </label>
+                    <input
+                      type="number"
+                      value={bienesDeUsoNetos}
+                      onChange={(e) => setBienesDeUsoNetos(parseFloat(e.target.value) || 0)}
+                      className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                      Capital Social Suscripto ($):
+                    </label>
+                    <input
+                      type="number"
+                      value={capitalSocialHistorico}
+                      onChange={(e) => setCapitalSocialHistorico(parseFloat(e.target.value) || 0)}
+                      className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                      Gastos No Deducibles F.713 ($):
+                    </label>
+                    <input
+                      type="number"
+                      value={gastosNoDeduciblesImpositivos}
+                      onChange={(e) => setGastosNoDeduciblesImpositivos(parseFloat(e.target.value) || 0)}
+                      className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                      Anticipos y Ret. Ganancias ($):
+                    </label>
+                    <input
+                      type="number"
+                      value={anticiposGananciasPagados}
+                      onChange={(e) => setAnticiposGananciasPagados(parseFloat(e.target.value) || 0)}
+                      className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Dos Columnas: 1) Estado de Situación Patrimonial (Rubros RG 5908) | 2) Estado de Resultados + Conciliación Impositiva F.713 */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="border border-slate-300 p-4 space-y-2 bg-white">
+                    <h5 className="font-extrabold text-slate-900 uppercase border-b border-slate-200 pb-2">
+                      1. ESTADO DE SITUACIÓN PATRIMONIAL (RUBROS RESUMIDOS RG 5908 WEB ARCA)
+                    </h5>
+                    <div className="text-[11px] font-bold text-emerald-800 uppercase pt-1">ACTIVO CORRIENTE Y NO CORRIENTE</div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Caja y Bancos (Tesorería):</span>
+                      <span className="font-bold">${liquidacionCalculada.cajaYBancos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Créditos por Ventas (Clientes Cta. Cte.):</span>
+                      <span className="font-bold">${liquidacionCalculada.creditosPorVentas.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Otros Créditos Fiscales (IVA / Anticipos):</span>
+                      <span className="font-bold">${liquidacionCalculada.otrosCreditosFiscales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Bienes de Cambio (Inventario Valorizado):</span>
+                      <span className="font-bold">${liquidacionCalculada.bienesDeCambio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Bienes de Uso (Propiedad, Planta y Equipo):</span>
+                      <span className="font-bold">${liquidacionCalculada.totalActivoNoCorriente.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 bg-emerald-50 px-2 font-extrabold text-[#042f22]">
+                      <span>TOTAL DEL ACTIVO:</span>
+                      <span>${liquidacionCalculada.totalActivo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+
+                    <div className="text-[11px] font-bold text-rose-800 uppercase pt-2">PASIVO Y PATRIMONIO NETO</div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Deudas Comerciales (Proveedores Cta. Cte.):</span>
+                      <span className="font-bold text-rose-700">${liquidacionCalculada.deudasComercialesProveedores.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Deudas Fiscales y Sociales (IVA + IIBB + F.931):</span>
+                      <span className="font-bold text-rose-700">${liquidacionCalculada.deudasFiscalesYSociales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-200 font-bold">
+                      <span>TOTAL DEL PASIVO:</span>
+                      <span>${liquidacionCalculada.totalPasivo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 bg-slate-100 px-2 font-extrabold text-slate-900">
+                      <span>PATRIMONIO NETO (Activo − Pasivo):</span>
+                      <span>${liquidacionCalculada.patrimonioNetoTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-300 p-4 space-y-2 bg-white">
+                    <h5 className="font-extrabold text-slate-900 uppercase border-b border-slate-200 pb-2">
+                      2. ESTADO DE RESULTADOS + AJUSTE POR INFLACIÓN Y F. 713 (RG 5908)
+                    </h5>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>(+) Ventas Netas de Bienes y Servicios (Proyección Anual):</span>
+                      <span className="font-bold text-emerald-700">${liquidacionCalculada.ventasNetasAnuales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>(-) Costo de Ventas, Materiales y Servicios (Compras):</span>
+                      <span className="font-bold text-rose-700">-${liquidacionCalculada.cmvYGastosOperativosAnuales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>(-) Gastos Laborales y Cargas Sociales (Anexo Art. 64):</span>
+                      <span className="font-bold text-rose-700">-${liquidacionCalculada.gastosLaboralesAnuales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100 font-bold">
+                      <span>(=) Resultado Operativo Antes de RECPAM:</span>
+                      <span>${liquidacionCalculada.resultadoOperativoAntesRecpam.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>(+/-) RECPAM / Ajuste por Inflación Impositivo (IPC {coefInflacionAnualIpc}%):</span>
+                      <span className="font-bold text-indigo-800">${liquidacionCalculada.recpamContable.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>(+) Ajustes Impositivos Columna II (Gastos No Deducibles):</span>
+                      <span className="font-bold">+${gastosNoDeduciblesImpositivos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 bg-indigo-50 px-2 font-extrabold text-indigo-950">
+                      <span>(=) RESULTADO IMPOSITIVO GRAVADO (F. 713 WEB):</span>
+                      <span>${liquidacionCalculada.resultadoImpositivoGravadoF713.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>(-) Impuesto a las Ganancias ({liquidacionCalculada.alicuotaMarginalAplicada}):</span>
+                      <span className="font-bold text-rose-700">-${liquidacionCalculada.impuestoGananciasDeterminado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 bg-emerald-50 px-2 font-extrabold text-[#042f22]">
+                      <span>(=) RESULTADO NETO DEL EJERCICIO (PUB RG 4626):</span>
+                      <span>${liquidacionCalculada.resultadoNetoDelEjercicio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {subTabCloud === 'bitacora' && (
               <div className="space-y-3 font-mono text-xs">
                 <h4 className="font-bold text-slate-900 uppercase">
@@ -1414,6 +2013,49 @@ export const ZondaCloudModule: React.FC = () => {
                     className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
                   />
                 </div>
+              </div>
+
+              {/* Selector rápido de Cliente o Proveedor existente del Tenant para garantizar asociación */}
+              <div className="p-2.5 bg-[#f0fdf4] border border-[#064e3b] space-y-1">
+                <label className="block text-[10px] font-extrabold text-[#042f22] uppercase">
+                  Seleccionar {cfFlujo === 'COMPRA' ? 'Proveedor' : 'Cliente'} del Padrón (o completar abajo si es nuevo):
+                </label>
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const idElegido = e.target.value;
+                    if (!idElegido) return;
+                    if (cfFlujo === 'COMPRA') {
+                      const prv = snapTenant.proveedores.find((p) => p.id === idElegido);
+                      if (prv) {
+                        setCfCuit(prv.cuit);
+                        setCfRazonSocial(prv.razonSocial);
+                      }
+                    } else {
+                      const cli = snapTenant.clientes.find((c) => c.id === idElegido);
+                      if (cli) {
+                        setCfCuit(cli.cuit);
+                        setCfRazonSocial(cli.razonSocial);
+                      }
+                    }
+                  }}
+                  className="w-full px-2 py-1.5 bg-white border border-emerald-400 font-bold text-[#042f22] text-[11px]"
+                >
+                  <option value="">
+                    -- Elegir {cfFlujo === 'COMPRA' ? 'Proveedor' : 'Cliente'} existente de {tenantCloudActual.razonSocial} --
+                  </option>
+                  {cfFlujo === 'COMPRA'
+                    ? snapTenant.proveedores.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.razonSocial} (CUIT: {p.cuit})
+                        </option>
+                      ))
+                    : snapTenant.clientes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.razonSocial} (CUIT: {c.cuit})
+                        </option>
+                      ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

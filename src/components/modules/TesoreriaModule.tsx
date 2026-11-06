@@ -24,12 +24,16 @@ import { CalendarioVencimientosModal } from '../modals/CalendarioVencimientosMod
 
 export const TesoreriaModule: React.FC = () => {
   const {
+    clientes,
+    proveedores,
     cuentasBancarias,
     cheques,
     crearCuentaBancaria,
     editarCuentaBancaria,
     conciliarCuentaBancaria,
     depositarCheque,
+    registrarCobroCliente,
+    registrarPagoProveedor,
     registrarMovimientoTesoreria,
     refreshAllFromDb
   } = useErp();
@@ -58,12 +62,16 @@ export const TesoreriaModule: React.FC = () => {
   const [editBancoCuenta, setEditBancoCuenta] = useState('');
   const [editCbuCuenta, setEditCbuCuenta] = useState('');
 
-  // Formulario Pago
+  // Formulario Pago (Vinculado a Proveedores + Facturas Adeudadas)
+  const [pagoProveedorId, setPagoProveedorId] = useState<string>('');
+  const [pagoFacturaId, setPagoFacturaId] = useState<string>('');
   const [pagoProveedor, setPagoProveedor] = useState('');
   const [pagoMonto, setPagoMonto] = useState<number>(50000);
   const [pagoConcepto, setPagoConcepto] = useState('');
 
-  // Formulario Cobranza
+  // Formulario Cobranza (Vinculado a Clientes + Facturas Adeudadas)
+  const [cobroClienteId, setCobroClienteId] = useState<string>('');
+  const [cobroFacturaId, setCobroFacturaId] = useState<string>('');
   const [cobroCliente, setCobroCliente] = useState('');
   const [cobroMonto, setCobroMonto] = useState<number>(120000);
   const [cobroConcepto, setCobroConcepto] = useState('');
@@ -89,40 +97,70 @@ export const TesoreriaModule: React.FC = () => {
     { mes: 'Oct', ingresos: 120000, egresos: 85000, saldo: cuentaActiva?.saldoActual || -1213683 }
   ];
 
-  // Agregar Pago en Supabase + Contabilidad
+  // Agregar Pago en Supabase + Proveedores (Cuenta Corriente + Factura) + Contabilidad
   const handleCrearPago = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cuentaActiva) return;
 
-    await registrarMovimientoTesoreria({
-      cuentaId: cuentaActiva.id,
-      tipo: 'PAG',
-      clienteProveedor: pagoProveedor || 'PROVEEDOR VARIOS',
-      descripcion: pagoConcepto || 'Pago de tesorería registrado',
-      ingresos: 0,
-      egresos: pagoMonto
-    });
+    const prvSel = proveedores.find((p) => p.id === pagoProveedorId);
+    if (prvSel) {
+      const facSel = prvSel.facturasAdeudadas.find((f) => f.id === pagoFacturaId);
+      await registrarPagoProveedor({
+        proveedorId: prvSel.id,
+        monto: pagoMonto,
+        medioPago: cuentaActiva.nombre,
+        cuentaBancariaId: cuentaActiva.id,
+        facturaId: facSel?.id,
+        facturaNro: facSel ? `${facSel.tipo} ${facSel.nroComprobante}` : pagoConcepto || undefined
+      });
+    } else {
+      await registrarMovimientoTesoreria({
+        cuentaId: cuentaActiva.id,
+        tipo: 'PAG',
+        clienteProveedor: pagoProveedor || 'PROVEEDOR VARIOS',
+        descripcion: pagoConcepto || 'Pago de tesorería registrado',
+        ingresos: 0,
+        egresos: pagoMonto
+      });
+    }
 
     setShowPagoModal(false);
+    setPagoProveedorId('');
+    setPagoFacturaId('');
     setPagoProveedor('');
     setPagoConcepto('');
   };
 
-  // Agregar Cobranza en Supabase + Contabilidad
+  // Agregar Cobranza en Supabase + Clientes (Cuenta Corriente + Factura) + Contabilidad
   const handleCrearCobro = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cuentaActiva) return;
 
-    await registrarMovimientoTesoreria({
-      cuentaId: cuentaActiva.id,
-      tipo: 'COB',
-      clienteProveedor: cobroCliente || 'CLIENTE VARIOS',
-      descripcion: cobroConcepto || 'Cobranza de tesorería registrada',
-      ingresos: cobroMonto,
-      egresos: 0
-    });
+    const cliSel = clientes.find((c) => c.id === cobroClienteId);
+    if (cliSel) {
+      const facSel = cliSel.facturasAdeudadas.find((f) => f.id === cobroFacturaId);
+      await registrarCobroCliente({
+        clienteId: cliSel.id,
+        monto: cobroMonto,
+        medioCobro: cuentaActiva.nombre,
+        cuentaBancariaId: cuentaActiva.id,
+        facturaId: facSel?.id,
+        facturaNro: facSel ? `${facSel.tipo} ${facSel.nroComprobante}` : cobroConcepto || undefined
+      });
+    } else {
+      await registrarMovimientoTesoreria({
+        cuentaId: cuentaActiva.id,
+        tipo: 'COB',
+        clienteProveedor: cobroCliente || 'CLIENTE VARIOS',
+        descripcion: cobroConcepto || 'Cobranza de tesorería registrada',
+        ingresos: cobroMonto,
+        egresos: 0
+      });
+    }
 
     setShowCobroModal(false);
+    setCobroClienteId('');
+    setCobroFacturaId('');
     setCobroCliente('');
     setCobroConcepto('');
   };
@@ -633,16 +671,82 @@ export const TesoreriaModule: React.FC = () => {
 
             <form onSubmit={handleCrearPago} className="space-y-4">
               <div>
-                <label className="block text-slate-600 font-bold mb-1">Proveedor / Beneficiario:</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej: INDUSTRIAS HORMAT S.A.S."
-                  value={pagoProveedor}
-                  onChange={(e) => setPagoProveedor(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 uppercase"
-                />
+                <label className="block text-[#042f22] font-bold mb-1">
+                  1. Seleccionar Proveedor (Sincroniza Cuenta Corriente y Factura):
+                </label>
+                <select
+                  value={pagoProveedorId}
+                  onChange={(e) => {
+                    const idPrv = e.target.value;
+                    setPagoProveedorId(idPrv);
+                    setPagoFacturaId('');
+                    const prvObj = proveedores.find((p) => p.id === idPrv);
+                    if (prvObj) {
+                      setPagoProveedor(prvObj.razonSocial);
+                      const primeraFac = prvObj.facturasAdeudadas.find((f) => f.saldo > 0);
+                      if (primeraFac) {
+                        setPagoFacturaId(primeraFac.id);
+                        setPagoMonto(primeraFac.saldo);
+                        setPagoConcepto(`Cancelación ${primeraFac.tipo} ${primeraFac.nroComprobante}`);
+                      } else if (prvObj.saldo > 0) {
+                        setPagoMonto(prvObj.saldo);
+                      }
+                    }
+                  }}
+                  className="w-full px-2.5 py-1.5 bg-emerald-50 border border-emerald-400 font-bold text-[#042f22]"
+                >
+                  <option value="">-- Otro Beneficiario / Gasto Eventual --</option>
+                  {proveedores.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.razonSocial} (CUIT: {p.cuit} · Saldo: ${p.saldo.toLocaleString('es-AR')})
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {pagoProveedorId ? (
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    2. Factura Adeudada del Proveedor a Cancelar:
+                  </label>
+                  <select
+                    value={pagoFacturaId}
+                    onChange={(e) => {
+                      const idFac = e.target.value;
+                      setPagoFacturaId(idFac);
+                      const prvObj = proveedores.find((p) => p.id === pagoProveedorId);
+                      const facObj = prvObj?.facturasAdeudadas.find((f) => f.id === idFac);
+                      if (facObj && facObj.saldo > 0) {
+                        setPagoMonto(facObj.saldo);
+                        setPagoConcepto(`Cancelación ${facObj.tipo} ${facObj.nroComprobante}`);
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 font-bold text-slate-900"
+                  >
+                    <option value="">-- Imputación Automática (Más antigua) --</option>
+                    {proveedores
+                      .find((p) => p.id === pagoProveedorId)
+                      ?.facturasAdeudadas.filter((f) => f.saldo > 0)
+                      .map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.tipo} {f.nroComprobante} — Saldo: ${f.saldo.toLocaleString('es-AR')}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">Beneficiario Eventual:</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej: VIÁTICOS OBRA / SERVICIO EVENTUAL"
+                    value={pagoProveedor}
+                    onChange={(e) => setPagoProveedor(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 uppercase"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-slate-600 font-bold mb-1">Monto de Egreso ($ ARS):</label>
@@ -702,16 +806,82 @@ export const TesoreriaModule: React.FC = () => {
 
             <form onSubmit={handleCrearCobro} className="space-y-4">
               <div>
-                <label className="block text-slate-600 font-bold mb-1">Cliente / Pagador:</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej: CONSTRUCTORA DEL OESTE S.A."
-                  value={cobroCliente}
-                  onChange={(e) => setCobroCliente(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 uppercase"
-                />
+                <label className="block text-[#042f22] font-bold mb-1">
+                  1. Seleccionar Cliente (Sincroniza Cuenta Corriente y Factura):
+                </label>
+                <select
+                  value={cobroClienteId}
+                  onChange={(e) => {
+                    const idCli = e.target.value;
+                    setCobroClienteId(idCli);
+                    setCobroFacturaId('');
+                    const cliObj = clientes.find((c) => c.id === idCli);
+                    if (cliObj) {
+                      setCobroCliente(cliObj.razonSocial);
+                      const primeraFac = cliObj.facturasAdeudadas.find((f) => f.saldo > 0);
+                      if (primeraFac) {
+                        setCobroFacturaId(primeraFac.id);
+                        setCobroMonto(primeraFac.saldo);
+                        setCobroConcepto(`Cobro ${primeraFac.tipo} ${primeraFac.nroComprobante}`);
+                      } else if (cliObj.saldo > 0) {
+                        setCobroMonto(cliObj.saldo);
+                      }
+                    }
+                  }}
+                  className="w-full px-2.5 py-1.5 bg-emerald-50 border border-emerald-400 font-bold text-[#042f22]"
+                >
+                  <option value="">-- Otro Pagador / Ingreso Eventual --</option>
+                  {clientes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.razonSocial} (CUIT: {c.cuit} · Saldo: ${c.saldo.toLocaleString('es-AR')})
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {cobroClienteId ? (
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    2. Factura Adeudada del Cliente a Cobrar:
+                  </label>
+                  <select
+                    value={cobroFacturaId}
+                    onChange={(e) => {
+                      const idFac = e.target.value;
+                      setCobroFacturaId(idFac);
+                      const cliObj = clientes.find((c) => c.id === cobroClienteId);
+                      const facObj = cliObj?.facturasAdeudadas.find((f) => f.id === idFac);
+                      if (facObj && facObj.saldo > 0) {
+                        setCobroMonto(facObj.saldo);
+                        setCobroConcepto(`Cobro ${facObj.tipo} ${facObj.nroComprobante}`);
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 font-bold text-slate-900"
+                  >
+                    <option value="">-- Imputación Automática (Más antigua) --</option>
+                    {clientes
+                      .find((c) => c.id === cobroClienteId)
+                      ?.facturasAdeudadas.filter((f) => f.saldo > 0)
+                      .map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.tipo} {f.nroComprobante} — Saldo: ${f.saldo.toLocaleString('es-AR')}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">Pagador Eventual:</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej: REINTEGRO / INGRESO EXTRAORDINARIO"
+                    value={cobroCliente}
+                    onChange={(e) => setCobroCliente(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 uppercase"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-slate-600 font-bold mb-1">Monto de Ingreso ($ ARS):</label>

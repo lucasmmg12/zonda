@@ -127,6 +127,8 @@ interface ErpContextValue {
     cuentaBancariaId?: string;
     nroCheque?: string;
     bancoCheque?: string;
+    facturaId?: string;
+    facturaNro?: string;
   }) => Promise<void>;
 
   // Acciones Proveedores y Compras
@@ -362,6 +364,190 @@ export function flattenCuentasContables(nodes: CuentaContable[]): CuentaContable
   return result;
 }
 
+const normalizarCuit = (cuit: string): string => (cuit || '').replace(/[^0-9]/g, '');
+
+// Motor de reconciliación bidireccional Clientes <-> FacturasVenta y Proveedores <-> FacturasCompra
+export function reconciliarRelacionesComprobantes(
+  clientesRaw: Cliente[],
+  proveedoresRaw: Proveedor[],
+  ventasRaw: ComprobanteVenta[],
+  comprasRaw: ComprobanteCompra[]
+): {
+  clientesReconciliados: Cliente[];
+  proveedoresReconciliados: Proveedor[];
+} {
+  const clientesList: Cliente[] = clientesRaw.map((c) => ({
+    ...c,
+    facturasAdeudadas: [...(c.facturasAdeudadas || [])],
+    movimientos: [...(c.movimientos || [])]
+  }));
+
+  const proveedoresList: Proveedor[] = proveedoresRaw.map((p) => ({
+    ...p,
+    facturasAdeudadas: [...(p.facturasAdeudadas || [])],
+    movimientos: [...(p.movimientos || [])]
+  }));
+
+  // 1. Reconciliar Ventas -> Clientes
+  for (const fv of ventasRaw) {
+    if (fv.estado === 'Anulado') continue;
+    const cuitFv = normalizarCuit(fv.clienteCuit);
+    const nroCompleto = `${fv.puntoVenta}-${fv.numero}`;
+    let cli = clientesList.find(
+      (c) =>
+        (cuitFv && normalizarCuit(c.cuit) === cuitFv) ||
+        c.razonSocial.trim().toUpperCase() === fv.clienteNombre.trim().toUpperCase()
+    );
+
+    if (!cli) {
+      cli = {
+        id: `CLI-AUTO-${clientesList.length + 1}`,
+        nombre: fv.clienteNombre.toUpperCase(),
+        razonSocial: fv.clienteNombre.toUpperCase(),
+        cuit: fv.clienteCuit,
+        condicionIva: fv.condicionIva || 'Responsable Inscripto',
+        domicilio: 'San Juan, Argentina',
+        telefono: '264-4200000',
+        email: 'administracion@cliente.com.ar',
+        saldo: 0,
+        activo: true,
+        listaPrecios: 'Lista General',
+        limiteCredito: 50000000,
+        vendedor: 'Administración Central',
+        facturasAdeudadas: [],
+        movimientos: []
+      };
+      clientesList.push(cli);
+    }
+
+    const tieneMov = cli.movimientos.some(
+      (m) => m.comprobante.includes(fv.numero) || m.comprobante.includes(nroCompleto)
+    );
+    const tieneAdeudada = cli.facturasAdeudadas.some(
+      (f) => f.nroComprobante.includes(fv.numero) || f.nroComprobante === nroCompleto
+    );
+
+    if (!tieneMov) {
+      const esNotaCredito = fv.tipo.toLowerCase().includes('crédito');
+      const importeAbs = Math.abs(fv.total);
+      const nuevoSaldo = esNotaCredito
+        ? Math.max(0, Number((cli.saldo - importeAbs).toFixed(2)))
+        : Number((cli.saldo + (tieneAdeudada ? 0 : importeAbs)).toFixed(2));
+
+      if (!tieneAdeudada && !esNotaCredito) {
+        cli.saldo = nuevoSaldo;
+        cli.facturasAdeudadas.unshift({
+          id: `FA-${fv.id}`,
+          nroComprobante: nroCompleto,
+          tipo: fv.tipo,
+          fechaEmision: fv.fechaEmision,
+          fechaPago: fv.fechaVencimiento || fv.fechaEmision,
+          descripcion: `Comprobante Electrónico ${fv.tipo} ${nroCompleto} (CAE ${fv.cae || 'Homologado'})`,
+          valorMe: 0,
+          total: importeAbs,
+          cobrado: 0,
+          saldo: importeAbs,
+          saldoAcumulado: cli.saldo
+        });
+      }
+
+      cli.movimientos.push({
+        id: `MOV-SYNC-${fv.id}`,
+        fecha: fv.fechaEmision,
+        comprobante: `${fv.tipo} ${nroCompleto}`,
+        concepto: `Comprobante Fiscal Asociado (${fv.tipo} ${nroCompleto})`,
+        debe: esNotaCredito ? 0 : importeAbs,
+        haber: esNotaCredito ? importeAbs : 0,
+        saldo: cli.saldo
+      });
+    }
+  }
+
+  // 2. Reconciliar Compras -> Proveedores
+  for (const fc of comprasRaw) {
+    const cuitFc = normalizarCuit(fc.proveedorCuit);
+    let prv = proveedoresList.find(
+      (p) =>
+        (cuitFc && normalizarCuit(p.cuit) === cuitFc) ||
+        p.razonSocial.trim().toUpperCase() === fc.proveedorNombre.trim().toUpperCase()
+    );
+
+    if (!prv) {
+      prv = {
+        id: `PRV-AUTO-${proveedoresList.length + 1}`,
+        nombre: fc.proveedorNombre.toUpperCase(),
+        razonSocial: fc.proveedorNombre.toUpperCase(),
+        cuit: fc.proveedorCuit,
+        condicionIva: 'Responsable Inscripto',
+        domicilio: 'San Juan, Argentina',
+        telefono: '264-4200000',
+        email: 'proveedores@empresa.com.ar',
+        saldo: 0,
+        activo: true,
+        cuentaGastoHabitual: fc.cuentaGasto || '5.1.01 Materiales e Insumos',
+        condicionPago: '30 días FF',
+        facturasAdeudadas: [],
+        movimientos: []
+      };
+      proveedoresList.push(prv);
+    }
+
+    const tieneMov = prv.movimientos.some((m) => m.comprobante.includes(fc.numero));
+    const tieneAdeudada = prv.facturasAdeudadas.some((f) => f.nroComprobante === fc.numero);
+
+    if (!tieneAdeudada && fc.estadoPago === 'Pendiente') {
+      if (!tieneMov) {
+        prv.saldo = Number((prv.saldo + fc.total).toFixed(2));
+      }
+      prv.facturasAdeudadas.unshift({
+        id: `FP-${fc.id}`,
+        nroComprobante: fc.numero,
+        tipo: fc.tipo,
+        fechaEmision: fc.fechaComprobante,
+        fechaPago: fc.fechaImputacion || fc.fechaComprobante,
+        descripcion: fc.cuentaGasto || 'Comprobante de compra asociado',
+        medioPagoPactado: fc.medioPagoPactado || 'Transferencia Bancaria Santander',
+        cantidadCuotas: 1,
+        cuotasPagadas: 0,
+        chequesAsociados: [],
+        valorMe: 0,
+        total: fc.total,
+        pagado: 0,
+        saldo: fc.total,
+        saldoAcumulado: prv.saldo
+      });
+    }
+
+    if (!tieneMov) {
+      prv.movimientos.push({
+        id: `MP-SYNC-${fc.id}`,
+        fecha: fc.fechaComprobante,
+        comprobante: `${fc.tipo} ${fc.numero}`,
+        concepto: `${fc.cuentaGasto || 'Factura de Compra'} [${fc.estadoPago === 'Pagado Total' ? 'PAGADO' : 'PENDIENTE DE PAGO'}]`,
+        debe: 0,
+        haber: fc.total,
+        saldo: prv.saldo
+      });
+      if (fc.estadoPago === 'Pagado Total') {
+        prv.movimientos.push({
+          id: `MP-SYNC-PAG-${fc.id}`,
+          fecha: fc.fechaImputacion || fc.fechaComprobante,
+          comprobante: `OP Canc. ${fc.numero}`,
+          concepto: `Cancelación de ${fc.tipo} ${fc.numero}`,
+          debe: fc.total,
+          haber: 0,
+          saldo: prv.saldo
+        });
+      }
+    }
+  }
+
+  return {
+    clientesReconciliados: clientesList,
+    proveedoresReconciliados: proveedoresList
+  };
+}
+
 export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const getInitialModule = (): ModuleKey => {
     const hash = window.location.hash.replace('#', '') as ModuleKey;
@@ -391,12 +577,18 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTenantId, setActiveTenantIdState] = useState<string>(() => loadActiveTenantId());
 
   const initialTenantSnap = loadTenantDataSnapshot(loadActiveTenantId());
+  const initialReconciliacion = reconciliarRelacionesComprobantes(
+    initialTenantSnap.clientes,
+    initialTenantSnap.proveedores,
+    initialTenantSnap.facturasVenta,
+    initialTenantSnap.facturasCompra
+  );
 
   const [empresa, setEmpresa] = useState<EmpresaConfig>(initialTenantSnap.empresa);
   const [empresaExtra, setEmpresaExtra] = useState<EmpresaDatosExtra>(initialTenantSnap.empresaExtra);
 
-  const [clientes, setClientes] = useState<Cliente[]>(initialTenantSnap.clientes);
-  const [proveedores, setProveedores] = useState<Proveedor[]>(initialTenantSnap.proveedores);
+  const [clientes, setClientes] = useState<Cliente[]>(initialReconciliacion.clientesReconciliados);
+  const [proveedores, setProveedores] = useState<Proveedor[]>(initialReconciliacion.proveedoresReconciliados);
   const [facturasVenta, setFacturasVenta] = useState<ComprobanteVenta[]>(initialTenantSnap.facturasVenta);
   const [facturasCompra, setFacturasCompra] = useState<ComprobanteCompra[]>(initialTenantSnap.facturasCompra);
   const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancaria[]>(initialTenantSnap.cuentasBancarias);
@@ -476,12 +668,18 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Cargar el snapshot aislado del nuevo tenant
     const snap = loadTenantDataSnapshot(nuevoTenantId);
+    const { clientesReconciliados, proveedoresReconciliados } = reconciliarRelacionesComprobantes(
+      snap.clientes,
+      snap.proveedores,
+      snap.facturasVenta,
+      snap.facturasCompra
+    );
     setActiveTenantIdState(nuevoTenantId);
     saveActiveTenantId(nuevoTenantId);
     setEmpresa(snap.empresa);
     setEmpresaExtra(snap.empresaExtra);
-    setClientes(snap.clientes);
-    setProveedores(snap.proveedores);
+    setClientes(clientesReconciliados);
+    setProveedores(proveedoresReconciliados);
     setFacturasVenta(snap.facturasVenta);
     setFacturasCompra(snap.facturasCompra);
     setCuentasBancarias(snap.cuentasBancarias);
@@ -711,19 +909,26 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       p.id === pendienteId ? { ...p, incorporadoAlErp: true } : p
     );
 
+    const nextAsientoNum =
+      snap.asientosContables.length > 0
+        ? Math.max(...snap.asientosContables.map((a) => a.numero)) + 1
+        : 4100;
+
     if (item.tipoFlujo === 'RECIBIDO_COMPRA') {
       const nuevaFcId = `FC-ARCA-${Date.now().toString().slice(-5)}`;
+      const nroCompleto = `${item.puntoVenta}-${item.numero}`;
+      const ivaTotal = Number((item.iva21 + item.iva105).toFixed(2));
       const nuevaFc: ComprobanteCompra = {
         id: nuevaFcId,
         tipo: item.tipoComprobante,
-        numero: `${item.puntoVenta}-${item.numero}`,
+        numero: nroCompleto,
         proveedorNombre: item.razonSocialContraparte,
         proveedorCuit: item.cuitContraparte,
         fechaComprobante: item.fechaEmision,
         fechaImputacion: item.fechaEmision,
         cuentaGasto: '5.1.01 - Compras Conciliadas desde Mis Comprobantes ARCA',
         netoGravado: item.netoGravado,
-        iva: Number((item.iva21 + item.iva105).toFixed(2)),
+        iva: ivaTotal,
         retencionIva: item.percepcionIva,
         retencionIIBB: item.percepcionIibb,
         total: item.total,
@@ -743,20 +948,54 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       };
 
+      const { clientesReconciliados, proveedoresReconciliados } = reconciliarRelacionesComprobantes(
+        snap.clientes,
+        snap.proveedores,
+        snap.facturasVenta,
+        nuevasCompras
+      );
+
+      const nuevoAsiento: AsientoContable = {
+        numero: nextAsientoNum,
+        fecha: item.fechaEmision,
+        concepto: `Compra ARCA ${item.tipoComprobante} ${nroCompleto} - ${item.razonSocialContraparte}`,
+        tipoOrigen: 'Compras',
+        renglones: [
+          { cuentaCodigo: '5.1.01', cuentaNombre: 'Materiales e Insumos Operativos', debe: item.netoGravado, haber: 0 },
+          {
+            cuentaCodigo: '2.1.02',
+            cuentaNombre: 'Cargas Fiscales e IVA Crédito Fiscal',
+            debe: Number((ivaTotal + item.percepcionIva + item.percepcionIibb).toFixed(2)),
+            haber: 0
+          },
+          { cuentaCodigo: '2.1.01', cuentaNombre: 'Proveedores Comerciales', debe: 0, haber: item.total }
+        ],
+        totalDebe: item.total,
+        totalHaber: item.total
+      };
+      const nuevosAsientos = [nuevoAsiento, ...snap.asientosContables];
+
       if (tenantId === activeTenantId) {
         setFacturasCompra(nuevasCompras);
+        setProveedores(proveedoresReconciliados);
+        setClientes(clientesReconciliados);
+        setAsientosContables(nuevosAsientos);
         setClasificacionesComprasArca(nuevasClasif);
         setPendientesMisComprobantesArca(nuevosPendientes);
       } else {
         saveTenantDataSnapshot(tenantId, {
           ...snap,
+          clientes: clientesReconciliados,
+          proveedores: proveedoresReconciliados,
           facturasCompra: nuevasCompras,
+          asientosContables: nuevosAsientos,
           clasificacionesComprasArca: nuevasClasif,
           pendientesMisComprobantesArca: nuevosPendientes
         });
       }
     } else {
       const nuevaFvId = `FV-ARCA-${Date.now().toString().slice(-5)}`;
+      const nroCompleto = `${item.puntoVenta}-${item.numero}`;
       const nuevaFv: ComprobanteVenta = {
         id: nuevaFvId,
         tipo: item.tipoComprobante,
@@ -776,13 +1015,42 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         caeVencimiento: item.fechaEmision
       };
       const nuevasVentas = [nuevaFv, ...snap.facturasVenta];
+      const { clientesReconciliados, proveedoresReconciliados } = reconciliarRelacionesComprobantes(
+        snap.clientes,
+        snap.proveedores,
+        nuevasVentas,
+        snap.facturasCompra
+      );
+
+      const totalImpuestos = Number((item.total - item.netoGravado).toFixed(2));
+      const nuevoAsiento: AsientoContable = {
+        numero: nextAsientoNum,
+        fecha: item.fechaEmision,
+        concepto: `Venta ARCA ${item.tipoComprobante} ${nroCompleto} - ${item.razonSocialContraparte}`,
+        tipoOrigen: 'Ventas',
+        renglones: [
+          { cuentaCodigo: '1.1.02', cuentaNombre: 'Créditos por Ventas (Clientes)', debe: item.total, haber: 0 },
+          { cuentaCodigo: '4.1', cuentaNombre: 'Ingresos por Ventas', debe: 0, haber: item.netoGravado },
+          { cuentaCodigo: '2.1.02', cuentaNombre: 'Cargas Fiscales e IVA Débito Fiscal', debe: 0, haber: totalImpuestos }
+        ],
+        totalDebe: item.total,
+        totalHaber: item.total
+      };
+      const nuevosAsientos = [nuevoAsiento, ...snap.asientosContables];
+
       if (tenantId === activeTenantId) {
         setFacturasVenta(nuevasVentas);
+        setClientes(clientesReconciliados);
+        setProveedores(proveedoresReconciliados);
+        setAsientosContables(nuevosAsientos);
         setPendientesMisComprobantesArca(nuevosPendientes);
       } else {
         saveTenantDataSnapshot(tenantId, {
           ...snap,
+          clientes: clientesReconciliados,
+          proveedores: proveedoresReconciliados,
           facturasVenta: nuevasVentas,
+          asientosContables: nuevosAsientos,
           pendientesMisComprobantesArca: nuevosPendientes
         });
       }
@@ -790,8 +1058,8 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     actualizarAutorizacionZondaCloud(tenantId, {}, {
       actor: 'Zonda Cloud (Cruce Mis Comprobantes ARCA)',
-      accion: `INCORPORACIÓN ${item.tipoFlujo === 'RECIBIDO_COMPRA' ? 'COMPRA' : 'VENTA'} ARCA`,
-      detalle: `Se incorporó ${item.tipoComprobante} ${item.puntoVenta}-${item.numero} (${item.razonSocialContraparte}) por $${item.total.toLocaleString('es-AR')}.`
+      accion: `INCORPORACIÓN ${item.tipoFlujo === 'RECIBIDO_COMPRA' ? 'COMPRA' : 'VENTA'} ARCA + CUENTA CORRIENTE`,
+      detalle: `Se incorporó ${item.tipoComprobante} ${item.puntoVenta}-${item.numero} (${item.razonSocialContraparte}) por $${item.total.toLocaleString('es-AR')} y se vinculó automáticamente a su Cuenta Corriente y Libro Diario.`
     });
   };
 
@@ -820,6 +1088,11 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const total = Number(
       (params.netoGravado + iva21 + iva105 + params.percepcionIva + params.percepcionIibb).toFixed(2)
     );
+    const nroCompleto = `${params.puntoVenta}-${params.numero}`;
+    const nextAsientoNum =
+      snap.asientosContables.length > 0
+        ? Math.max(...snap.asientosContables.map((a) => a.numero)) + 1
+        : 4100;
 
     if (params.flujo === 'VENTA') {
       const nuevaFv: ComprobanteVenta = {
@@ -833,7 +1106,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         clienteCuit: params.cuitContraparte,
         condicionIva: 'Responsable Inscripto',
         netoGravado: params.netoGravado,
-        iva21,
+        iva21: Number((iva21 + params.percepcionIva + params.percepcionIibb).toFixed(2)),
         iva105,
         total,
         estado: 'Aprobado AFIP',
@@ -841,27 +1114,57 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         caeVencimiento: params.fecha
       };
       const nuevasVentas = [nuevaFv, ...snap.facturasVenta];
+      const { clientesReconciliados, proveedoresReconciliados } = reconciliarRelacionesComprobantes(
+        snap.clientes,
+        snap.proveedores,
+        nuevasVentas,
+        snap.facturasCompra
+      );
+
+      const totalImpuestos = Number((total - params.netoGravado).toFixed(2));
+      const nuevoAsiento: AsientoContable = {
+        numero: nextAsientoNum,
+        fecha: params.fecha,
+        concepto: `Emisión Zonda Cloud ${params.tipo} ${nroCompleto} - ${params.razonSocialContraparte.toUpperCase()}`,
+        tipoOrigen: 'Ventas',
+        renglones: [
+          { cuentaCodigo: '1.1.02', cuentaNombre: 'Créditos por Ventas (Clientes)', debe: total, haber: 0 },
+          { cuentaCodigo: '4.1', cuentaNombre: 'Ingresos por Ventas', debe: 0, haber: params.netoGravado },
+          { cuentaCodigo: '2.1.02', cuentaNombre: 'Cargas Fiscales, IVA y Percepciones', debe: 0, haber: totalImpuestos }
+        ],
+        totalDebe: total,
+        totalHaber: total
+      };
+      const nuevosAsientos = [nuevoAsiento, ...snap.asientosContables];
+
       if (tenantId === activeTenantId) {
         setFacturasVenta(nuevasVentas);
+        setClientes(clientesReconciliados);
+        setProveedores(proveedoresReconciliados);
+        setAsientosContables(nuevosAsientos);
       } else {
         saveTenantDataSnapshot(tenantId, {
           ...snap,
-          facturasVenta: nuevasVentas
+          clientes: clientesReconciliados,
+          proveedores: proveedoresReconciliados,
+          facturasVenta: nuevasVentas,
+          asientosContables: nuevosAsientos
         });
       }
     } else {
       const nuevaFcId = `FC-ZC-${Date.now().toString().slice(-5)}`;
+      const ivaTotal = Number((iva21 + iva105).toFixed(2));
       const nuevaFc: ComprobanteCompra = {
         id: nuevaFcId,
         tipo: params.tipo,
-        numero: `${params.puntoVenta}-${params.numero}`,
+        numero: nroCompleto,
         proveedorNombre: params.razonSocialContraparte.toUpperCase(),
         proveedorCuit: params.cuitContraparte,
         fechaComprobante: params.fecha,
         fechaImputacion: params.fecha,
         cuentaGasto: params.descripcion || '5.1.01 - Compras y Servicios Imputados por Zonda Cloud',
         netoGravado: params.netoGravado,
-        iva: Number((iva21 + iva105).toFixed(2)),
+        iva: ivaTotal,
         retencionIva: params.percepcionIva,
         retencionIIBB: params.percepcionIibb,
         total,
@@ -881,13 +1184,46 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       };
 
+      const { clientesReconciliados, proveedoresReconciliados } = reconciliarRelacionesComprobantes(
+        snap.clientes,
+        snap.proveedores,
+        snap.facturasVenta,
+        nuevasCompras
+      );
+
+      const nuevoAsiento: AsientoContable = {
+        numero: nextAsientoNum,
+        fecha: params.fecha,
+        concepto: `Compra Zonda Cloud ${params.tipo} ${nroCompleto} - ${params.razonSocialContraparte.toUpperCase()}`,
+        tipoOrigen: 'Compras',
+        renglones: [
+          { cuentaCodigo: '5.1.01', cuentaNombre: 'Materiales e Insumos Operativos', debe: params.netoGravado, haber: 0 },
+          {
+            cuentaCodigo: '2.1.02',
+            cuentaNombre: 'Cargas Fiscales e IVA Crédito Fiscal',
+            debe: Number((ivaTotal + params.percepcionIva + params.percepcionIibb).toFixed(2)),
+            haber: 0
+          },
+          { cuentaCodigo: '2.1.01', cuentaNombre: 'Proveedores Comerciales', debe: 0, haber: total }
+        ],
+        totalDebe: total,
+        totalHaber: total
+      };
+      const nuevosAsientos = [nuevoAsiento, ...snap.asientosContables];
+
       if (tenantId === activeTenantId) {
         setFacturasCompra(nuevasCompras);
+        setProveedores(proveedoresReconciliados);
+        setClientes(clientesReconciliados);
+        setAsientosContables(nuevosAsientos);
         setClasificacionesComprasArca(nuevasClasif);
       } else {
         saveTenantDataSnapshot(tenantId, {
           ...snap,
+          clientes: clientesReconciliados,
+          proveedores: proveedoresReconciliados,
           facturasCompra: nuevasCompras,
+          asientosContables: nuevosAsientos,
           clasificacionesComprasArca: nuevasClasif
         });
       }
@@ -895,8 +1231,8 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     actualizarAutorizacionZondaCloud(tenantId, {}, {
       actor: 'Zonda Cloud (Gestión Delegada ARCA)',
-      accion: `ALTA DE ${params.flujo} FISCAL`,
-      detalle: `${params.tipo} ${params.puntoVenta}-${params.numero} (${params.razonSocialContraparte}) por $${total.toLocaleString('es-AR')}.`
+      accion: `ALTA DE ${params.flujo} FISCAL + ASOCIACIÓN CUENTA CORRIENTE`,
+      detalle: `${params.tipo} ${params.puntoVenta}-${params.numero} (${params.razonSocialContraparte}) por $${total.toLocaleString('es-AR')} vinculada al Cliente/Proveedor y Libro Diario.`
     });
   };
 
@@ -904,10 +1240,16 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDbStatus('sincronizando');
     if (activeTenantId !== 'TENANT-ECAR') {
       const snap = loadTenantDataSnapshot(activeTenantId);
+      const { clientesReconciliados, proveedoresReconciliados } = reconciliarRelacionesComprobantes(
+        snap.clientes,
+        snap.proveedores,
+        snap.facturasVenta,
+        snap.facturasCompra
+      );
       setEmpresa(snap.empresa);
       setEmpresaExtra(snap.empresaExtra);
-      setClientes(snap.clientes);
-      setProveedores(snap.proveedores);
+      setClientes(clientesReconciliados);
+      setProveedores(proveedoresReconciliados);
       setFacturasVenta(snap.facturasVenta);
       setFacturasCompra(snap.facturasCompra);
       setCuentasBancarias(snap.cuentasBancarias);
@@ -967,92 +1309,100 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      if (cliRes.data && cliRes.data.length > 0) {
-        setClientes(
-          cliRes.data.map((r: any) => ({
-            id: r.id,
-            nombre: r.nombre,
-            razonSocial: r.razon_social,
-            cuit: r.cuit,
-            condicionIva: r.condicion_iva,
-            domicilio: r.domicilio,
-            telefono: r.telefono,
-            email: r.email,
-            saldo: Number(r.saldo),
-            activo: r.activo,
-            listaPrecios: r.lista_precios,
-            limiteCredito: Number(r.limite_credito),
-            vendedor: r.vendedor,
-            facturasAdeudadas: r.facturas_adeudadas || [],
-            movimientos: r.movimientos || []
-          }))
-        );
-      }
+      const loadedClientes: Cliente[] =
+        cliRes.data && cliRes.data.length > 0
+          ? cliRes.data.map((r: any) => ({
+              id: r.id,
+              nombre: r.nombre,
+              razonSocial: r.razon_social,
+              cuit: r.cuit,
+              condicionIva: r.condicion_iva,
+              domicilio: r.domicilio,
+              telefono: r.telefono,
+              email: r.email,
+              saldo: Number(r.saldo),
+              activo: r.activo,
+              listaPrecios: r.lista_precios,
+              limiteCredito: Number(r.limite_credito),
+              vendedor: r.vendedor,
+              facturasAdeudadas: r.facturas_adeudadas || [],
+              movimientos: r.movimientos || []
+            }))
+          : clientes;
 
-      if (prvRes.data && prvRes.data.length > 0) {
-        setProveedores(
-          prvRes.data.map((r: any) => ({
-            id: r.id,
-            nombre: r.nombre,
-            razonSocial: r.razon_social,
-            cuit: r.cuit,
-            condicionIva: r.condicion_iva,
-            domicilio: r.domicilio,
-            telefono: r.telefono,
-            email: r.email,
-            saldo: Number(r.saldo),
-            activo: r.activo,
-            cuentaGastoHabitual: r.cuenta_gasto_habitual,
-            condicionPago: r.condicion_pago,
-            facturasAdeudadas: r.facturas_adeudadas || [],
-            movimientos: r.movimientos || []
-          }))
-        );
-      }
+      const loadedProveedores: Proveedor[] =
+        prvRes.data && prvRes.data.length > 0
+          ? prvRes.data.map((r: any) => ({
+              id: r.id,
+              nombre: r.nombre,
+              razonSocial: r.razon_social,
+              cuit: r.cuit,
+              condicionIva: r.condicion_iva,
+              domicilio: r.domicilio,
+              telefono: r.telefono,
+              email: r.email,
+              saldo: Number(r.saldo),
+              activo: r.activo,
+              cuentaGastoHabitual: r.cuenta_gasto_habitual,
+              condicionPago: r.condicion_pago,
+              facturasAdeudadas: r.facturas_adeudadas || [],
+              movimientos: r.movimientos || []
+            }))
+          : proveedores;
 
-      if (fvRes.data && fvRes.data.length > 0) {
-        setFacturasVenta(
-          fvRes.data.map((r: any) => ({
-            id: r.id,
-            tipo: r.tipo,
-            puntoVenta: r.punto_venta,
-            numero: r.numero,
-            fechaEmision: r.fecha_emision,
-            fechaVencimiento: r.fecha_vencimiento,
-            clienteNombre: r.cliente_nombre,
-            clienteCuit: r.cliente_cuit,
-            condicionIva: r.condicion_iva,
-            netoGravado: Number(r.neto_gravado),
-            iva21: Number(r.iva21),
-            iva105: Number(r.iva105),
-            total: Number(r.total),
-            estado: r.estado,
-            cae: r.cae || undefined,
-            caeVencimiento: r.cae_vencimiento || undefined
-          }))
-        );
-      }
+      const loadedVentas: ComprobanteVenta[] =
+        fvRes.data && fvRes.data.length > 0
+          ? fvRes.data.map((r: any) => ({
+              id: r.id,
+              tipo: r.tipo,
+              puntoVenta: r.punto_venta,
+              numero: r.numero,
+              fechaEmision: r.fecha_emision,
+              fechaVencimiento: r.fecha_vencimiento,
+              clienteNombre: r.cliente_nombre,
+              clienteCuit: r.cliente_cuit,
+              condicionIva: r.condicion_iva,
+              netoGravado: Number(r.neto_gravado),
+              iva21: Number(r.iva21),
+              iva105: Number(r.iva105),
+              total: Number(r.total),
+              estado: r.estado,
+              cae: r.cae || undefined,
+              caeVencimiento: r.cae_vencimiento || undefined
+            }))
+          : facturasVenta;
 
-      if (fcRes.data && fcRes.data.length > 0) {
-        setFacturasCompra(
-          fcRes.data.map((r: any) => ({
-            id: r.id,
-            tipo: r.tipo,
-            numero: r.numero,
-            proveedorNombre: r.proveedor_nombre,
-            proveedorCuit: r.proveedor_cuit,
-            fechaComprobante: r.fecha_comprobante,
-            fechaImputacion: r.fecha_imputacion,
-            cuentaGasto: r.cuenta_gasto,
-            netoGravado: Number(r.neto_gravado),
-            iva: Number(r.iva),
-            retencionIva: Number(r.retencion_iva),
-            retencionIIBB: Number(r.retencion_iibb),
-            total: Number(r.total),
-            estadoPago: r.estado_pago
-          }))
-        );
-      }
+      const loadedCompras: ComprobanteCompra[] =
+        fcRes.data && fcRes.data.length > 0
+          ? fcRes.data.map((r: any) => ({
+              id: r.id,
+              tipo: r.tipo,
+              numero: r.numero,
+              proveedorNombre: r.proveedor_nombre,
+              proveedorCuit: r.proveedor_cuit,
+              fechaComprobante: r.fecha_comprobante,
+              fechaImputacion: r.fecha_imputacion,
+              cuentaGasto: r.cuenta_gasto,
+              netoGravado: Number(r.neto_gravado),
+              iva: Number(r.iva),
+              retencionIva: Number(r.retencion_iva),
+              retencionIIBB: Number(r.retencion_iibb),
+              total: Number(r.total),
+              estadoPago: r.estado_pago
+            }))
+          : facturasCompra;
+
+      const { clientesReconciliados, proveedoresReconciliados } = reconciliarRelacionesComprobantes(
+        loadedClientes,
+        loadedProveedores,
+        loadedVentas,
+        loadedCompras
+      );
+
+      setClientes(clientesReconciliados);
+      setProveedores(proveedoresReconciliados);
+      setFacturasVenta(loadedVentas);
+      setFacturasCompra(loadedCompras);
 
       if (cbRes.data && cbRes.data.length > 0) {
         setCuentasBancarias(
@@ -1648,6 +1998,8 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     cuentaBancariaId?: string;
     nroCheque?: string;
     bancoCheque?: string;
+    facturaId?: string;
+    facturaNro?: string;
   }) => {
     const cliente = clientes.find((c) => c.id === params.clienteId);
     if (!cliente) return;
@@ -1656,21 +2008,41 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const nroRecibo = `0003-00000${Math.floor(415 + Math.random() * 500)}`;
     const nuevoSaldoCliente = Math.max(0, Number((cliente.saldo - params.monto).toFixed(2)));
 
-    // Imputar el cobro a las facturas adeudadas más antiguas
+    // Priorizar factura seleccionada si se indicó facturaId
+    const facturaObjetivo =
+      (params.facturaId && cliente.facturasAdeudadas.find((f) => f.id === params.facturaId)) ||
+      cliente.facturasAdeudadas.find((f) => f.saldo > 0);
+    const refComprobanteCobrado =
+      params.facturaNro ||
+      (facturaObjetivo ? `${facturaObjetivo.tipo} ${facturaObjetivo.nroComprobante}` : 'Cobro a Cuenta');
+
+    const ordenFacturas = params.facturaId
+      ? [
+          ...cliente.facturasAdeudadas.filter((f) => f.id === params.facturaId),
+          ...cliente.facturasAdeudadas.filter((f) => f.id !== params.facturaId)
+        ]
+      : cliente.facturasAdeudadas;
+
     let montoRestante = params.monto;
+    const mapActualizadas = new Map<string, FacturaAdeudada>();
+    for (const f of ordenFacturas) {
+      if (montoRestante <= 0 || f.saldo <= 0) {
+        mapActualizadas.set(f.id, f);
+        continue;
+      }
+      const imputado = Math.min(f.saldo, montoRestante);
+      montoRestante = Number((montoRestante - imputado).toFixed(2));
+      const nuevoSaldoFac = Number((f.saldo - imputado).toFixed(2));
+      mapActualizadas.set(f.id, {
+        ...f,
+        cobrado: Number((f.cobrado + imputado).toFixed(2)),
+        saldo: nuevoSaldoFac,
+        saldoAcumulado: nuevoSaldoCliente
+      });
+    }
+
     const nuevasAdeudadas = cliente.facturasAdeudadas
-      .map((f) => {
-        if (montoRestante <= 0 || f.saldo <= 0) return f;
-        const imputado = Math.min(f.saldo, montoRestante);
-        montoRestante = Number((montoRestante - imputado).toFixed(2));
-        const nuevoSaldoFac = Number((f.saldo - imputado).toFixed(2));
-        return {
-          ...f,
-          cobrado: Number((f.cobrado + imputado).toFixed(2)),
-          saldo: nuevoSaldoFac,
-          saldoAcumulado: nuevoSaldoCliente
-        };
-      })
+      .map((f) => mapActualizadas.get(f.id) || f)
       .filter((f) => f.saldo > 0);
 
     const clienteActualizado: Cliente = {
@@ -1683,7 +2055,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `MOV-${Date.now()}`,
           fecha: hoy,
           comprobante: `Recibo X ${nroRecibo}`,
-          concepto: `Cobro mediante ${params.medioCobro}`,
+          concepto: `Cobro mediante ${params.medioCobro} [Imputado a: ${refComprobanteCobrado}]`,
           debe: 0,
           haber: params.monto,
           saldo: nuevoSaldoCliente
@@ -1725,7 +2097,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cuentaId: targetCuentaId,
       tipo: 'REC',
       clienteProveedor: cliente.razonSocial,
-      descripcion: `Recibo X ${nroRecibo} (${params.medioCobro})`,
+      descripcion: `Recibo X ${nroRecibo} (${params.medioCobro}) [${refComprobanteCobrado}]`,
       ingresos: params.monto,
       egresos: 0,
       nroCheque: params.nroCheque
@@ -2227,6 +2599,28 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setProveedores((prev) => prev.map((p) => (p.id === proveedor.id ? proveedorActualizado : p)));
+
+    // Sincronizar estadoPago = 'Pagado Total' en facturasCompra para todas las facturas canceladas
+    const nrosCancelados = new Set<string>();
+    for (const [, fUpd] of mapActualizadas.entries()) {
+      if (fUpd.saldo <= 0) {
+        nrosCancelados.add(fUpd.nroComprobante);
+      }
+    }
+    if (nrosCancelados.size > 0) {
+      setFacturasCompra((prev) =>
+        prev.map((fc) =>
+          nrosCancelados.has(fc.numero) ? { ...fc, estadoPago: 'Pagado Total' } : fc
+        )
+      );
+      for (const nroCanc of nrosCancelados) {
+        supabase
+          .from('erp_comprobantes_compra')
+          .update({ estado_pago: 'Pagado Total' })
+          .eq('numero', nroCanc)
+          .then(() => {});
+      }
+    }
 
     await supabase.from('erp_proveedores').upsert({
       id: proveedorActualizado.id,
