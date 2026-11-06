@@ -480,21 +480,20 @@ export const ZondaCloudModule: React.FC = () => {
           </div>
         </div>
 
-        {/* GRILLA SELECTORA DE EMPRESAS (TENANTS AISLADOS) */}
+        {/* GRILLA SELECTORA DE USUARIOS / EMPRESAS EN ZONDA CLOUD */}
         <div className="mt-4 pt-4 border-t border-slate-200">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] font-mono font-bold text-slate-700 uppercase">
-              Seleccioná la Empresa (Tenant) a Auditar en Zonda Cloud o Activar en Zonda ERP:
+              Usuarios de Zonda ERP Registrados (Zonda Cloud solo gestiona a los usuarios que hayan aceptado):
             </span>
             <span className="text-[11px] font-mono text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 border border-emerald-200">
-              Aislamiento Multi-Tenant RLS: {tenants.length} Empresas Independientes
+              {tenants.filter((t) => t.autorizacionZondaCloud.autorizado).length} de {tenants.length} Usuarios Aceptaron
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {tenants.map((t) => {
               const isSelectedCloud = t.tenantId === tenantCloudActual.tenantId;
-              const isErpActive = t.tenantId === activeTenantId;
               const isAuthorized = t.autorizacionZondaCloud.autorizado;
 
               return (
@@ -515,12 +514,12 @@ export const ZondaCloudModule: React.FC = () => {
                       {isAuthorized ? (
                         <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1">
                           <Unlock className="w-3 h-3" />
-                          <span>AUTORIZADO EN ZONDA CLOUD</span>
+                          <span>USUARIO ACEPTÓ ✓</span>
                         </span>
                       ) : (
                         <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-rose-100 text-rose-900 border border-rose-300 flex items-center gap-1">
                           <Lock className="w-3 h-3" />
-                          <span>ACCESO CLOUD SIN AUTORIZAR</span>
+                          <span>SIN ACEPTAR DEL USUARIO</span>
                         </span>
                       )}
                     </div>
@@ -533,36 +532,25 @@ export const ZondaCloudModule: React.FC = () => {
                     <div className="mt-2 pt-2 border-t border-slate-200/80 flex items-center justify-between text-[10px] font-mono text-slate-600">
                       <span className="flex items-center gap-1">
                         <Users className="w-3 h-3 text-[#064e3b]" />
-                        {t.usuariosInternos.length} usuarios propios aislados
+                        Titular: {t.usuariosInternos[0]?.nombre || 'Usuario ERP'}
                       </span>
                       <span>{t.jurisdiccionPrincipal.split(' ')[0]}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between gap-2 pt-1">
-                    {isErpActive ? (
+                    {isAuthorized ? (
                       <span className="text-[10px] font-mono font-bold text-[#064e3b] bg-white px-2 py-1 border border-emerald-300">
-                        ● Activo ahora en Zonda ERP
+                        ● Gestión Cloud Habilitada
                       </span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          cambiarTenantActivo(t.tenantId);
-                          setSelectedCloudTenantId(t.tenantId);
-                          setAvisoOperacion(
-                            `✓ Cambiaste el entorno activo de Zonda ERP a "${t.razonSocial}" (CUIT ${t.cuit}). Todos los módulos muestran ahora únicamente los datos aislados de esta empresa.`
-                          );
-                        }}
-                        className="px-2.5 py-1 bg-white hover:bg-emerald-700 hover:text-white text-[#064e3b] border border-[#064e3b] text-[10px] font-mono font-bold uppercase transition-colors"
-                      >
-                        Abrir este Tenant en Zonda ERP
-                      </button>
+                      <span className="text-[10px] font-mono font-bold text-rose-800 bg-rose-50 px-2 py-1 border border-rose-300">
+                        🔒 Bloqueado (Falta aceptación)
+                      </span>
                     )}
 
                     <span className="text-[10px] font-mono font-bold text-slate-500">
-                      {isSelectedCloud ? 'Viendo en Cloud ▼' : 'Seleccionar'}
+                      {isSelectedCloud ? 'Seleccionado ▼' : 'Ver estado'}
                     </span>
                   </div>
                 </div>
@@ -588,54 +576,14 @@ export const ZondaCloudModule: React.FC = () => {
             <Lock className="w-6 h-6" />
           </div>
           <div className="text-[11px] font-mono font-bold text-rose-700 uppercase">
-            PROTECCIÓN DE PRIVACIDAD MULTI-TENANT // ACCESO DELEGADO REQUERIDO
+            PROTECCIÓN MULTI-TENANT // ACCESO BLOQUEADO EN ZONDA CLOUD
           </div>
           <h3 className="text-base font-extrabold text-slate-900 uppercase">
-            El usuario titular de &ldquo;{tenantCloudActual.razonSocial}&rdquo; ({tenantCloudActual.cuit}) aún no autorizó el acceso a Zonda Cloud
+            El usuario de &ldquo;{tenantCloudActual.razonSocial}&rdquo; ({tenantCloudActual.cuit}) NO ha aceptado la vinculación con Zonda Cloud
           </h3>
           <p className="text-xs text-slate-600 max-w-xl mx-auto leading-relaxed">
-            Por seguridad tributaria y aislamiento Multi-Tenant, <strong>Zonda Cloud no puede leer ni modificar Compras, Ventas ni Impuestos</strong> de una empresa sin la autorización expresa del administrador de su Zonda ERP.
+            En la arquitectura Multi-Tenant de Zonda ERP, <strong>cada usuario ve únicamente lo suyo</strong> y <strong>Zonda Cloud solo puede gestionar a los usuarios que hayan aceptado</strong>. Para desbloquear este cliente, su titular (<strong>{tenantCloudActual.usuariosInternos[0]?.nombre || 'Usuario Titular'}</strong>) debe iniciar sesión con su propio usuario de Zonda ERP y presionar el botón <strong>&ldquo;Aceptar Zonda Cloud&rdquo;</strong> en la barra superior o en <em>09 - Configuración Fiscal</em>.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => {
-                actualizarAutorizacionZondaCloud(
-                  tenantCloudActual.tenantId,
-                  {
-                    autorizado: true,
-                    fechaAutorizacion: new Date().toISOString().slice(0, 16).replace('T', ' '),
-                    tokenVinculacion: `ZCLOUD-ARCA-${tenantCloudActual.cuit.replace(/\D/g, '')}-OK`,
-                    autorizadoPorUsuarioErp:
-                      tenantCloudActual.usuariosInternos[0]?.nombre || 'Titular Zonda ERP'
-                  },
-                  {
-                    actor: `Usuario Zonda ERP (${tenantCloudActual.razonSocial})`,
-                    accion: 'OTORGAMIENTO DE AUTORIZACIÓN A ZONDA CLOUD',
-                    detalle: 'Se habilitó la gestión de Compras, Ventas y Liquidación de Impuestos ARCA.'
-                  }
-                );
-                setAvisoOperacion(
-                  `✓ Autorización concedida por el usuario de Zonda ERP de "${tenantCloudActual.razonSocial}". Ahora Zonda Cloud puede gestionar sus Compras, Ventas e Impuestos ARCA.`
-                );
-              }}
-              className="px-4 py-2 bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-mono font-bold uppercase flex items-center gap-2"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Autorizar Acceso desde Zonda ERP Ahora (Simular Consentimiento del Cliente)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                cambiarTenantActivo(tenantCloudActual.tenantId);
-                setActiveModule('configuracion');
-              }}
-              className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 text-xs font-mono font-bold uppercase"
-            >
-              Ir a Configuración Fiscal del Cliente (Módulo 09)
-            </button>
-          </div>
         </div>
       ) : (
         /* PANEL OPERATIVO ZONDA CLOUD PARA EL CLIENTE AUTORIZADO */

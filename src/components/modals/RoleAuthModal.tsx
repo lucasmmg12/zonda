@@ -25,7 +25,7 @@ export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
   operadorActual,
   onSelectOperador
 }) => {
-  const { setActiveModule } = useErp();
+  const { activeModule, setActiveModule, cambiarTenantActivo, tenants } = useErp();
   const [usuarios, setUsuarios] = useState<OperadorProfile[]>(getUsuariosList());
   const [selectedId, setSelectedId] = useState<string>(operadorActual.id);
   const [pinInput, setPinInput] = useState<string>('');
@@ -63,18 +63,34 @@ export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
       return;
     }
     if (pinInput.trim() !== '' && pinInput.trim() !== op.pin) {
-      setErrorMsg(`PIN incorrecto para ${op.rol}. Verifique el PIN asignado.`);
+      setErrorMsg(`PIN incorrecto para ${op.nombre}. Verifique el PIN asignado.`);
       return;
     }
 
     await cambiarOperadorActivo(op);
     onSelectOperador(op);
-    setStatusMsg(`Sesión activa cambiada a: ${op.rol} (${op.nombre})`);
+
+    if (op.esCuentaZondaCloud) {
+      setActiveModule('zondacloud');
+      setStatusMsg(
+        `Sesión iniciada en ZONDA CLOUD (${op.nombre}): Gestionando únicamente los usuarios que aceptaron vinculación.`
+      );
+    } else {
+      if (op.tenantId) {
+        cambiarTenantActivo(op.tenantId);
+      }
+      if (activeModule === 'zondacloud') {
+        setActiveModule('tablero');
+      }
+      setStatusMsg(
+        `Sesión aislada iniciada: ${op.nombre} — Viendo únicamente los datos de ${op.empresaNombre || 'su empresa'}.`
+      );
+    }
 
     setTimeout(() => {
       setStatusMsg(null);
       onClose();
-    }, 600);
+    }, 650);
   };
 
   const irModuloUsuarios = () => {
@@ -125,7 +141,7 @@ export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block font-bold text-[#042f22] uppercase">
-                Seleccionar Usuario / Rol Habilitado ({usuariosActivos.length} activos):
+                Seleccionar Cuenta de Usuario (Multi-Tenant Aislado o Consola Zonda Cloud):
               </label>
               <button
                 onClick={irModuloUsuarios}
@@ -139,6 +155,11 @@ export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
               {usuariosActivos.map((op) => {
                 const isSelected = op.id === candidato.id;
                 const isCurrent = op.id === operadorActual.id;
+                const tenantAsociado = op.tenantId
+                  ? tenants.find((t) => t.tenantId === op.tenantId)
+                  : undefined;
+                const aceptoZondaCloud = tenantAsociado?.autorizacionZondaCloud.autorizado ?? false;
+
                 return (
                   <div
                     key={op.id}
@@ -153,26 +174,42 @@ export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
                         : 'border-emerald-800/20 bg-white hover:bg-emerald-50/30'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-[#042f22] flex items-center gap-1.5 uppercase">
-                        <UserCheck className="w-3.5 h-3.5 text-[#047857]" />
-                        {op.rol}
+                    <div className="flex items-center justify-between mb-1 gap-1">
+                      <span className="font-bold text-[#042f22] flex items-center gap-1.5 uppercase text-[11px]">
+                        <UserCheck className="w-3.5 h-3.5 text-[#047857] shrink-0" />
+                        <span className="truncate">
+                          {op.esCuentaZondaCloud ? 'CUENTA ZONDA CLOUD (ARCA)' : 'USUARIO ZONDA ERP (AISLADO)'}
+                        </span>
                       </span>
                       {isCurrent && (
-                        <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-[#064e3b] border border-emerald-400 font-bold">
-                          ACTUAL
+                        <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-[#064e3b] border border-emerald-400 font-bold shrink-0">
+                          EN SESIÓN
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] font-semibold text-[#065f46]">{op.nombre}</div>
-                    <div className="text-[10px] text-[#357a59]">{op.email}</div>
+                    <div className="text-[11px] font-extrabold text-[#042f22]">{op.nombre}</div>
+                    <div className="text-[10px] font-mono font-bold text-[#047857] mt-0.5">
+                      {op.esCuentaZondaCloud
+                        ? 'MULTI-TENANT: Gestiona todos los usuarios que aceptaron'
+                        : `SOLO VE LO SUYO: ${op.empresaNombre || 'Su Empresa'} (${op.empresaCuit || ''})`}
+                    </div>
                     <p className="text-[10px] text-[#1e4635] mt-1 leading-snug line-clamp-2">
                       {op.descripcionPermisos}
                     </p>
                     <div className="mt-2 pt-1.5 border-t border-emerald-800/15 flex items-center justify-between text-[10px] tabular-nums">
-                      <span className="text-[#357a59] font-semibold">
-                        Módulos: {op.modulosPermitidos.length}/10
-                      </span>
+                      {op.esCuentaZondaCloud ? (
+                        <span className="px-1.5 py-0.5 bg-[#042f22] text-emerald-300 font-mono font-bold text-[9px]">
+                          PORTAL ESTUDIO CONTABLE
+                        </span>
+                      ) : aceptoZondaCloud ? (
+                        <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 font-mono font-bold text-[9px]">
+                          ✓ Aceptó Zonda Cloud
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 font-mono font-bold text-[9px]">
+                          ⚠ No aceptó Zonda Cloud
+                        </span>
+                      )}
                       <span className="font-bold text-[#064e3b]">PIN: {op.pin}</span>
                     </div>
                   </div>
@@ -184,7 +221,7 @@ export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
           <div className="p-3 bg-emerald-50/40 border border-emerald-800/25 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <KeyRound className="w-4 h-4 text-[#064e3b] shrink-0" />
-              <span className="font-bold text-[#042f22]">PIN de Autorización:</span>
+              <span className="font-bold text-[#042f22]">PIN de Acceso:</span>
               <input
                 type="password"
                 value={pinInput}
@@ -199,7 +236,7 @@ export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
               className="w-full sm:w-auto px-4 py-2 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase flex items-center justify-center gap-1.5 transition-colors"
             >
               <Lock className="w-3.5 h-3.5" />
-              <span>Activar: {candidato.rol}</span>
+              <span>Ingresar con: {candidato.nombre.split('(')[0].trim()}</span>
             </button>
           </div>
 

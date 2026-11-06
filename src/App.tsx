@@ -23,7 +23,7 @@ import {
 } from './services/usuariosRbacService';
 
 function AppLayout() {
-  const { activeModule, setActiveModule, empresa } = useErp();
+  const { activeModule, setActiveModule, empresa, activeTenantId, cambiarTenantActivo } = useErp();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [operadorActual, setOperadorActual] = useState<OperadorProfile>(getActiveOperator());
 
@@ -33,6 +33,13 @@ function AppLayout() {
     void sincronizarUsuariosDesdeSupabase().then(() => setOperadorActual(getActiveOperator()));
     return () => window.removeEventListener('zonda_usuarios_updated', syncOp);
   }, []);
+
+  // Aislamiento estricto por usuario: cada usuario de Zonda ERP ve únicamente su propia empresa (tenantId)
+  useEffect(() => {
+    if (!operadorActual.esCuentaZondaCloud && operadorActual.tenantId && activeTenantId !== operadorActual.tenantId) {
+      cambiarTenantActivo(operadorActual.tenantId);
+    }
+  }, [operadorActual, activeTenantId, cambiarTenantActivo]);
 
   const tienePermisoModulo =
     activeModule === 'usuarios' ||

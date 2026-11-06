@@ -31,6 +31,10 @@ export interface OperadorProfile {
   modulosPermitidos: ModuleKey[];
   permisosEspeciales: PermisosEspeciales;
   descripcionPermisos: string;
+  tenantId?: string;
+  empresaNombre?: string;
+  empresaCuit?: string;
+  esCuentaZondaCloud?: boolean;
 }
 
 export const TODOS_LOS_MODULOS: { key: ModuleKey; codigo: string; nombre: string; descripcion: string }[] = [
@@ -124,69 +128,88 @@ export const PLANTILLAS_ROLES: Record<
 
 export const OPERADORES_INICIALES: OperadorProfile[] = [
   {
-    id: 'USR-001',
-    nombre: 'Administrador General',
+    id: 'USR-ECAR-01',
+    nombre: 'Ing. Roberto Quiroga (Usuario ECAR S.A.S.)',
     rol: 'ADMINISTRADOR GENERAL',
-    email: 'admin@growsanjuan.com',
+    email: 'administracion@ecarconstrucciones.com',
     cuil: '20-31458920-4',
-    sector: 'Dirección General & Sistemas',
+    sector: 'Titular ERP · ECAR S.A.S.',
     pin: '1234',
     activo: true,
     fechaAlta: '2026-01-15',
     ultimoAcceso: '2026-10-30 12:25',
     modulosPermitidos: PLANTILLAS_ROLES['ADMINISTRADOR GENERAL'].modulos,
     permisosEspeciales: PLANTILLAS_ROLES['ADMINISTRADOR GENERAL'].permisos,
-    descripcionPermisos: PLANTILLAS_ROLES['ADMINISTRADOR GENERAL'].descripcion
+    descripcionPermisos:
+      'Usuario aislado de ECAR S.A.S. (CUIT 30-71875908-7). Ve únicamente sus clientes, ventas, compras, stock y bancos. Puede aceptar o revocar a Zonda Cloud.',
+    tenantId: 'TENANT-ECAR',
+    empresaNombre: 'ECAR S. A. S. (Zonda Core)',
+    empresaCuit: '30-71875908-7',
+    esCuentaZondaCloud: false
   },
   {
-    id: 'USR-002',
-    nombre: 'Contador / Auditoría Fiscal',
-    rol: 'CONTADOR / AUDITORÍA',
-    email: 'auditoria@growsanjuan.com',
-    cuil: '20-28941023-9',
-    sector: 'Contaduría e Impuestos',
-    pin: '2026',
+    id: 'USR-SAN-01',
+    nombre: 'Dr. Carlos Gómez (Usuario Sanatorio Argentino)',
+    rol: 'ADMINISTRADOR GENERAL',
+    email: 'direccion@sanatorioargentino.com.ar',
+    cuil: '20-24819201-3',
+    sector: 'Titular ERP · Sanatorio Argentino S.R.L.',
+    pin: '2222',
     activo: true,
     fechaAlta: '2026-02-01',
-    ultimoAcceso: '2026-10-29 18:40',
-    modulosPermitidos: PLANTILLAS_ROLES['CONTADOR / AUDITORÍA'].modulos,
+    ultimoAcceso: '2026-10-30 10:15',
+    modulosPermitidos: PLANTILLAS_ROLES['ADMINISTRADOR GENERAL'].modulos,
+    permisosEspeciales: PLANTILLAS_ROLES['ADMINISTRADOR GENERAL'].permisos,
+    descripcionPermisos:
+      'Usuario aislado de SANATORIO ARGENTINO S.R.L. (CUIT 30-60992686-0). Ve únicamente los datos de su clínica y obras sociales. Puede aceptar o revocar a Zonda Cloud.',
+    tenantId: 'TENANT-SANATORIO',
+    empresaNombre: 'SANATORIO ARGENTINO S.R.L.',
+    empresaCuit: '30-60992686-0',
+    esCuentaZondaCloud: false
+  },
+  {
+    id: 'USR-AND-01',
+    nombre: 'Lic. Martín Echegaray (Usuario Distribuidora Andina)',
+    rol: 'ADMINISTRADOR GENERAL',
+    email: 'gerencia@andinamayorista.com.ar',
+    cuil: '20-29104822-7',
+    sector: 'Titular ERP · Distribuidora Mayorista Andina S.A.',
+    pin: '3333',
+    activo: true,
+    fechaAlta: '2026-02-15',
+    ultimoAcceso: '2026-10-30 11:40',
+    modulosPermitidos: PLANTILLAS_ROLES['ADMINISTRADOR GENERAL'].modulos,
+    permisosEspeciales: PLANTILLAS_ROLES['ADMINISTRADOR GENERAL'].permisos,
+    descripcionPermisos:
+      'Usuario aislado de DISTRIBUIDORA MAYORISTA ANDINA S.A. (CUIT 30-71548921-9). Ve únicamente sus datos mayoristas. Puede aceptar o revocar a Zonda Cloud.',
+    tenantId: 'TENANT-ANDINA',
+    empresaNombre: 'DISTRIBUIDORA MAYORISTA ANDINA S.A.',
+    empresaCuit: '30-71548921-9',
+    esCuentaZondaCloud: false
+  },
+  {
+    id: 'USR-ZCLOUD-01',
+    nombre: 'Cra. Valeria Sánchez (Cuenta Zonda Cloud ARCA)',
+    rol: 'CONTADOR / AUDITORÍA',
+    email: 'estudio@zondacloud.com.ar',
+    cuil: '27-28941023-9',
+    sector: 'Consola Zonda Cloud · Liquidación ARCA Multi-Cliente',
+    pin: '2026',
+    activo: true,
+    fechaAlta: '2026-01-10',
+    ultimoAcceso: '2026-10-30 13:00',
+    modulosPermitidos: ['zondacloud'],
     permisosEspeciales: PLANTILLAS_ROLES['CONTADOR / AUDITORÍA'].permisos,
-    descripcionPermisos: PLANTILLAS_ROLES['CONTADOR / AUDITORÍA'].descripcion
-  },
-  {
-    id: 'USR-003',
-    nombre: 'Tesorería y Finanzas',
-    rol: 'TESORERÍA Y FINANZAS',
-    email: 'tesoreria@growsanjuan.com',
-    cuil: '27-33910482-1',
-    sector: 'Tesorería y Bancos',
-    pin: '5555',
-    activo: true,
-    fechaAlta: '2026-02-10',
-    ultimoAcceso: '2026-10-30 09:15',
-    modulosPermitidos: PLANTILLAS_ROLES['TESORERÍA Y FINANZAS'].modulos,
-    permisosEspeciales: PLANTILLAS_ROLES['TESORERÍA Y FINANZAS'].permisos,
-    descripcionPermisos: PLANTILLAS_ROLES['TESORERÍA Y FINANZAS'].descripcion
-  },
-  {
-    id: 'USR-004',
-    nombre: 'Facturación y Ventas',
-    rol: 'FACTURACIÓN Y VENTAS',
-    email: 'facturacion@growsanjuan.com',
-    cuil: '27-36819204-6',
-    sector: 'Comercial y Facturación AFIP',
-    pin: '1111',
-    activo: true,
-    fechaAlta: '2026-03-05',
-    ultimoAcceso: '2026-10-30 11:02',
-    modulosPermitidos: PLANTILLAS_ROLES['FACTURACIÓN Y VENTAS'].modulos,
-    permisosEspeciales: PLANTILLAS_ROLES['FACTURACIÓN Y VENTAS'].permisos,
-    descripcionPermisos: PLANTILLAS_ROLES['FACTURACIÓN Y VENTAS'].descripcion
+    descripcionPermisos:
+      'Cuenta Estudio Contable Zonda Cloud: Gestiona compras, ventas, todos los impuestos y balances ARCA EXCLUSIVAMENTE de los usuarios que hayan aceptado la vinculación.',
+    esCuentaZondaCloud: true,
+    empresaNombre: 'ZONDA CLOUD // HUB CONTABLE ARCA',
+    empresaCuit: '30-71654321-8'
   }
 ];
 
-const STORAGE_USUARIOS_KEY = 'zonda_usuarios_rbac_v2';
-const STORAGE_ACTIVE_OP_KEY = 'zonda_active_operator_v3';
+const STORAGE_USUARIOS_KEY = 'zonda_usuarios_rbac_v3';
+const STORAGE_ACTIVE_OP_KEY = 'zonda_active_operator_v4';
 const STORAGE_AUDIT_LOG_KEY = 'zonda_usuarios_audit_log_v1';
 
 export interface RbacAuditLogEntry {
@@ -286,16 +309,17 @@ function normalizeModulos(mods: string[]): ModuleKey[] {
 function normalizeUsuario(u: any): OperadorProfile {
   const rol = (u.rol || 'ADMINISTRADOR GENERAL') as RolOperador;
   const plantilla = PLANTILLAS_ROLES[rol] || PLANTILLAS_ROLES['ADMINISTRADOR GENERAL'];
+  const baseSeed = OPERADORES_INICIALES.find((op) => op.id === u.id);
   return {
     id: u.id || `USR-${Date.now()}`,
-    nombre: u.nombre || rol,
+    nombre: u.nombre || baseSeed?.nombre || rol,
     rol,
-    email: u.email || 'usuario@growsanjuan.com',
-    cuil: u.cuil || '',
-    sector: u.sector || 'Operaciones ERP',
-    pin: u.pin || '1234',
+    email: u.email || baseSeed?.email || 'usuario@growsanjuan.com',
+    cuil: u.cuil || baseSeed?.cuil || '',
+    sector: u.sector || baseSeed?.sector || 'Operaciones ERP',
+    pin: u.pin || baseSeed?.pin || '1234',
     activo: u.activo !== undefined ? Boolean(u.activo) : true,
-    fechaAlta: u.fechaAlta || new Date().toISOString().slice(0, 10),
+    fechaAlta: u.fechaAlta || baseSeed?.fechaAlta || new Date().toISOString().slice(0, 10),
     ultimoAcceso: u.ultimoAcceso || 'Sin accesos recientes',
     modulosPermitidos: Array.isArray(u.modulosPermitidos)
       ? normalizeModulos(u.modulosPermitidos)
@@ -303,7 +327,11 @@ function normalizeUsuario(u: any): OperadorProfile {
     permisosEspeciales: u.permisosEspeciales
       ? { ...plantilla.permisos, ...u.permisosEspeciales }
       : plantilla.permisos,
-    descripcionPermisos: u.descripcionPermisos || plantilla.descripcion
+    descripcionPermisos: u.descripcionPermisos || baseSeed?.descripcionPermisos || plantilla.descripcion,
+    tenantId: u.tenantId ?? baseSeed?.tenantId,
+    empresaNombre: u.empresaNombre ?? baseSeed?.empresaNombre,
+    empresaCuit: u.empresaCuit ?? baseSeed?.empresaCuit,
+    esCuentaZondaCloud: u.esCuentaZondaCloud !== undefined ? Boolean(u.esCuentaZondaCloud) : Boolean(baseSeed?.esCuentaZondaCloud)
   };
 }
 
@@ -348,11 +376,25 @@ export async function sincronizarUsuariosDesdeSupabase(): Promise<OperadorProfil
       .maybeSingle();
 
     if (!error && data?.afip_config && Array.isArray((data.afip_config as any).usuarios)) {
-      const remotos = (data.afip_config as any).usuarios.map(normalizeUsuario);
-      if (remotos.length > 0) {
+      const remotos: OperadorProfile[] = (data.afip_config as any).usuarios.map(normalizeUsuario);
+      const tieneMultiTenant = remotos.some((r) => r.tenantId || r.esCuentaZondaCloud);
+      if (remotos.length > 0 && tieneMultiTenant) {
         localStorage.setItem(STORAGE_USUARIOS_KEY, JSON.stringify(remotos));
         window.dispatchEvent(new Event('zonda_usuarios_updated'));
         return remotos;
+      } else {
+        // Actualizar registro remoto al esquema Multi-Tenant (usuarios aislados por empresa + Zonda Cloud)
+        localStorage.setItem(STORAGE_USUARIOS_KEY, JSON.stringify(OPERADORES_INICIALES));
+        await supabase.from('erp_integraciones_config').upsert(
+          {
+            id: 'USUARIOS_RBAC',
+            afip_config: { usuarios: OPERADORES_INICIALES },
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: 'id' }
+        );
+        window.dispatchEvent(new Event('zonda_usuarios_updated'));
+        return OPERADORES_INICIALES;
       }
     } else {
       // Inicializar en Supabase si aún no existe el registro USUARIOS_RBAC

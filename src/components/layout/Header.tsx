@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Bell, Search, X, BookOpen, ArrowRight, FileDown, Cloud, Building2, ChevronDown, Lock, Unlock } from 'lucide-react';
+import { Bell, Search, X, BookOpen, ArrowRight, FileDown, Cloud, Building2, Lock, Unlock, UserCheck } from 'lucide-react';
 import { EmpresaConfig } from '../../types/models';
 import { ManualesCentroAyudaModal } from '../modals/ManualesCentroAyudaModal';
 import { RoleAuthModal, getActiveOperator, OperadorProfile } from '../modals/RoleAuthModal';
@@ -51,12 +51,11 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
     tenants,
     activeTenantId,
     activeTenant,
-    cambiarTenantActivo
+    actualizarAutorizacionZondaCloud
   } = useErp();
 
   const [modalManualesOpen, setModalManualesOpen] = useState(false);
   const [modalRolesOpen, setModalRolesOpen] = useState(false);
-  const [showTenantSelector, setShowTenantSelector] = useState(false);
   const [operadorActual, setOperadorActual] = useState<OperadorProfile>(getActiveOperator());
 
   const mapModuleToManualId = (mod: string): string => {
@@ -474,123 +473,79 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
         </span>
 
         <div className="hidden md:flex items-center gap-2 pl-3 border-l border-emerald-800/20 whitespace-nowrap">
-          <button
-            type="button"
-            onClick={() => setShowTenantSelector(!showTenantSelector)}
-            title="Selector Multi-Tenant: Cambiar de Empresa / CUIT (Datos y Usuarios 100% Aislados)"
-            className="flex items-center gap-2 px-2.5 py-1 bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-800/30 transition-colors"
-          >
-            <Building2 className="w-3.5 h-3.5 text-[#064e3b] shrink-0" />
-            <span className="font-bold text-[#042f22] text-xs tracking-tight truncate max-w-[200px]">
-              {empresa.razonSocial}
-            </span>
-            <span className="text-[10px] px-1.5 py-0.2 bg-white text-[#064e3b] border border-emerald-700/25 font-mono font-bold">
-              CUIT {empresa.cuit}
-            </span>
-            <ChevronDown className="w-3.5 h-3.5 text-[#064e3b]" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveModule('zondacloud')}
-            title="Abrir Zonda Cloud (Consola Fiscal Delegada para Compras, Ventas y Liquidación ARCA)"
-            className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase border flex items-center gap-1 transition-colors ${
-              activeModule === 'zondacloud'
-                ? 'bg-[#042f22] text-emerald-300 border-[#042f22]'
-                : activeTenant?.autorizacionZondaCloud.autorizado
-                ? 'bg-emerald-100/80 hover:bg-emerald-200 text-[#042f22] border-emerald-400'
-                : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
-            }`}
-          >
-            <Cloud className="w-3.5 h-3.5" />
-            <span>Zonda Cloud</span>
-          </button>
-        </div>
-
-        {/* Desplegable Multi-Tenant */}
-        {showTenantSelector && (
-          <div className="absolute left-0 top-11 w-[440px] bg-white border-2 border-[#064e3b] shadow-2xl z-50 p-3 text-xs font-mono space-y-2">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <div>
-                <span className="font-bold text-[#042f22] uppercase block">
-                  ENTORNO MULTI-TENANT (EMPRESAS AISLADAS)
+          {operadorActual.esCuentaZondaCloud ? (
+            <div className="flex items-center gap-2 px-2.5 py-1 bg-[#042f22] text-emerald-200 border border-emerald-700 text-xs">
+              <Cloud className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+              <span className="font-bold uppercase tracking-tight">
+                SESIÓN ZONDA CLOUD (MULTICLIENTE ARCA)
+              </span>
+              <span className="text-[10px] px-1.5 py-0.2 bg-emerald-900 text-emerald-200 border border-emerald-600 font-mono font-bold">
+                {tenants.filter((t) => t.autorizacionZondaCloud.autorizado).length}/{tenants.length} Usuarios Aceptaron
+              </span>
+            </div>
+          ) : (
+            <>
+              <div
+                title="Entorno Aislado Multi-Tenant: Tu usuario ve únicamente los datos de tu propia empresa"
+                className="flex items-center gap-2 px-2.5 py-1 bg-emerald-50/70 border border-emerald-800/30"
+              >
+                <Building2 className="w-3.5 h-3.5 text-[#064e3b] shrink-0" />
+                <span className="font-bold text-[#042f22] text-xs tracking-tight truncate max-w-[200px]">
+                  {empresa.razonSocial}
                 </span>
-                <span className="text-[10px] text-slate-500 font-sans">
-                  Cada empresa tiene sus propios usuarios, clientes, compras, ventas y stock sin mezclarse.
+                <span className="text-[10px] px-1.5 py-0.2 bg-white text-[#064e3b] border border-emerald-700/25 font-mono font-bold">
+                  CUIT {empresa.cuit}
+                </span>
+                <span className="text-[9px] px-1.5 py-0.2 bg-[#064e3b] text-white font-mono font-bold uppercase">
+                  SOLO LO MÍO
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowTenantSelector(false)}
-                className="text-slate-400 hover:text-slate-700"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            <div className="space-y-1.5 max-h-64 overflow-y-auto">
-              {tenants.map((t) => {
-                const isCurrent = t.tenantId === activeTenantId;
-                return (
-                  <button
-                    key={t.tenantId}
-                    type="button"
-                    onClick={() => {
-                      cambiarTenantActivo(t.tenantId);
-                      setShowTenantSelector(false);
-                    }}
-                    className={`w-full text-left p-2.5 border transition-colors flex items-center justify-between gap-2 ${
-                      isCurrent
-                        ? 'bg-emerald-50 border-[#064e3b]'
-                        : 'bg-white hover:bg-slate-50 border-slate-200'
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-slate-900 truncate">{t.razonSocial}</span>
-                        {isCurrent && (
-                          <span className="px-1.5 py-0.2 bg-[#064e3b] text-white text-[9px] font-bold uppercase">
-                            ACTIVO
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-slate-500 block">
-                        CUIT {t.cuit} · {t.usuariosInternos.length} usuarios aislados
-                      </span>
-                    </div>
-                    <div className="shrink-0">
-                      {t.autorizacionZondaCloud.autorizado ? (
-                        <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 text-[9px] font-bold flex items-center gap-1">
-                          <Unlock className="w-2.5 h-2.5" />
-                          <span>Cloud OK</span>
-                        </span>
-                      ) : (
-                        <span className="px-1.5 py-0.5 bg-rose-100 text-rose-900 border border-rose-300 text-[9px] font-bold flex items-center gap-1">
-                          <Lock className="w-2.5 h-2.5" />
-                          <span>Restringido</span>
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => {
-                  setShowTenantSelector(false);
-                  setActiveModule('zondacloud');
+                  const nuevoEstado = !activeTenant?.autorizacionZondaCloud.autorizado;
+                  actualizarAutorizacionZondaCloud(
+                    activeTenantId,
+                    {
+                      autorizado: nuevoEstado,
+                      fechaAutorizacion: nuevoEstado
+                        ? new Date().toISOString().slice(0, 16).replace('T', ' ')
+                        : activeTenant?.autorizacionZondaCloud.fechaAutorizacion || ''
+                    },
+                    {
+                      actor: `${operadorActual.nombre} (${empresa.razonSocial})`,
+                      accion: nuevoEstado
+                        ? 'ACEPTACIÓN DE GESTIÓN DESDE ZONDA CLOUD'
+                        : 'REVOCACIÓN DE ACCESO A ZONDA CLOUD',
+                      detalle: nuevoEstado
+                        ? 'El usuario aceptó que Zonda Cloud gestione sus Compras, Ventas, Impuestos y Balances ARCA.'
+                        : 'El usuario revocó el permiso de Zonda Cloud sobre su empresa.'
+                    }
+                  );
                 }}
-                className="w-full py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase text-[11px] flex items-center justify-center gap-1.5"
+                title="Aceptar o revocar que Zonda Cloud pueda gestionar tus Compras, Ventas, Impuestos y Balances ARCA"
+                className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase border flex items-center gap-1 transition-colors ${
+                  activeTenant?.autorizacionZondaCloud.autorizado
+                    ? 'bg-emerald-100/90 hover:bg-emerald-200 text-[#042f22] border-emerald-500'
+                    : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400'
+                }`}
               >
-                <Cloud className="w-3.5 h-3.5" />
-                <span>Ir a Consola Zonda Cloud (Liquidar Impuestos ARCA)</span>
+                {activeTenant?.autorizacionZondaCloud.autorizado ? (
+                  <>
+                    <Unlock className="w-3 h-3 text-[#064e3b]" />
+                    <span>Zonda Cloud: Aceptado ✓</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-3 h-3 text-amber-800" />
+                    <span>Aceptar Zonda Cloud</span>
+                  </>
+                )}
               </button>
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Derecha: Buscador Global 100% Funcional + Manuales + Alertas + Operador */}
@@ -767,17 +722,19 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           )}
         </div>
 
-        {/* Perfil Usuario Operador (Control de Acceso RBAC) */}
+        {/* Perfil Usuario Operador (Cambiar de Usuario Aislado o entrar como Zonda Cloud) */}
         <button
           onClick={() => setModalRolesOpen(true)}
-          title="Cambiar Operador / Control de Roles y Permisos (RBAC)"
-          className="h-8 flex items-center gap-2 pl-2 pr-2.5 border border-emerald-800/25 bg-emerald-50/30 hover:bg-emerald-50 transition-colors whitespace-nowrap"
+          title="Cambiar de Usuario Aislado (cada usuario ve solo lo suyo) o ingresar como Cuenta Zonda Cloud"
+          className="h-8 flex items-center gap-2 pl-2 pr-2.5 border border-emerald-800/35 bg-emerald-50/60 hover:bg-emerald-100/80 transition-colors whitespace-nowrap"
         >
           <div className="w-5 h-5 bg-[#064e3b] text-white flex items-center justify-center font-bold text-[10px] shrink-0">
-            {operadorActual.rol.slice(0, 2).toUpperCase()}
+            <UserCheck className="w-3.5 h-3.5 text-emerald-300" />
           </div>
-          <span className="hidden xl:inline text-[10px] font-bold text-[#042f22] tracking-wide uppercase whitespace-nowrap">
-            {operadorActual.rol}
+          <span className="hidden lg:inline text-[10px] font-bold text-[#042f22] tracking-wide uppercase whitespace-nowrap">
+            {operadorActual.esCuentaZondaCloud
+              ? 'Cuenta Zonda Cloud'
+              : operadorActual.nombre.split('(')[0].trim()}
           </span>
         </button>
       </div>
