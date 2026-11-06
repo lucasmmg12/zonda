@@ -12,7 +12,8 @@ import {
   ChevronRight,
   ShieldCheck,
   Lock,
-  BadgeDollarSign
+  BadgeDollarSign,
+  Cloud
 } from 'lucide-react';
 import { getActiveOperator, OperadorProfile } from '../../services/usuariosRbacService';
 
@@ -26,7 +27,8 @@ export type ModuleKey =
   | 'sueldos'
   | 'migracion'
   | 'configuracion'
-  | 'usuarios';
+  | 'usuarios'
+  | 'zondacloud';
 
 interface SidebarProps {
   activeModule: ModuleKey;
@@ -59,7 +61,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { key: 'sueldos', label: 'Sueldos y Cargas', icon: BadgeDollarSign, code: '07', badge: 'LSD' },
     { key: 'migracion', label: 'Centro de Migración', icon: ArrowRightLeft, code: '08', badge: 'HUB' },
     { key: 'configuracion', label: 'Configuración Fiscal', icon: Settings, code: '09' },
-    { key: 'usuarios', label: 'Usuarios y Accesos', icon: ShieldCheck, code: '10', badge: 'RBAC' }
+    { key: 'usuarios', label: 'Usuarios y Accesos', icon: ShieldCheck, code: '10', badge: 'RBAC' },
+    { key: 'zondacloud', label: 'Zonda Cloud (ARCA)', icon: Cloud, code: '11', badge: 'CLOUD' }
   ];
 
   return (
@@ -103,7 +106,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const isActive = activeModule === item.key;
             const tienePermiso =
               item.key === 'usuarios' ||
+              item.key === 'zondacloud' ||
               operadorActual.rol === 'ADMINISTRADOR GENERAL' ||
+              operadorActual.rol === 'CONTADOR / AUDITORÍA' ||
               operadorActual.modulosPermitidos.includes(item.key);
             return (
               <button

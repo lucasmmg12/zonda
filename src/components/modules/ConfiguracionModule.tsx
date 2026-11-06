@@ -36,7 +36,10 @@ export const ConfiguracionModule: React.FC = () => {
     registrarCobroCliente,
     dbStatus,
     lastSync,
-    refreshAllFromDb
+    refreshAllFromDb,
+    activeTenant,
+    actualizarAutorizacionZondaCloud,
+    setActiveModule
   } = useErp();
 
   const [modalConexionesOpen, setModalConexionesOpen] = useState(false);
@@ -50,7 +53,7 @@ export const ConfiguracionModule: React.FC = () => {
 
   // Pestaña activa superior
   const [tabActiva, setTabActiva] = useState<
-    'generales' | 'impositivos' | 'clientes_proveedores' | 'talonarios' | 'portal' | 'tesoreria' | 'integraciones' | 'costos'
+    'generales' | 'impositivos' | 'clientes_proveedores' | 'talonarios' | 'portal' | 'tesoreria' | 'integraciones' | 'costos' | 'zonda_cloud'
   >('generales');
 
   // Integraciones (AFIP & Mercado Pago)
@@ -297,7 +300,8 @@ export const ConfiguracionModule: React.FC = () => {
           { key: 'integraciones', label: 'Integraciones AFIP & Mercado Pago' },
           { key: 'portal', label: 'Portal Clientes' },
           { key: 'tesoreria', label: 'Tesorería' },
-          { key: 'costos', label: 'Centros de Costos' }
+          { key: 'costos', label: 'Centros de Costos' },
+          { key: 'zonda_cloud', label: 'Autorización Zonda Cloud (ARCA)' }
         ].map((tab) => {
           const isActive = tabActiva === tab.key;
           return (
@@ -1493,6 +1497,150 @@ export const ConfiguracionModule: React.FC = () => {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* CONTENIDO PESTAÑA: AUTORIZACIÓN ZONDA CLOUD (DELEGACIÓN IMPOSITIVA ARCA) */}
+      {tabActiva === 'zonda_cloud' && activeTenant && (
+        <div className="bg-white border border-slate-300 p-6 font-mono text-xs space-y-5">
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-4">
+            <div className="space-y-1">
+              <span className="px-2 py-0.5 bg-emerald-100 text-[#042f22] text-[10px] font-bold uppercase border border-emerald-300">
+                CONSENTIMIENTO DEL TITULAR DE ZONDA ERP // AISLAMIENTO MULTI-TENANT
+              </span>
+              <h3 className="text-sm font-extrabold text-slate-900 uppercase pt-1">
+                DELEGACIÓN DE GESTIÓN DE COMPRAS, VENTAS E IMPUESTOS HACIA ZONDA CLOUD ({activeTenant.razonSocial})
+              </h3>
+              <p className="text-[11px] text-slate-600 font-sans max-w-2xl">
+                Tus usuarios, stock, cajas y sueldos pertenecen exclusivamente a <strong>{activeTenant.razonSocial} (CUIT {activeTenant.cuit})</strong> y no se mezclan con ninguna otra empresa. Desde aquí podés autorizar o revocar que el estudio contable opere en <strong>Zonda Cloud</strong> sobre tus Compras y Ventas para liquidar impuestos ante <strong>ARCA</strong>.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {activeTenant.autorizacionZondaCloud.autorizado ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    actualizarAutorizacionZondaCloud(
+                      activeTenant.tenantId,
+                      { autorizado: false },
+                      {
+                        actor: `Titular Zonda ERP (${activeTenant.razonSocial})`,
+                        accion: 'REVOCACIÓN DE ACCESO ZONDA CLOUD',
+                        detalle: 'Revocado desde Configuración de la Empresa (Módulo 09).'
+                      }
+                    )
+                  }
+                  className="px-4 py-2 bg-rose-700 hover:bg-rose-800 text-white font-bold uppercase text-xs"
+                >
+                  Revocar Autorización a Zonda Cloud
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    actualizarAutorizacionZondaCloud(
+                      activeTenant.tenantId,
+                      {
+                        autorizado: true,
+                        fechaAutorizacion: new Date().toISOString().slice(0, 16).replace('T', ' '),
+                        tokenVinculacion: `ZCLOUD-ARCA-${activeTenant.cuit.replace(/\D/g, '')}-OK`,
+                        autorizadoPorUsuarioErp: `Administrador (${activeTenant.razonSocial})`
+                      },
+                      {
+                        actor: `Titular Zonda ERP (${activeTenant.razonSocial})`,
+                        accion: 'OTORGAMIENTO DE AUTORIZACIÓN ZONDA CLOUD',
+                        detalle: 'Habilitado desde Configuración de la Empresa (Módulo 09).'
+                      }
+                    )
+                  }
+                  className="px-4 py-2 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase text-xs"
+                >
+                  Autorizar Vinculación con Zonda Cloud
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setActiveModule('zondacloud')}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold uppercase text-xs"
+              >
+                Abrir Consola Zonda Cloud →
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-slate-50 border border-slate-300 space-y-2.5">
+              <h4 className="font-bold text-slate-900 uppercase border-b border-slate-200 pb-1.5">
+                Estado del Puente de Autorización
+              </h4>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Estado Actual:</span>
+                <span
+                  className={`font-extrabold uppercase ${
+                    activeTenant.autorizacionZondaCloud.autorizado ? 'text-emerald-700' : 'text-rose-700'
+                  }`}
+                >
+                  {activeTenant.autorizacionZondaCloud.autorizado
+                    ? '✓ AUTORIZADO Y ACTIVO'
+                    : '✕ ACCESO BLOQUEADO / SIN AUTORIZAR'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Token de Vinculación ARCA:</span>
+                <span className="font-bold text-slate-900">
+                  {activeTenant.autorizacionZondaCloud.tokenVinculacion}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Estudio / Hub Autorizado:</span>
+                <span className="font-bold text-slate-900">
+                  {activeTenant.autorizacionZondaCloud.estudioContableNombre}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Autorizado por:</span>
+                <span className="font-bold text-slate-900">
+                  {activeTenant.autorizacionZondaCloud.autorizadoPorUsuarioErp}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-4 bg-emerald-50/50 border border-emerald-300 space-y-2">
+              <h4 className="font-bold text-[#042f22] uppercase border-b border-emerald-200 pb-1.5">
+                Permisos Delegados a Zonda Cloud (Bajo Normativa ARCA)
+              </h4>
+              {[
+                { key: 'gestionarVentasArca', label: 'Auditar, importar y ajustar Compras y Ventas del período' },
+                { key: 'gestionarComprasArca', label: 'Clasificar Crédito Fiscal Computable / Prorrateo Art. 13 Ley IVA' },
+                { key: 'cruzarMisComprobantesArca', label: 'Cruzar con servicio "Mis Comprobantes Emitidos/Recibidos" de ARCA' },
+                { key: 'liquidarIvaDigitalF2002', label: 'Generar Libro IVA Digital (RG 4597) y DDJJ IVA F.2002' },
+                { key: 'liquidarRetencionesSireSicore', label: 'Liquidar Retenciones y Percepciones (SICORE / SIRE)' },
+                { key: 'liquidarIibbSifere', label: 'Liquidar Ingresos Brutos (DGR / Convenio Multilateral SIFERE)' }
+              ].map((perm) => {
+                const k = perm.key as keyof typeof activeTenant.autorizacionZondaCloud.permisos;
+                const val = activeTenant.autorizacionZondaCloud.permisos[k];
+                return (
+                  <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={val}
+                      onChange={(e) =>
+                        actualizarAutorizacionZondaCloud(activeTenant.tenantId, {
+                          permisos: {
+                            ...activeTenant.autorizacionZondaCloud.permisos,
+                            [k]: e.target.checked
+                          }
+                        })
+                      }
+                    />
+                    <span className="text-[11px] text-slate-800">{perm.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 

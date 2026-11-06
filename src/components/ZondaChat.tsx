@@ -52,7 +52,8 @@ const MODULE_LABELS: Record<ModuleKey, string> = {
   sueldos: '07 · Sueldos, Legajos y Libro Sueldos Digital',
   migracion: '08 · Centro de Migración ERP (Dry-Run)',
   configuracion: '09 · Configuración Fiscal, ARCA y Mercado Pago',
-  usuarios: '10 · Usuarios, Roles y Accesos (RBAC)'
+  usuarios: '10 · Usuarios, Roles y Accesos (RBAC)',
+  zondacloud: '11 · Zonda Cloud (Liquidación Impositiva ARCA Delegada)'
 };
 
 const MODULE_QUICK_ACTIONS: Record<
@@ -118,6 +119,12 @@ const MODULE_QUICK_ACTIONS: Record<
     { icon: Users, label: 'Operador en sesión', prompt: '¿Qué rol está en sesión activa ahora y qué permisos tiene?' },
     { icon: Zap, label: 'Matriz de permisos', prompt: 'Explicame qué módulos puede operar cada rol del sistema.' },
     { icon: Download, label: 'Exportar Padrón RBAC', prompt: 'Quiero exportar el padrón de usuarios y permisos en Excel CSV.' }
+  ],
+  zondacloud: [
+    { icon: Receipt, label: 'Posición IVA F.2002', prompt: 'Calculá mi Posición de IVA actual (Débito vs Crédito Fiscal).' },
+    { icon: Download, label: 'Descargar Libro IVA RG 4597', prompt: 'Quiero descargar el Libro IVA Ventas y Compras para AFIP' },
+    { icon: Building2, label: 'Estado Multi-Tenant', prompt: '¿Cómo está la empresa hoy? Dame el resumen ejecutivo completo.' },
+    { icon: ShieldCheck, label: 'Auditoría ARCA', prompt: 'Auditá si todos los clientes y proveedores tienen CUIT válido cargado.' }
   ]
 };
 
@@ -175,6 +182,11 @@ const MODULE_IDLE_PHRASES: Record<ModuleKey, string[]> = {
     '🛡️ Auditando roles y permisos RBAC...',
     '🔑 Controlando accesos por módulo...',
     '👤 Padrón de usuarios sincronizado en vivo'
+  ],
+  zondacloud: [
+    '☁️ Auditando Compras y Ventas en Zonda Cloud ARCA...',
+    '🧾 Calculando DDJJ IVA F.2002 y Prorrateo Art. 13...',
+    '🔒 Aislamiento Multi-Tenant por CUIT activo'
   ]
 };
 
@@ -276,6 +288,16 @@ const MODULE_CAPABILITIES: Record<
       'Exportar la **Matriz de Usuarios y Permisos en Excel (`.CSV`)** desde el chat'
     ],
     proTip: 'En el Módulo 10 podés dar de alta o quitar usuarios y cambiar permisos con un solo clic.'
+  },
+  zondacloud: {
+    where: '11 · Zonda Cloud (Liquidación Impositiva ARCA Delegada)',
+    capabilities: [
+      'Operar en entorno **Multi-Tenant** con aislamiento total de usuarios y datos por CUIT',
+      'Gestionar **Compras y Ventas** de las empresas que te otorgaron autorización desde Zonda ERP',
+      'Clasificar **Crédito Fiscal Computable / Prorrateo Art. 13** y cruzar **Mis Comprobantes ARCA**',
+      'Liquidar **IVA F.2002, Libro IVA Digital RG 4597 (.TXT), SICORE/SIRE e IIBB**'
+    ],
+    proTip: 'El titular de Zonda ERP puede otorgar o revocar el acceso delegado a Zonda Cloud en cualquier momento.'
   }
 };
 

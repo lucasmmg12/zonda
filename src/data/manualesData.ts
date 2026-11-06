@@ -110,6 +110,7 @@ export const MANUALES_ZONDA_ERP: SeccionManual[] = [
     funcionesPrincipales: [
       'Padrón de Clientes con alta rápida, condición frente al IVA y estado de Cuenta Corriente.',
       'Emisión de Facturas A, Facturas B, Facturas C, Notas de Crédito y Notas de Débito.',
+      'Vinculación de Artículos de Inventario en el comprobante de venta con descuento automático de unidades físicas y validación de stock disponible.',
       'Obtención automática de CAE (14 dígitos) y fecha de vencimiento vía Web Service ARCA (WSFEv1).',
       'Generación de Cobro Digital con Mercado Pago (Checkout Pro Link + QR Interoperable Transferencias 3.0).',
       'Registro de Cobranzas (Efectivo, Transferencia Bancaria, Cheque de Terceros o Mercado Pago) con impacto automático en Tesorería y Contabilidad.',
@@ -126,12 +127,12 @@ export const MANUALES_ZONDA_ERP: SeccionManual[] = [
       },
       {
         numero: 2,
-        titulo: 'Emitir una Factura Electrónica con CAE de ARCA (ex-AFIP)',
+        titulo: 'Emitir una Factura Electrónica con CAE de ARCA y Descuento de Stock',
         descripcion:
-          'Haga clic en "+ Nueva Factura de Venta". Seleccione el Cliente, el Tipo de Comprobante (ej. Factura A o B), Punto de Venta (ej. 0001), agregue los ítems o conceptos con su alícuota de IVA (21%, 10.5% o 0%) y presione "Emitir y Autorizar CAE".',
+          'Haga clic en "+ Nueva Factura de Venta". Seleccione el Cliente, el Tipo de Comprobante (ej. Factura A o B), Punto de Venta (ej. 0001) y agregue los renglones seleccionando artículos del Inventario (o conceptos libres). Si selecciona un artículo físico, el sistema verifica el stock disponible y descuenta automáticamente las unidades vendidas al confirmar.',
         accionClave: 'Botón "Emitir Factura" en el modal de facturación.',
         impactoContableODb:
-          '1) Invoca la Edge Function arca-wsfe para obtener el CAE. 2) Guarda la factura en erp_comprobantes_venta. 3) Incrementa el saldo deudor del cliente en erp_clientes. 4) Genera el asiento automático (Deudores por Ventas a Ventas + IVA Débito Fiscal) en erp_asientos_contables.'
+          '1) Invoca arca-wsfe para obtener el CAE. 2) Guarda la factura en erp_comprobantes_venta. 3) Descuenta las unidades vendidas en erp_inventario registrando el movimiento de salida (FV). 4) Incrementa el saldo del cliente y genera el asiento automático.'
       },
       {
         numero: 3,
@@ -196,12 +197,12 @@ export const MANUALES_ZONDA_ERP: SeccionManual[] = [
       },
       {
         numero: 2,
-        titulo: 'Cargar un Comprobante de Compra',
+        titulo: 'Cargar un Comprobante de Compra con Ingreso de Stock',
         descripcion:
-          'Presione "+ Nueva Compra / Gasto", seleccione el proveedor, ingrese el número de comprobante (ej. FA-A-0004-00098210), fecha, vencimiento e importe neto más IVA.',
+          'Presione "+ Nueva Compra / Gasto", seleccione el proveedor, ingrese el número de comprobante (ej. FA-A-0004-00098210), fecha, vencimiento e importe neto más IVA. Si la compra incluye mercadería física o insumos, vincule los ítems del Inventario y cantidades recibidas para que ingresen automáticamente a stock.',
         accionClave: 'Botón "Registrar Compra".',
         impactoContableODb:
-          '1) Inserta en erp_comprobantes_compra. 2) Aumenta el saldo a pagar al proveedor en erp_proveedores. 3) Genera asiento contable: Insumos/Gastos + IVA Crédito Fiscal (Debe) a Proveedores (Haber).'
+          '1) Inserta en erp_comprobantes_compra. 2) Suma automáticamente las unidades ingresadas en erp_inventario con trazabilidad de factura y proveedor. 3) Aumenta el saldo a pagar al proveedor y genera el asiento contable.'
       },
       {
         numero: 3,
@@ -371,15 +372,17 @@ export const MANUALES_ZONDA_ERP: SeccionManual[] = [
       },
       {
         numero: 2,
-        titulo: 'Realizar un Ajuste de Stock (Entrada o Salida)',
+        titulo: 'Registrar un Movimiento de Stock (Ingreso con Factura/Proveedor Obligatorio o Salida)',
         descripcion:
-          'En la fila del artículo (o mediante el botón "Ajustar Stock"), seleccione si es un Ingreso (+) o Egreso (-), indique la cantidad de unidades y el motivo (ej. Recepción Remito Proveedor / Consumo en Obra).',
-        accionClave: 'Botón "Ajustar Stock" -> Confirmar.',
-        impactoContableODb: 'Actualiza stock_fisico, disponible y el historial de movimientos en erp_inventario.'
+          'Todo movimiento de ingreso de mercadería exige obligatoriamente asociar un Proveedor y una Factura de Compra registrada (o iniciar la carga desde el módulo 03 - Proveedores). Para egresos, las ventas desde 02 - Clientes descuentan unidades automáticamente o pueden asentarse salidas por consumo interno/remito.',
+        accionClave: 'Botón "Movimiento de Stock" -> Seleccionar Proveedor + Factura.',
+        impactoContableODb: 'Actualiza stock_fisico, disponible y registra el kardex trazable con CUIT proveedor y N° de comprobante en erp_inventario.'
       }
     ],
     reglasDeNegocioYValidaciones: [
       'Stock Disponible = Stock Físico - Stock Comprometido.',
+      'Ningún ingreso de mercadería (+) puede registrarse sin Proveedor y Factura de Compra asociada.',
+      'Toda Factura de Venta con artículos físicos descuenta automáticamente el stock disponible y bloquea ventas por encima del disponible.',
       'Cuando Stock Disponible <= Stock Mínimo, el artículo se marca automáticamente como "REPONER / CRÍTICO".'
     ],
     preguntasFrecuentes: [
@@ -393,8 +396,8 @@ export const MANUALES_ZONDA_ERP: SeccionManual[] = [
   {
     id: 'sueldos',
     codigo: 'MAN-07',
-    titulo: 'Sueldos, Convenios Colectivos (CCT) y Libro Sueldos Digital ARCA (RG 3781)',
-    subtitulo: 'Liquidación de haberes argentinos, recibos oficiales y exportación posicional TXT para ARCA F.931',
+    titulo: 'Sueldos Multi-CCT, Recibo Oficial Argentino (Original/Duplicado) y LSD ARCA (RG 3781)',
+    subtitulo: 'Liquidación de haberes con escalas paritarias editables por CCT, recibo doble ejemplar Ley 20.744 y TXT F.931',
     moduloRelacionado: 'Sueldos y Haberes',
     tablasSupabase: [
       'erp_empleados',
@@ -402,12 +405,12 @@ export const MANUALES_ZONDA_ERP: SeccionManual[] = [
       'erp_asientos_contables'
     ],
     resumenEjecutivo:
-      'El módulo de Sueldos y Cargas Sociales liquida haberes conforme a la legislación laboral argentina (Ley 20.744 y Convenios Colectivos UOCRA 76/75, Comercio 130/75, Sanidad FATSA 122/75 y Fuera de Convenio) y genera el archivo plano posicional oficial (.TXT) para subir al servicio "Libro de Sueldos Digital" de ARCA (ex-AFIP) para la declaración jurada F.931.',
+      'El módulo de Sueldos y Cargas Sociales permite elegir entre múltiples Convenios Colectivos de Trabajo argentinos (Sanidad FATSA CCT 122/75, Comercio CCT 130/75, UOCRA CCT 76/75, Camioneros CCT 40/89, UOM CCT 260/75, Gastronómicos UTHGRA CCT 389/04 y Fuera de Convenio), completar casillas manuales específicas de cada CCT con recálculo reactivo instantáneo y emitir el Recibo Oficial de Haberes en formato Argentino de doble ejemplar apareado (ORIGINAL y DUPLICADO).',
     funcionesPrincipales: [
-      'Padrón de Legajos con CUIL, CBU de 22 dígitos, Convenio Colectivo (CCT), Categoría, Antigüedad y Sueldo Básico.',
-      'Cálculo automático de Conceptos Remunerativos (Básico, Antigüedad, Presentismo/Asistencia Perfecta, Adicionales CCT), No Remunerativos y Retenciones de Ley (Jubilación SIPA 11%, INSSJyP PAMI 3%, Obra Social 3%, Cuota Sindical).',
+      'Selector Multi-CCT con escalas paritarias actualizables en 1 clic y casillas manuales dinámicas por convenio (horas extras 50%/100%, guardias, refrigerio, cláusulas no remunerativas, zona, km, premios).',
+      'Recibo Oficial de Haberes Ley 20.744 Art. 140 con diseño argentino lado a lado (ORIGINAL empleador + DUPLICADO trabajador), columnas Haberes, Retenciones y Adicionales No Remunerativos, Neto en letras y firmas.',
+      'Cálculo automático de Conceptos Remunerativos, No Remunerativos y Retenciones de Ley (Jubilación SIPA 11%, Ley 19.032 3%, Obra Social 3%, Aporte Sindical y Seguro de Vida).',
       'Ejecución de Nueva Liquidación Mensual/Quincenal/SAC con generación automática del asiento de devengamiento de sueldos y cargas sociales.',
-      'Visor e impresión de Recibo de Haberes individual con firma y desglose legal.',
       'Generador y validador del archivo TXT oficial ARCA RG 3781 (Registros 01, 02, 03 y 04).'
     ],
     pasosOperativos: [
@@ -774,6 +777,82 @@ npx supabase functions deploy arca-wsfe --project-ref dtjmckbrofevgfqbkzli --no-
         pregunta: '¿Cómo conecto el envío automático de WhatsApp sin abrir WhatsApp Web?',
         respuesta:
           'Descomentá la variable VITE_WHATSAPP_API_URL en tu archivo .env apuntando a tu instancia de BuilderBot Cloud; el sistema enviará el POST automáticamente y usará WhatsApp Web como respaldo.'
+      }
+    ]
+  },
+  {
+    id: 'zondacloud',
+    codigo: 'MAN-13',
+    titulo: 'Arquitectura Multi-Tenant (Aislamiento por CUIT) & Zonda Cloud ARCA',
+    subtitulo: 'Separación estricta de empresas y usuarios en Zonda ERP + Consola Fiscal Delegada Zonda Cloud para liquidar impuestos bajo ARCA',
+    moduloRelacionado: '11 - Zonda Cloud (ARCA)',
+    tablasSupabase: [
+      'erp_tenants',
+      'erp_tenant_users',
+      'erp_zonda_cloud_autorizaciones',
+      'erp_comprobantes_venta',
+      'erp_comprobantes_compra',
+      'erp_webhooks_log'
+    ],
+    resumenEjecutivo:
+      'Zonda ERP opera bajo una arquitectura Multi-Tenant con aislamiento criptográfico y lógico por tenant_id (CUIT de cada organización): los usuarios, clientes, proveedores, bancos, stock y legajos de una empresa jamás se mezclan con los de otra. A su vez, mediante autorización explícita del usuario titular de Zonda ERP, el hub fiscal Zonda Cloud permite gestionar Compras y Ventas de las empresas autorizadas, cruzar "Mis Comprobantes" de ARCA y liquidar IVA F.2002, Libro IVA Digital RG 4597, SICORE/SIRE e Ingresos Brutos.',
+    funcionesPrincipales: [
+      'Selector Multi-Tenant en el Header superior: conmutación instantánea entre organizaciones (ej. ECAR S.A.S., Sanatorio Argentino S.R.L., Distribuidora Mayorista Andina S.A. o alta de una Nueva Empresa).',
+      'Aislamiento 100% estricto por tenant_id: cada empresa posee su propio padrón de usuarios RBAC, clientes, proveedores, facturas, cajas, inventario y nómina sin contaminación cruzada.',
+      'Puente de Consentimiento y Delegación Zonda ERP -> Zonda Cloud: el titular de la empresa otorga o revoca el token de vinculación y define 6 permisos granulares bajo normativa ARCA.',
+      'Auditoría de Ventas ARCA y Clasificación de Compras ARCA: imputación por comprobante del Crédito Fiscal Computable (100% Gravado, Prorrateo Art. 13 Ley IVA o No Computable / Exento) y Rubro F.2002.',
+      'Cruce en 1 clic con "Mis Comprobantes Recibidos / Emitidos" de ARCA: detección de facturas electrónicas emitidas al CUIT en AFIP pero aún no cargadas en el ERP.',
+      'Liquidación Impositiva Integral ARCA: cálculo en vivo de Posición Mensual IVA F.2002, descarga de los 4 archivos .TXT RG 4597 (Libro IVA Digital), TXT SICORE/SIRE (RG 2233/3726) y Papel de Trabajo IIBB / SIFERE.'
+    ],
+    pasosOperativos: [
+      {
+        numero: 1,
+        titulo: 'Cambiar de Empresa Activa (Tenant) o Crear una Nueva Organización',
+        descripcion:
+          'En la esquina superior izquierda de la barra superior (Header), haga clic sobre el selector de empresa (donde figura la Razón Social y el CUIT activo). Elija cualquiera de las empresas registradas o utilice el botón "+ Crear Nueva Empresa (Tenant Aislado)" dentro de Zonda Cloud.',
+        accionClave: 'Selector Multi-Tenant en Header -> Elegir Empresa.',
+        impactoContableODb: 'Conmuta el contexto activo (tenant_id) cargando exclusivamente los clientes, proveedores, ventas, compras, stock y usuarios de ese CUIT.'
+      },
+      {
+        numero: 2,
+        titulo: 'Autorizar o Revocar el Acceso de Zonda Cloud desde Zonda ERP',
+        descripcion:
+          'Como titular de la empresa en Zonda ERP, ingrese a "09 - Configuración -> Pestaña Autorización Zonda Cloud (ARCA)" (o desde el panel de delegación en el Módulo 11). Allí puede activar o revocar en tiempo real el Token de Vinculación y tildar qué permisos impositivos delega al Estudio Contable.',
+        accionClave: 'Botón "Autorizar Vinculación con Zonda Cloud" o "Revocar Autorización".',
+        impactoContableODb: 'Actualiza erp_zonda_cloud_autorizaciones y registra el evento en la bitácora inmutable de auditoría.'
+      },
+      {
+        numero: 3,
+        titulo: 'Cruzar "Mis Comprobantes" de ARCA y Clasificar Crédito Fiscal (Art. 13 Ley IVA)',
+        descripcion:
+          'Dentro del módulo "11 - Zonda Cloud (ARCA)", seleccione una empresa que haya otorgado autorización. En la pestaña "4. Cruce Mis Comprobantes ARCA" incorpore en 1 clic las facturas detectadas en ARCA y en "3. Compras & Crédito Fiscal" defina si cada compra es 100% Computable, Prorrateo Art. 13 o No Computable.',
+        accionClave: 'Pestañas "Compras & Crédito Fiscal" y "Cruce Mis Comprobantes ARCA".',
+        impactoContableODb: 'Actualiza el Crédito Fiscal Computable del período e impacta la factura incorporada en el tenant correspondiente.'
+      },
+      {
+        numero: 4,
+        titulo: 'Liquidar IVA F.2002, Libro IVA Digital (RG 4597), SICORE y IIBB',
+        descripcion:
+          'Abra la pestaña "5. Liquidación IVA F.2002 / RG 4597 / SICORE", verifique el Débito Fiscal, Crédito Fiscal Computable, Retenciones/Percepciones y Saldo Técnico o de Libre Disponibilidad, y descargue los archivos TXT oficiales listos para presentar en el portal de ARCA.',
+        accionClave: 'Botones de descarga RG 4597 (.TXT), SICORE (.TXT) y DDJJ F.2002 (PDF/CSV).',
+        impactoContableODb: 'Genera los archivos posicionales reglamentarios bajo las especificaciones de ARCA (ex-AFIP).'
+      }
+    ],
+    reglasDeNegocioYValidaciones: [
+      'Aislamiento Multi-Tenant Estricto: ninguna consulta ni operación mezcla registros entre distintos tenant_id.',
+      'Bloqueo por Falta de Consentimiento: si el usuario titular de Zonda ERP revoca o no otorga la autorización, Zonda Cloud bloquea inmediatamente la lectura y liquidación de Compras y Ventas de ese CUIT.',
+      'Prorrateo Art. 13 Ley de IVA 23.349: cuando una empresa realiza simultáneamente operaciones gravadas y exentas (ej. clínicas o sanatorios), Zonda Cloud permite aplicar el porcentaje de prorrateo exacto sobre cada factura de compra vinculada a actividad mixta.'
+    ],
+    preguntasFrecuentes: [
+      {
+        pregunta: '¿Qué sucede si en Zonda Cloud el contador incorpora un comprobante olvidado desde "Mis Comprobantes ARCA"?',
+        respuesta:
+          'Siempre que el titular de Zonda ERP le haya habilitado el permiso de gestionar Compras/Ventas y cruzar Mis Comprobantes, el comprobante se incorpora directamente en la contabilidad y libro de IVA del tenant autorizado sin afectar a ninguna otra empresa.'
+      },
+      {
+        pregunta: '¿Dónde encuentro el script SQL oficial para aplicar Row Level Security (RLS) Multi-Tenant en Supabase?',
+        respuesta:
+          'En la raíz del proyecto se encuentra el archivo supabase_multitenant_zonda_cloud.sql con las tablas erp_tenants, erp_tenant_users, erp_zonda_cloud_autorizaciones y las políticas RLS para PostgreSQL.'
       }
     ]
   }

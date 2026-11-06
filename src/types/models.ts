@@ -1,4 +1,4 @@
-export type TipoComprobante = 'Factura A' | 'Factura B' | 'Factura C' | 'Factura M' | 'Nota de Crédito A' | 'Nota de Crédito B' | 'Recibo' | 'Presupuesto';
+export type TipoComprobante = 'Factura A' | 'Factura B' | 'Factura C' | 'Factura M' | 'Nota de Crédito A' | 'Nota de Crédito B' | 'Nota de Débito' | 'Recibo' | 'Presupuesto';
 
 export type EstadoComprobante = 'Emitido' | 'Aprobado AFIP' | 'Pendiente' | 'Anulado' | 'Borrador';
 

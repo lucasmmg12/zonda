@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Bell, Search, X, BookOpen, ArrowRight, FileDown } from 'lucide-react';
+import { Bell, Search, X, BookOpen, ArrowRight, FileDown, Cloud, Building2, ChevronDown, Lock, Unlock } from 'lucide-react';
 import { EmpresaConfig } from '../../types/models';
 import { ManualesCentroAyudaModal } from '../modals/ManualesCentroAyudaModal';
 import { RoleAuthModal, getActiveOperator, OperadorProfile } from '../modals/RoleAuthModal';
@@ -47,15 +47,21 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
     cheques,
     cuentasBancarias,
     planDeCuentas,
-    asientosContables
+    asientosContables,
+    tenants,
+    activeTenantId,
+    activeTenant,
+    cambiarTenantActivo
   } = useErp();
 
   const [modalManualesOpen, setModalManualesOpen] = useState(false);
   const [modalRolesOpen, setModalRolesOpen] = useState(false);
+  const [showTenantSelector, setShowTenantSelector] = useState(false);
   const [operadorActual, setOperadorActual] = useState<OperadorProfile>(getActiveOperator());
 
   const mapModuleToManualId = (mod: string): string => {
     const m = mod.toLowerCase();
+    if (m.includes('zondacloud') || m.includes('cloud')) return 'zondacloud';
     if (m.includes('cliente')) return 'clientes';
     if (m.includes('proveedor')) return 'proveedores';
     if (m.includes('tesorer')) return 'tesoreria';
@@ -432,7 +438,8 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
       sueldos: '07 · Sueldos y Cargas',
       migracion: '08 · Centro de Migración',
       configuracion: '09 · Configuración Fiscal',
-      usuarios: '10 · Usuarios y Accesos'
+      usuarios: '10 · Usuarios y Accesos',
+      zondacloud: '11 · Zonda Cloud (ARCA)'
     };
     return map[mod] || mod.toUpperCase();
   };
@@ -460,20 +467,130 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
 
   return (
     <header className="h-14 bg-white border-b border-emerald-800/25 px-4 lg:px-6 flex items-center justify-between gap-3 sticky top-0 z-30">
-      {/* Izquierda: Módulo Activo y Datos Fiscales en una sola línea limpia */}
-      <div className="flex items-center gap-3 min-w-0">
+      {/* Izquierda: Módulo Activo y Selector Multi-Tenant de Empresas Aisladas */}
+      <div className="flex items-center gap-3 min-w-0 relative">
         <span className="px-2.5 py-1 bg-[#064e3b] text-white font-semibold text-[11px] tracking-wide uppercase whitespace-nowrap border border-[#047857]">
           {formatModuleLabel(activeModule)}
         </span>
 
-        <div className="hidden md:flex items-center gap-2 pl-3 border-l border-emerald-800/20 whitespace-nowrap overflow-hidden">
-          <span className="font-bold text-[#042f22] text-xs tracking-tight truncate">
-            {empresa.razonSocial}
-          </span>
-          <span className="text-[11px] px-2 py-0.5 bg-emerald-50 text-[#064e3b] border border-emerald-700/25 font-semibold whitespace-nowrap">
-            CUIT {empresa.cuit}
-          </span>
+        <div className="hidden md:flex items-center gap-2 pl-3 border-l border-emerald-800/20 whitespace-nowrap">
+          <button
+            type="button"
+            onClick={() => setShowTenantSelector(!showTenantSelector)}
+            title="Selector Multi-Tenant: Cambiar de Empresa / CUIT (Datos y Usuarios 100% Aislados)"
+            className="flex items-center gap-2 px-2.5 py-1 bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-800/30 transition-colors"
+          >
+            <Building2 className="w-3.5 h-3.5 text-[#064e3b] shrink-0" />
+            <span className="font-bold text-[#042f22] text-xs tracking-tight truncate max-w-[200px]">
+              {empresa.razonSocial}
+            </span>
+            <span className="text-[10px] px-1.5 py-0.2 bg-white text-[#064e3b] border border-emerald-700/25 font-mono font-bold">
+              CUIT {empresa.cuit}
+            </span>
+            <ChevronDown className="w-3.5 h-3.5 text-[#064e3b]" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveModule('zondacloud')}
+            title="Abrir Zonda Cloud (Consola Fiscal Delegada para Compras, Ventas y Liquidación ARCA)"
+            className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase border flex items-center gap-1 transition-colors ${
+              activeModule === 'zondacloud'
+                ? 'bg-[#042f22] text-emerald-300 border-[#042f22]'
+                : activeTenant?.autorizacionZondaCloud.autorizado
+                ? 'bg-emerald-100/80 hover:bg-emerald-200 text-[#042f22] border-emerald-400'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+            }`}
+          >
+            <Cloud className="w-3.5 h-3.5" />
+            <span>Zonda Cloud</span>
+          </button>
         </div>
+
+        {/* Desplegable Multi-Tenant */}
+        {showTenantSelector && (
+          <div className="absolute left-0 top-11 w-[440px] bg-white border-2 border-[#064e3b] shadow-2xl z-50 p-3 text-xs font-mono space-y-2">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <div>
+                <span className="font-bold text-[#042f22] uppercase block">
+                  ENTORNO MULTI-TENANT (EMPRESAS AISLADAS)
+                </span>
+                <span className="text-[10px] text-slate-500 font-sans">
+                  Cada empresa tiene sus propios usuarios, clientes, compras, ventas y stock sin mezclarse.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTenantSelector(false)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-1.5 max-h-64 overflow-y-auto">
+              {tenants.map((t) => {
+                const isCurrent = t.tenantId === activeTenantId;
+                return (
+                  <button
+                    key={t.tenantId}
+                    type="button"
+                    onClick={() => {
+                      cambiarTenantActivo(t.tenantId);
+                      setShowTenantSelector(false);
+                    }}
+                    className={`w-full text-left p-2.5 border transition-colors flex items-center justify-between gap-2 ${
+                      isCurrent
+                        ? 'bg-emerald-50 border-[#064e3b]'
+                        : 'bg-white hover:bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-slate-900 truncate">{t.razonSocial}</span>
+                        {isCurrent && (
+                          <span className="px-1.5 py-0.2 bg-[#064e3b] text-white text-[9px] font-bold uppercase">
+                            ACTIVO
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-500 block">
+                        CUIT {t.cuit} · {t.usuariosInternos.length} usuarios aislados
+                      </span>
+                    </div>
+                    <div className="shrink-0">
+                      {t.autorizacionZondaCloud.autorizado ? (
+                        <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 text-[9px] font-bold flex items-center gap-1">
+                          <Unlock className="w-2.5 h-2.5" />
+                          <span>Cloud OK</span>
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 bg-rose-100 text-rose-900 border border-rose-300 text-[9px] font-bold flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5" />
+                          <span>Restringido</span>
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTenantSelector(false);
+                  setActiveModule('zondacloud');
+                }}
+                className="w-full py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase text-[11px] flex items-center justify-center gap-1.5"
+              >
+                <Cloud className="w-3.5 h-3.5" />
+                <span>Ir a Consola Zonda Cloud (Liquidar Impuestos ARCA)</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Derecha: Buscador Global 100% Funcional + Manuales + Alertas + Operador */}

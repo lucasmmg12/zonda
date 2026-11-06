@@ -36,6 +36,19 @@ import {
   mockLiquidacionActual
 } from '../services/mockData';
 import type { ModuleKey } from '../components/layout/Sidebar';
+import {
+  type TenantEmpresa,
+  type AutorizacionZondaCloud,
+  type ClasificacionFiscalCompraArca,
+  type ComprobantePendienteMisComprobantesArca,
+  type TenantIsolatedDataSnapshot,
+  loadTenantsList,
+  saveTenantsList,
+  loadActiveTenantId,
+  saveActiveTenantId,
+  loadTenantDataSnapshot,
+  saveTenantDataSnapshot
+} from '../services/multiTenantZondaCloudService';
 
 export interface EmpresaDatosExtra {
   nombre: string;
@@ -247,6 +260,58 @@ interface ErpContextValue {
 
   // Acciones Configuración Empresa
   guardarConfiguracionEmpresa: (nuevaEmpresa: EmpresaConfig, extra: EmpresaDatosExtra) => Promise<void>;
+
+  // Multi-Tenant (Aislamiento por CUIT/Empresa) & Zonda Cloud (Liquidación Impositiva ARCA Delegada)
+  tenants: TenantEmpresa[];
+  activeTenantId: string;
+  activeTenant: TenantEmpresa;
+  cambiarTenantActivo: (tenantId: string) => void;
+  crearNuevoTenant: (params: {
+    razonSocial: string;
+    nombreFantasia: string;
+    cuit: string;
+    condicionIva: string;
+    actividadPrincipalArca: string;
+    jurisdiccionPrincipal: string;
+    convenioMultilateral: boolean;
+    autorizarZondaCloudInicial: boolean;
+  }) => TenantEmpresa;
+  actualizarAutorizacionZondaCloud: (
+    tenantId: string,
+    cambios: Partial<AutorizacionZondaCloud>,
+    eventoAudit?: { actor: string; accion: string; detalle: string }
+  ) => void;
+  clasificacionesComprasArca: Record<string, ClasificacionFiscalCompraArca>;
+  pendientesMisComprobantesArca: ComprobantePendienteMisComprobantesArca[];
+  obtenerSnapshotDeTenant: (tenantId: string) => TenantIsolatedDataSnapshot;
+  actualizarClasificacionFiscalCompraEnTenant: (
+    tenantId: string,
+    facturaCompraId: string,
+    cambios: Partial<ClasificacionFiscalCompraArca>
+  ) => void;
+  incorporarComprobanteMisComprobantesArcaEnTenant: (
+    tenantId: string,
+    pendienteId: string
+  ) => void;
+  registrarComprobanteFiscalDesdeZondaCloud: (
+    tenantId: string,
+    params: {
+      flujo: 'VENTA' | 'COMPRA';
+      tipo: 'Factura A' | 'Factura B' | 'Factura C' | 'Nota de Débito';
+      puntoVenta: string;
+      numero: string;
+      fecha: string;
+      cuitContraparte: string;
+      razonSocialContraparte: string;
+      netoGravado: number;
+      alicuotaIva: 21 | 10.5 | 0;
+      percepcionIva: number;
+      percepcionIibb: number;
+      computabilidadIva?: ClasificacionFiscalCompraArca['computabilidadIva'];
+      rubroF2002?: ClasificacionFiscalCompraArca['rubroF2002'];
+      descripcion: string;
+    }
+  ) => void;
 }
 
 const ErpContext = createContext<ErpContextValue | null>(null);
@@ -310,7 +375,8 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'sueldos',
       'migracion',
       'configuracion',
-      'usuarios'
+      'usuarios',
+      'zondacloud'
     ];
     if (validModules.includes(hash)) return hash;
     return 'tablero';
@@ -320,38 +386,541 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [dbStatus, setDbStatus] = useState<'sincronizando' | 'conectado' | 'error'>('sincronizando');
   const [lastSync, setLastSync] = useState<string>(new Date().toLocaleTimeString('es-AR'));
 
-  const [empresa, setEmpresa] = useState<EmpresaConfig>(mockEmpresa);
-  const [empresaExtra, setEmpresaExtra] = useState<EmpresaDatosExtra>({
-    nombre: 'ECAR S. A. S.',
-    localidad: 'VILLA KRAUSE',
-    codPostal: '5425',
-    provincia: 'San Juan',
-    pais: '12',
-    telefono: '+542644693547',
-    email: 'administracion@ecarconstrucciones.com',
-    cbu: '0720194820000001894211',
-    convenioMultilateral: false
-  });
+  // Estado Multi-Tenant (Aislamiento estricto por Empresa / CUIT)
+  const [tenants, setTenants] = useState<TenantEmpresa[]>(() => loadTenantsList());
+  const [activeTenantId, setActiveTenantIdState] = useState<string>(() => loadActiveTenantId());
 
-  const [clientes, setClientes] = useState<Cliente[]>(mockClientes);
-  const [proveedores, setProveedores] = useState<Proveedor[]>(mockProveedores);
-  const [facturasVenta, setFacturasVenta] = useState<ComprobanteVenta[]>(mockFacturasVenta);
-  const [facturasCompra, setFacturasCompra] = useState<ComprobanteCompra[]>(mockFacturasCompra);
-  const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancaria[]>(mockCuentasBancarias);
-  const [cheques, setCheques] = useState<Cheque[]>(mockCheques);
+  const initialTenantSnap = loadTenantDataSnapshot(loadActiveTenantId());
+
+  const [empresa, setEmpresa] = useState<EmpresaConfig>(initialTenantSnap.empresa);
+  const [empresaExtra, setEmpresaExtra] = useState<EmpresaDatosExtra>(initialTenantSnap.empresaExtra);
+
+  const [clientes, setClientes] = useState<Cliente[]>(initialTenantSnap.clientes);
+  const [proveedores, setProveedores] = useState<Proveedor[]>(initialTenantSnap.proveedores);
+  const [facturasVenta, setFacturasVenta] = useState<ComprobanteVenta[]>(initialTenantSnap.facturasVenta);
+  const [facturasCompra, setFacturasCompra] = useState<ComprobanteCompra[]>(initialTenantSnap.facturasCompra);
+  const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancaria[]>(initialTenantSnap.cuentasBancarias);
+  const [cheques, setCheques] = useState<Cheque[]>(initialTenantSnap.cheques);
   const [planDeCuentas, setPlanDeCuentas] = useState<CuentaContable[]>(mockPlanDeCuentas);
-  const [asientosContables, setAsientosContables] = useState<AsientoContable[]>(mockAsientosContables);
-  const [inventario, setInventario] = useState<ArticuloInventario[]>(mockInventario);
-  const [empleados, setEmpleados] = useState<EmpleadoLegajo[]>(mockEmpleados);
+  const [asientosContables, setAsientosContables] = useState<AsientoContable[]>(initialTenantSnap.asientosContables);
+  const [inventario, setInventario] = useState<ArticuloInventario[]>(initialTenantSnap.inventario);
+  const [empleados, setEmpleados] = useState<EmpleadoLegajo[]>(initialTenantSnap.empleados);
   const [liquidacionActual, setLiquidacionActual] = useState<LiquidacionPeriodo>(mockLiquidacionActual);
+  const [clasificacionesComprasArca, setClasificacionesComprasArca] = useState<
+    Record<string, ClasificacionFiscalCompraArca>
+  >(initialTenantSnap.clasificacionesComprasArca || {});
+  const [pendientesMisComprobantesArca, setPendientesMisComprobantesArca] = useState<
+    ComprobantePendienteMisComprobantesArca[]
+  >(initialTenantSnap.pendientesMisComprobantesArca || []);
+
+  const activeTenant =
+    tenants.find((t) => t.tenantId === activeTenantId) || tenants[0];
+
+  // Persistir automáticamente el snapshot aislado del Tenant activo ante cualquier cambio
+  useEffect(() => {
+    saveTenantDataSnapshot(activeTenantId, {
+      empresa,
+      empresaExtra,
+      clientes,
+      proveedores,
+      facturasVenta,
+      facturasCompra,
+      cuentasBancarias,
+      cheques,
+      inventario,
+      empleados,
+      asientosContables,
+      clasificacionesComprasArca,
+      pendientesMisComprobantesArca
+    });
+  }, [
+    activeTenantId,
+    empresa,
+    empresaExtra,
+    clientes,
+    proveedores,
+    facturasVenta,
+    facturasCompra,
+    cuentasBancarias,
+    cheques,
+    inventario,
+    empleados,
+    asientosContables,
+    clasificacionesComprasArca,
+    pendientesMisComprobantesArca
+  ]);
 
   const setActiveModule = (mod: ModuleKey) => {
     setActiveModuleState(mod);
     window.location.hash = mod;
   };
 
+  const cambiarTenantActivo = (nuevoTenantId: string) => {
+    if (nuevoTenantId === activeTenantId) return;
+    // Guardar el estado actual del tenant saliente
+    saveTenantDataSnapshot(activeTenantId, {
+      empresa,
+      empresaExtra,
+      clientes,
+      proveedores,
+      facturasVenta,
+      facturasCompra,
+      cuentasBancarias,
+      cheques,
+      inventario,
+      empleados,
+      asientosContables,
+      clasificacionesComprasArca,
+      pendientesMisComprobantesArca
+    });
+
+    // Cargar el snapshot aislado del nuevo tenant
+    const snap = loadTenantDataSnapshot(nuevoTenantId);
+    setActiveTenantIdState(nuevoTenantId);
+    saveActiveTenantId(nuevoTenantId);
+    setEmpresa(snap.empresa);
+    setEmpresaExtra(snap.empresaExtra);
+    setClientes(snap.clientes);
+    setProveedores(snap.proveedores);
+    setFacturasVenta(snap.facturasVenta);
+    setFacturasCompra(snap.facturasCompra);
+    setCuentasBancarias(snap.cuentasBancarias);
+    setCheques(snap.cheques);
+    setInventario(snap.inventario);
+    setEmpleados(snap.empleados);
+    setAsientosContables(snap.asientosContables);
+    setClasificacionesComprasArca(snap.clasificacionesComprasArca || {});
+    setPendientesMisComprobantesArca(snap.pendientesMisComprobantesArca || []);
+    setLastSync(new Date().toLocaleTimeString('es-AR'));
+  };
+
+  const crearNuevoTenant = (params: {
+    razonSocial: string;
+    nombreFantasia: string;
+    cuit: string;
+    condicionIva: string;
+    actividadPrincipalArca: string;
+    jurisdiccionPrincipal: string;
+    convenioMultilateral: boolean;
+    autorizarZondaCloudInicial: boolean;
+  }): TenantEmpresa => {
+    const cleanId = `TENANT-${Date.now().toString().slice(-5)}`;
+    const digitsCuit = params.cuit.replace(/\D/g, '') || '30000000007';
+    const nuevoTenant: TenantEmpresa = {
+      tenantId: cleanId,
+      codigoCorto: params.nombreFantasia.slice(0, 8).toUpperCase(),
+      razonSocial: params.razonSocial.toUpperCase(),
+      nombreFantasia: params.nombreFantasia,
+      cuit: params.cuit,
+      condicionIva: params.condicionIva,
+      actividadPrincipalArca: params.actividadPrincipalArca,
+      jurisdiccionPrincipal: params.jurisdiccionPrincipal,
+      convenioMultilateral: params.convenioMultilateral,
+      usuariosInternos: [
+        {
+          id: `USR-${cleanId}-01`,
+          nombre: `Administrador (${params.nombreFantasia})`,
+          email: `admin@${params.nombreFantasia.toLowerCase().replace(/[^a-z0-9]/g, '') || 'empresa'}.com.ar`,
+          rol: 'ADMINISTRADOR GENERAL',
+          activo: true
+        }
+      ],
+      autorizacionZondaCloud: {
+        autorizado: params.autorizarZondaCloudInicial,
+        tokenVinculacion: `ZCLOUD-ARCA-${digitsCuit}-${params.autorizarZondaCloudInicial ? 'OK' : 'PEND'}`,
+        fechaAutorizacion: params.autorizarZondaCloudInicial
+          ? new Date().toISOString().slice(0, 16).replace('T', ' ')
+          : '-',
+        autorizadoPorUsuarioErp: params.autorizarZondaCloudInicial
+          ? `Administrador (${params.razonSocial})`
+          : 'Pendiente de autorización en Zonda ERP',
+        estudioContableNombre: 'Zonda Cloud Hub Tributario & Auditoría ARCA',
+        estudioContableCuit: '30-71654321-8',
+        permisos: {
+          gestionarVentasArca: true,
+          gestionarComprasArca: true,
+          cruzarMisComprobantesArca: true,
+          liquidarIvaDigitalF2002: true,
+          liquidarRetencionesSireSicore: true,
+          liquidarIibbSifere: true
+        },
+        porcentajeProrrateoIvaArt13: 100,
+        saldoTecnicoAnteriorIva: 0,
+        saldoLibreDisponibilidadAnterior: 0,
+        retencionesIvaSufridasMes: 0,
+        alicuotaIibbPromedio: 3.0,
+        bitacoraCloud: params.autorizarZondaCloudInicial
+          ? [
+              {
+                id: `LOG-${Date.now()}`,
+                fechaHora: new Date().toISOString().slice(0, 16).replace('T', ' '),
+                actor: `Titular Zonda ERP (${params.razonSocial})`,
+                accion: 'ALTA DE TENANT Y AUTORIZACIÓN ZONDA CLOUD',
+                detalle: 'Empresa creada con aislamiento Multi-Tenant RLS y delegación activa hacia Zonda Cloud.'
+              }
+            ]
+          : []
+      }
+    };
+
+    const initialSnapshot: TenantIsolatedDataSnapshot = {
+      empresa: {
+        razonSocial: params.razonSocial.toUpperCase(),
+        cuit: params.cuit,
+        condicionIva: params.condicionIva,
+        domicilioFiscal: 'Domicilio Fiscal Declarado en ARCA',
+        inicioActividades: new Date().toISOString().slice(0, 10),
+        ingresosBrutos: params.cuit,
+        puntosVenta: [
+          {
+            numero: '0001',
+            descripcion: 'Punto de Venta Electrónico ARCA WSFEv1',
+            tipoEmision: 'Facturación Electrónica Web Service',
+            activo: true
+          }
+        ]
+      },
+      empresaExtra: {
+        nombre: params.nombreFantasia,
+        localidad: 'SAN JUAN',
+        codPostal: '5400',
+        provincia: 'San Juan',
+        pais: '12',
+        telefono: '+542644000000',
+        email: 'administracion@empresa.com.ar',
+        cbu: '0720000000000000000000',
+        convenioMultilateral: params.convenioMultilateral
+      },
+      clientes: [],
+      proveedores: [],
+      facturasVenta: [],
+      facturasCompra: [],
+      cuentasBancarias: [],
+      cheques: [],
+      inventario: [],
+      empleados: [],
+      asientosContables: [],
+      clasificacionesComprasArca: {},
+      pendientesMisComprobantesArca: []
+    };
+
+    saveTenantDataSnapshot(cleanId, initialSnapshot);
+    const nuevaLista = [...tenants, nuevoTenant];
+    setTenants(nuevaLista);
+    saveTenantsList(nuevaLista);
+    return nuevoTenant;
+  };
+
+  const actualizarAutorizacionZondaCloud = (
+    tenantId: string,
+    cambios: Partial<AutorizacionZondaCloud>,
+    eventoAudit?: { actor: string; accion: string; detalle: string }
+  ) => {
+    const nuevaLista = tenants.map((t) => {
+      if (t.tenantId !== tenantId) return t;
+      const bitacoraActual = t.autorizacionZondaCloud.bitacoraCloud || [];
+      const nuevaBitacora = eventoAudit
+        ? [
+            {
+              id: `LOG-${Date.now()}-${Math.floor(Math.random() * 999)}`,
+              fechaHora: new Date().toISOString().slice(0, 16).replace('T', ' '),
+              actor: eventoAudit.actor,
+              accion: eventoAudit.accion,
+              detalle: eventoAudit.detalle
+            },
+            ...bitacoraActual
+          ]
+        : bitacoraActual;
+
+      return {
+        ...t,
+        autorizacionZondaCloud: {
+          ...t.autorizacionZondaCloud,
+          ...cambios,
+          permisos: cambios.permisos
+            ? { ...t.autorizacionZondaCloud.permisos, ...cambios.permisos }
+            : t.autorizacionZondaCloud.permisos,
+          bitacoraCloud: nuevaBitacora
+        }
+      };
+    });
+    setTenants(nuevaLista);
+    saveTenantsList(nuevaLista);
+  };
+
+  const obtenerSnapshotDeTenant = (tenantId: string): TenantIsolatedDataSnapshot => {
+    if (tenantId === activeTenantId) {
+      return {
+        empresa,
+        empresaExtra,
+        clientes,
+        proveedores,
+        facturasVenta,
+        facturasCompra,
+        cuentasBancarias,
+        cheques,
+        inventario,
+        empleados,
+        asientosContables,
+        clasificacionesComprasArca,
+        pendientesMisComprobantesArca
+      };
+    }
+    return loadTenantDataSnapshot(tenantId);
+  };
+
+  const actualizarClasificacionFiscalCompraEnTenant = (
+    tenantId: string,
+    facturaCompraId: string,
+    cambios: Partial<ClasificacionFiscalCompraArca>
+  ) => {
+    const snap = obtenerSnapshotDeTenant(tenantId);
+    const actual = snap.clasificacionesComprasArca[facturaCompraId] || {
+      facturaCompraId,
+      codigoComprobanteArca: '001',
+      computabilidadIva: 'COMPUTABLE_100',
+      rubroF2002: 'BIENES_DE_CAMBIO',
+      percepcionIva: 0,
+      percepcionIibb: 0,
+      conciliadoMisComprobantesArca: true
+    };
+    const nuevasClasif = {
+      ...snap.clasificacionesComprasArca,
+      [facturaCompraId]: { ...actual, ...cambios }
+    };
+
+    if (tenantId === activeTenantId) {
+      setClasificacionesComprasArca(nuevasClasif);
+    } else {
+      saveTenantDataSnapshot(tenantId, {
+        ...snap,
+        clasificacionesComprasArca: nuevasClasif
+      });
+    }
+  };
+
+  const incorporarComprobanteMisComprobantesArcaEnTenant = (
+    tenantId: string,
+    pendienteId: string
+  ) => {
+    const snap = obtenerSnapshotDeTenant(tenantId);
+    const item = snap.pendientesMisComprobantesArca.find((p) => p.id === pendienteId);
+    if (!item || item.incorporadoAlErp) return;
+
+    const nuevosPendientes = snap.pendientesMisComprobantesArca.map((p) =>
+      p.id === pendienteId ? { ...p, incorporadoAlErp: true } : p
+    );
+
+    if (item.tipoFlujo === 'RECIBIDO_COMPRA') {
+      const nuevaFcId = `FC-ARCA-${Date.now().toString().slice(-5)}`;
+      const nuevaFc: ComprobanteCompra = {
+        id: nuevaFcId,
+        tipo: item.tipoComprobante,
+        numero: `${item.puntoVenta}-${item.numero}`,
+        proveedorNombre: item.razonSocialContraparte,
+        proveedorCuit: item.cuitContraparte,
+        fechaComprobante: item.fechaEmision,
+        fechaImputacion: item.fechaEmision,
+        cuentaGasto: '5.1.01 - Compras Conciliadas desde Mis Comprobantes ARCA',
+        netoGravado: item.netoGravado,
+        iva: Number((item.iva21 + item.iva105).toFixed(2)),
+        retencionIva: item.percepcionIva,
+        retencionIIBB: item.percepcionIibb,
+        total: item.total,
+        estadoPago: 'Pendiente'
+      };
+      const nuevasCompras = [nuevaFc, ...snap.facturasCompra];
+      const nuevasClasif: Record<string, ClasificacionFiscalCompraArca> = {
+        ...snap.clasificacionesComprasArca,
+        [nuevaFcId]: {
+          facturaCompraId: nuevaFcId,
+          codigoComprobanteArca: (item.codigoArca as any) || '001',
+          computabilidadIva: 'COMPUTABLE_100',
+          rubroF2002: 'BIENES_DE_CAMBIO',
+          percepcionIva: item.percepcionIva,
+          percepcionIibb: item.percepcionIibb,
+          conciliadoMisComprobantesArca: true
+        }
+      };
+
+      if (tenantId === activeTenantId) {
+        setFacturasCompra(nuevasCompras);
+        setClasificacionesComprasArca(nuevasClasif);
+        setPendientesMisComprobantesArca(nuevosPendientes);
+      } else {
+        saveTenantDataSnapshot(tenantId, {
+          ...snap,
+          facturasCompra: nuevasCompras,
+          clasificacionesComprasArca: nuevasClasif,
+          pendientesMisComprobantesArca: nuevosPendientes
+        });
+      }
+    } else {
+      const nuevaFvId = `FV-ARCA-${Date.now().toString().slice(-5)}`;
+      const nuevaFv: ComprobanteVenta = {
+        id: nuevaFvId,
+        tipo: item.tipoComprobante,
+        puntoVenta: item.puntoVenta,
+        numero: item.numero,
+        fechaEmision: item.fechaEmision,
+        fechaVencimiento: item.fechaEmision,
+        clienteNombre: item.razonSocialContraparte,
+        clienteCuit: item.cuitContraparte,
+        condicionIva: 'Responsable Inscripto',
+        netoGravado: item.netoGravado,
+        iva21: item.iva21,
+        iva105: item.iva105,
+        total: item.total,
+        estado: 'Aprobado AFIP',
+        cae: item.cae,
+        caeVencimiento: item.fechaEmision
+      };
+      const nuevasVentas = [nuevaFv, ...snap.facturasVenta];
+      if (tenantId === activeTenantId) {
+        setFacturasVenta(nuevasVentas);
+        setPendientesMisComprobantesArca(nuevosPendientes);
+      } else {
+        saveTenantDataSnapshot(tenantId, {
+          ...snap,
+          facturasVenta: nuevasVentas,
+          pendientesMisComprobantesArca: nuevosPendientes
+        });
+      }
+    }
+
+    actualizarAutorizacionZondaCloud(tenantId, {}, {
+      actor: 'Zonda Cloud (Cruce Mis Comprobantes ARCA)',
+      accion: `INCORPORACIÓN ${item.tipoFlujo === 'RECIBIDO_COMPRA' ? 'COMPRA' : 'VENTA'} ARCA`,
+      detalle: `Se incorporó ${item.tipoComprobante} ${item.puntoVenta}-${item.numero} (${item.razonSocialContraparte}) por $${item.total.toLocaleString('es-AR')}.`
+    });
+  };
+
+  const registrarComprobanteFiscalDesdeZondaCloud = (
+    tenantId: string,
+    params: {
+      flujo: 'VENTA' | 'COMPRA';
+      tipo: 'Factura A' | 'Factura B' | 'Factura C' | 'Nota de Débito';
+      puntoVenta: string;
+      numero: string;
+      fecha: string;
+      cuitContraparte: string;
+      razonSocialContraparte: string;
+      netoGravado: number;
+      alicuotaIva: 21 | 10.5 | 0;
+      percepcionIva: number;
+      percepcionIibb: number;
+      computabilidadIva?: ClasificacionFiscalCompraArca['computabilidadIva'];
+      rubroF2002?: ClasificacionFiscalCompraArca['rubroF2002'];
+      descripcion: string;
+    }
+  ) => {
+    const snap = obtenerSnapshotDeTenant(tenantId);
+    const iva21 = params.alicuotaIva === 21 ? Number((params.netoGravado * 0.21).toFixed(2)) : 0;
+    const iva105 = params.alicuotaIva === 10.5 ? Number((params.netoGravado * 0.105).toFixed(2)) : 0;
+    const total = Number(
+      (params.netoGravado + iva21 + iva105 + params.percepcionIva + params.percepcionIibb).toFixed(2)
+    );
+
+    if (params.flujo === 'VENTA') {
+      const nuevaFv: ComprobanteVenta = {
+        id: `FV-ZC-${Date.now().toString().slice(-5)}`,
+        tipo: params.tipo,
+        puntoVenta: params.puntoVenta,
+        numero: params.numero,
+        fechaEmision: params.fecha,
+        fechaVencimiento: params.fecha,
+        clienteNombre: params.razonSocialContraparte.toUpperCase(),
+        clienteCuit: params.cuitContraparte,
+        condicionIva: 'Responsable Inscripto',
+        netoGravado: params.netoGravado,
+        iva21,
+        iva105,
+        total,
+        estado: 'Aprobado AFIP',
+        cae: `7645${Math.floor(1000000000 + Math.random() * 8999999999)}`,
+        caeVencimiento: params.fecha
+      };
+      const nuevasVentas = [nuevaFv, ...snap.facturasVenta];
+      if (tenantId === activeTenantId) {
+        setFacturasVenta(nuevasVentas);
+      } else {
+        saveTenantDataSnapshot(tenantId, {
+          ...snap,
+          facturasVenta: nuevasVentas
+        });
+      }
+    } else {
+      const nuevaFcId = `FC-ZC-${Date.now().toString().slice(-5)}`;
+      const nuevaFc: ComprobanteCompra = {
+        id: nuevaFcId,
+        tipo: params.tipo,
+        numero: `${params.puntoVenta}-${params.numero}`,
+        proveedorNombre: params.razonSocialContraparte.toUpperCase(),
+        proveedorCuit: params.cuitContraparte,
+        fechaComprobante: params.fecha,
+        fechaImputacion: params.fecha,
+        cuentaGasto: params.descripcion || '5.1.01 - Compras y Servicios Imputados por Zonda Cloud',
+        netoGravado: params.netoGravado,
+        iva: Number((iva21 + iva105).toFixed(2)),
+        retencionIva: params.percepcionIva,
+        retencionIIBB: params.percepcionIibb,
+        total,
+        estadoPago: 'Pendiente'
+      };
+      const nuevasCompras = [nuevaFc, ...snap.facturasCompra];
+      const nuevasClasif: Record<string, ClasificacionFiscalCompraArca> = {
+        ...snap.clasificacionesComprasArca,
+        [nuevaFcId]: {
+          facturaCompraId: nuevaFcId,
+          codigoComprobanteArca: params.tipo === 'Factura A' ? '001' : params.tipo === 'Factura C' ? '011' : '006',
+          computabilidadIva: params.computabilidadIva || 'COMPUTABLE_100',
+          rubroF2002: params.rubroF2002 || 'BIENES_DE_CAMBIO',
+          percepcionIva: params.percepcionIva,
+          percepcionIibb: params.percepcionIibb,
+          conciliadoMisComprobantesArca: true
+        }
+      };
+
+      if (tenantId === activeTenantId) {
+        setFacturasCompra(nuevasCompras);
+        setClasificacionesComprasArca(nuevasClasif);
+      } else {
+        saveTenantDataSnapshot(tenantId, {
+          ...snap,
+          facturasCompra: nuevasCompras,
+          clasificacionesComprasArca: nuevasClasif
+        });
+      }
+    }
+
+    actualizarAutorizacionZondaCloud(tenantId, {}, {
+      actor: 'Zonda Cloud (Gestión Delegada ARCA)',
+      accion: `ALTA DE ${params.flujo} FISCAL`,
+      detalle: `${params.tipo} ${params.puntoVenta}-${params.numero} (${params.razonSocialContraparte}) por $${total.toLocaleString('es-AR')}.`
+    });
+  };
+
   const refreshAllFromDb = useCallback(async () => {
     setDbStatus('sincronizando');
+    if (activeTenantId !== 'TENANT-ECAR') {
+      const snap = loadTenantDataSnapshot(activeTenantId);
+      setEmpresa(snap.empresa);
+      setEmpresaExtra(snap.empresaExtra);
+      setClientes(snap.clientes);
+      setProveedores(snap.proveedores);
+      setFacturasVenta(snap.facturasVenta);
+      setFacturasCompra(snap.facturasCompra);
+      setCuentasBancarias(snap.cuentasBancarias);
+      setCheques(snap.cheques);
+      setInventario(snap.inventario);
+      setEmpleados(snap.empleados);
+      setAsientosContables(snap.asientosContables);
+      setClasificacionesComprasArca(snap.clasificacionesComprasArca || {});
+      setPendientesMisComprobantesArca(snap.pendientesMisComprobantesArca || []);
+      setDbStatus('conectado');
+      setLastSync(new Date().toLocaleTimeString('es-AR'));
+      return;
+    }
     try {
       const [
         empRes,
@@ -707,7 +1276,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error sincronizando con Supabase:', err);
       setDbStatus('error');
     }
-  }, []);
+  }, [activeTenantId]);
 
   useEffect(() => {
     refreshAllFromDb();
@@ -2570,7 +3139,19 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         crearEmpleadoLegajo,
         actualizarEmpleadoLegajo,
         actualizarLiquidacionPeriodo,
-        guardarConfiguracionEmpresa
+        guardarConfiguracionEmpresa,
+        tenants,
+        activeTenantId,
+        activeTenant,
+        cambiarTenantActivo,
+        crearNuevoTenant,
+        actualizarAutorizacionZondaCloud,
+        clasificacionesComprasArca,
+        pendientesMisComprobantesArca,
+        obtenerSnapshotDeTenant,
+        actualizarClasificacionFiscalCompraEnTenant,
+        incorporarComprobanteMisComprobantesArcaEnTenant,
+        registrarComprobanteFiscalDesdeZondaCloud
       }}
     >
       {children}

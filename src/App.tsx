@@ -13,6 +13,7 @@ import { MigrationHubModule } from './components/modules/MigrationHubModule';
 import { ConfiguracionModule } from './components/modules/ConfiguracionModule';
 import { SueldosModule } from './components/modules/SueldosModule';
 import { UsuariosModule } from './components/modules/UsuariosModule';
+import { ZondaCloudModule } from './components/modules/ZondaCloudModule';
 import { ZondaChat } from './components/ZondaChat';
 import { ErpProvider, useErp } from './context/ErpContext';
 import {
@@ -35,7 +36,9 @@ function AppLayout() {
 
   const tienePermisoModulo =
     activeModule === 'usuarios' ||
+    activeModule === 'zondacloud' ||
     operadorActual.rol === 'ADMINISTRADOR GENERAL' ||
+    operadorActual.rol === 'CONTADOR / AUDITORÍA' ||
     operadorActual.modulosPermitidos.includes(activeModule);
 
   const renderModule = () => {
@@ -97,6 +100,8 @@ function AppLayout() {
         return <ConfiguracionModule />;
       case 'usuarios':
         return <UsuariosModule />;
+      case 'zondacloud':
+        return <ZondaCloudModule />;
       default:
         return <DashboardModule />;
     }
