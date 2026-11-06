@@ -2107,8 +2107,7 @@ export const ProveedoresModule: React.FC = () => {
                 <label className="block text-slate-600 font-bold mb-1">Descripción del Comprobante:</label>
                 <input
                   type="text"
-                  required
-                  placeholder="Ej: Insumos de obra o combustibles"
+                  placeholder="Ej: Insumos de obra o combustibles (Si se deja vacío se asigna automático)"
                   value={descFactura}
                   onChange={(e) => setDescFactura(e.target.value)}
                   className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-sans"

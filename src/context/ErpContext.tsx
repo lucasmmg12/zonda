@@ -376,17 +376,35 @@ export function reconciliarRelacionesComprobantes(
   clientesReconciliados: Cliente[];
   proveedoresReconciliados: Proveedor[];
 } {
-  const clientesList: Cliente[] = clientesRaw.map((c) => ({
-    ...c,
-    facturasAdeudadas: [...(c.facturasAdeudadas || [])],
-    movimientos: [...(c.movimientos || [])]
-  }));
+  const cuitsClientesVistos = new Set<string>();
+  const clientesList: Cliente[] = [];
+  for (const c of clientesRaw) {
+    const cuitNorm = normalizarCuit(c.cuit);
+    if (cuitNorm && cuitNorm !== '00000000000' && cuitNorm !== '30000000000') {
+      if (cuitsClientesVistos.has(cuitNorm)) continue;
+      cuitsClientesVistos.add(cuitNorm);
+    }
+    clientesList.push({
+      ...c,
+      facturasAdeudadas: [...(c.facturasAdeudadas || [])],
+      movimientos: [...(c.movimientos || [])]
+    });
+  }
 
-  const proveedoresList: Proveedor[] = proveedoresRaw.map((p) => ({
-    ...p,
-    facturasAdeudadas: [...(p.facturasAdeudadas || [])],
-    movimientos: [...(p.movimientos || [])]
-  }));
+  const cuitsProveedoresVistos = new Set<string>();
+  const proveedoresList: Proveedor[] = [];
+  for (const p of proveedoresRaw) {
+    const cuitNorm = normalizarCuit(p.cuit);
+    if (cuitNorm && cuitNorm !== '00000000000' && cuitNorm !== '30000000000') {
+      if (cuitsProveedoresVistos.has(cuitNorm)) continue;
+      cuitsProveedoresVistos.add(cuitNorm);
+    }
+    proveedoresList.push({
+      ...p,
+      facturasAdeudadas: [...(p.facturasAdeudadas || [])],
+      movimientos: [...(p.movimientos || [])]
+    });
+  }
 
   // 1. Reconciliar Ventas -> Clientes
   for (const fv of ventasRaw) {
@@ -1710,6 +1728,21 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 1. CLIENTES Y VENTAS
   // ==========================================
   const crearCliente = async (nuevoData: Omit<Cliente, 'id' | 'facturasAdeudadas' | 'movimientos' | 'saldo'>) => {
+    const cuitNorm = normalizarCuit(nuevoData.cuit);
+    const existente =
+      cuitNorm && cuitNorm !== '00000000000' && cuitNorm !== '30000000000'
+        ? clientes.find((c) => normalizarCuit(c.cuit) === cuitNorm)
+        : undefined;
+    if (existente) {
+      const actualizado: Cliente = {
+        ...existente,
+        ...nuevoData,
+        id: existente.id
+      };
+      setClientes((prev) => prev.map((c) => (c.id === existente.id ? actualizado : c)));
+      return actualizado;
+    }
+
     const nextNum = String(clientes.length + 1).padStart(3, '0');
     const nuevo: Cliente = {
       ...nuevoData,
@@ -2156,6 +2189,21 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 2. PROVEEDORES Y COMPRAS
   // ==========================================
   const crearProveedor = async (nuevoData: Omit<Proveedor, 'id' | 'facturasAdeudadas' | 'movimientos' | 'saldo'>) => {
+    const cuitNorm = normalizarCuit(nuevoData.cuit);
+    const existente =
+      cuitNorm && cuitNorm !== '00000000000' && cuitNorm !== '30000000000'
+        ? proveedores.find((p) => normalizarCuit(p.cuit) === cuitNorm)
+        : undefined;
+    if (existente) {
+      const actualizado: Proveedor = {
+        ...existente,
+        ...nuevoData,
+        id: existente.id
+      };
+      setProveedores((prev) => prev.map((p) => (p.id === existente.id ? actualizado : p)));
+      return actualizado;
+    }
+
     const nextNum = String(proveedores.length + 1).padStart(2, '0');
     const nuevo: Proveedor = {
       ...nuevoData,

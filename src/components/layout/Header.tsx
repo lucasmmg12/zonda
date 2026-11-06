@@ -467,37 +467,34 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
   return (
     <header className="h-14 bg-white border-b border-emerald-800/25 px-4 lg:px-6 flex items-center justify-between gap-3 sticky top-0 z-30">
       {/* Izquierda: Módulo Activo y Selector Multi-Tenant de Empresas Aisladas */}
-      <div className="flex items-center gap-3 min-w-0 relative">
-        <span className="px-2.5 py-1 bg-[#064e3b] text-white font-semibold text-[11px] tracking-wide uppercase whitespace-nowrap border border-[#047857]">
+      <div className="flex items-center gap-2 min-w-0 overflow-hidden relative">
+        <span className="px-2 py-1 bg-[#064e3b] text-white font-semibold text-[11px] tracking-wide uppercase whitespace-nowrap border border-[#047857] shrink-0">
           {formatModuleLabel(activeModule)}
         </span>
 
-        <div className="hidden md:flex items-center gap-2 pl-3 border-l border-emerald-800/20 whitespace-nowrap">
+        <div className="hidden lg:flex items-center gap-1.5 pl-2 border-l border-emerald-800/20 whitespace-nowrap min-w-0">
           {operadorActual.esCuentaZondaCloud ? (
-            <div className="flex items-center gap-2 px-2.5 py-1 bg-[#042f22] text-emerald-200 border border-emerald-700 text-xs">
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-[#042f22] text-emerald-200 border border-emerald-700 text-[11px]">
               <Cloud className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
               <span className="font-bold uppercase tracking-tight">
-                SESIÓN ZONDA CLOUD (MULTICLIENTE ARCA)
+                ZONDA CLOUD (ARCA)
               </span>
               <span className="text-[10px] px-1.5 py-0.2 bg-emerald-900 text-emerald-200 border border-emerald-600 font-mono font-bold">
-                {tenants.filter((t) => t.autorizacionZondaCloud.autorizado).length}/{tenants.length} Usuarios Aceptaron
+                {tenants.filter((t) => t.autorizacionZondaCloud.autorizado).length}/{tenants.length} Aceptaron
               </span>
             </div>
           ) : (
             <>
               <div
                 title="Entorno Aislado Multi-Tenant: Tu usuario ve únicamente los datos de tu propia empresa"
-                className="flex items-center gap-2 px-2.5 py-1 bg-emerald-50/70 border border-emerald-800/30"
+                className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50/70 border border-emerald-800/30 min-w-0"
               >
                 <Building2 className="w-3.5 h-3.5 text-[#064e3b] shrink-0" />
-                <span className="font-bold text-[#042f22] text-xs tracking-tight truncate max-w-[200px]">
+                <span className="font-bold text-[#042f22] text-[11px] tracking-tight truncate max-w-[120px] xl:max-w-[165px]">
                   {empresa.razonSocial}
                 </span>
-                <span className="text-[10px] px-1.5 py-0.2 bg-white text-[#064e3b] border border-emerald-700/25 font-mono font-bold">
-                  CUIT {empresa.cuit}
-                </span>
-                <span className="text-[9px] px-1.5 py-0.2 bg-[#064e3b] text-white font-mono font-bold uppercase">
-                  SOLO LO MÍO
+                <span className="text-[10px] px-1 py-0.2 bg-white text-[#064e3b] border border-emerald-700/25 font-mono font-bold shrink-0">
+                  {empresa.cuit}
                 </span>
               </div>
 
@@ -525,7 +522,7 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
                   );
                 }}
                 title="Aceptar o revocar que Zonda Cloud pueda gestionar tus Compras, Ventas, Impuestos y Balances ARCA"
-                className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase border flex items-center gap-1 transition-colors ${
+                className={`px-2 py-1 text-[10px] font-mono font-bold uppercase border flex items-center gap-1 transition-colors shrink-0 ${
                   activeTenant?.autorizacionZondaCloud.autorizado
                     ? 'bg-emerald-100/90 hover:bg-emerald-200 text-[#042f22] border-emerald-500'
                     : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400'
@@ -534,12 +531,12 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
                 {activeTenant?.autorizacionZondaCloud.autorizado ? (
                   <>
                     <Unlock className="w-3 h-3 text-[#064e3b]" />
-                    <span>Zonda Cloud: Aceptado ✓</span>
+                    <span>Cloud: Aceptado ✓</span>
                   </>
                 ) : (
                   <>
                     <Lock className="w-3 h-3 text-amber-800" />
-                    <span>Aceptar Zonda Cloud</span>
+                    <span>Aceptar Cloud</span>
                   </>
                 )}
               </button>
@@ -563,8 +560,8 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
               setSearchFocused(true);
             }}
             onKeyDown={handleSearchKeyDown}
-            placeholder="Buscar CUIT, cliente, proveedor, factura, cheque o ítem..."
-            className="h-8 pl-8 pr-7 text-xs bg-emerald-50/40 border border-emerald-800/25 focus:outline-none focus:border-[#064e3b] focus:bg-white w-48 sm:w-64 xl:w-80 transition-all placeholder:text-[#357a59]/75 font-medium text-[#042f22]"
+            placeholder="Buscar CUIT, cliente, factura o ítem..."
+            className="h-8 pl-8 pr-7 text-xs bg-emerald-50/40 border border-emerald-800/25 focus:outline-none focus:border-[#064e3b] focus:bg-white w-36 sm:w-44 xl:w-48 2xl:w-64 transition-all placeholder:text-[#357a59]/75 font-medium text-[#042f22]"
           />
           {globalQuery ? (
             <button

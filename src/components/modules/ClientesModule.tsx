@@ -161,7 +161,10 @@ export const ClientesModule: React.FC = () => {
   };
 
   const agregarItemVentaFactura = () => {
-    const prodDefault = inventario.find((a) => a.disponible > 0) || inventario[0];
+    const prodDefault =
+      inventario.find((a) => a.disponible > 0 && a.precioVentaNeto > 100) ||
+      inventario.find((a) => a.disponible > 0) ||
+      inventario[0];
     const nuevo = {
       id: `IT-VTA-${Date.now()}-${Math.floor(Math.random() * 999)}`,
       articuloId: prodDefault?.id || '',
@@ -169,6 +172,9 @@ export const ClientesModule: React.FC = () => {
       precioUnitarioNeto: prodDefault?.precioVentaNeto || 1000,
       deposito: 'Depósito Central'
     };
+    if (!descFactura && prodDefault) {
+      setDescFactura(`Provisión de ${prodDefault.descripcion}`);
+    }
     recalcularNetoDesdeItemsVenta([...itemsVentaFactura, nuevo]);
   };
 
@@ -2123,7 +2129,6 @@ export const ClientesModule: React.FC = () => {
                 <label className="block text-slate-600 font-bold mb-1">Descripción del Ítem / Servicio:</label>
                 <input
                   type="text"
-                  required
                   placeholder="Ej: Certificado de obra o provisión de materiales"
                   value={descFactura}
                   onChange={(e) => setDescFactura(e.target.value)}
