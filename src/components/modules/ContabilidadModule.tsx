@@ -21,6 +21,10 @@ import type { CuentaContable } from '../../types/models';
 import { useErp } from '../../context/ErpContext';
 import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
 import { generateLibroIvaDigitalRg4597, downloadTxtFile } from '../../utils/afipLibroIvaDigital';
+import {
+  buildRT54MappedWorkbook,
+  downloadRT54OfficialExcel
+} from '../../utils/rt54BalanceMapper';
 import { CalendarioVencimientosModal } from '../modals/CalendarioVencimientosModal';
 
 function flattenCuentasContables(nodes: CuentaContable[]): CuentaContable[] {
@@ -36,6 +40,8 @@ function flattenCuentasContables(nodes: CuentaContable[]): CuentaContable[] {
 
 export const ContabilidadModule: React.FC = () => {
   const {
+    activeTenant,
+    obtenerSnapshotDeTenant,
     planDeCuentas,
     asientosContables,
     facturasVenta,
@@ -45,6 +51,34 @@ export const ContabilidadModule: React.FC = () => {
     registrarAsientoManual,
     refreshAllFromDb
   } = useErp();
+
+  const handleExportarBalanceRt54Xlsx = async () => {
+    const snap = obtenerSnapshotDeTenant(activeTenant.tenantId);
+    const mapped = buildRT54MappedWorkbook(activeTenant, snap, {
+      domicilioLegal: 'Av. Libertador Gral. San Martín 1250 Oeste - San Juan',
+      actividadPrincipal: activeTenant.actividadPrincipalArca,
+      actividadSecundaria: 'Servicios conexos y comercialización mayorista',
+      registroPublicoComercio: 'Legajo Nº 4.812 - Folio 118 - Tomo XII R.P.C. San Juan',
+      fechaInscripcionRpc: '15/03/2018',
+      ejercicioNumero: '8',
+      fechaInicioIso: '2026-01-01',
+      fechaCierreIso: '2026-12-31',
+      fechaInformeIso: '2027-03-25',
+      modeloPropiedadesInversion: 'Costo',
+      modeloEepn: 'EEPN (1)',
+      coefInflacionAnualIpc: 38.5,
+      bienesDeUsoValorOrigenInicio: 57230000,
+      bienesDeUsoAltasEjercicio: 4850000,
+      bienesDeUsoDepAcumInicio: 8730000,
+      bienesDeUsoDepEjercicio: 4850000,
+      capitalSocialSuscripto: 25000000,
+      reservaLegalInicial: 2500000,
+      anticiposGananciasPagados: 1850000,
+      gastosNoDeduciblesImpositivos: 420000,
+      tipoCambioUsdCierre: 1150
+    });
+    await downloadRT54OfficialExcel(mapped);
+  };
 
   const [tabPrincipal, setTabPrincipal] = useState<'plan' | 'diario' | 'iva_digital'>('plan');
   const datosLibroIva = generateLibroIvaDigitalRg4597(facturasVenta, facturasCompra);
@@ -353,13 +387,24 @@ export const ContabilidadModule: React.FC = () => {
           <span className="text-xs text-slate-400 font-mono">| PLAN DE CUENTAS, MAYOR Y LIBRO DIARIO</span>
         </div>
 
-        <button
-          onClick={() => setShowCalendarioModal(true)}
-          className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>Calendario de vencimientos</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportarBalanceRt54Xlsx}
+            className="px-3.5 py-1.5 bg-[#042f22] hover:bg-[#064e3b] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-emerald-400 shadow-sm"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-300" />
+            <span>Exportar Balance Oficial RT 54 (.xlsx - 22 Hojas)</span>
+          </button>
+
+          <button
+            onClick={() => setShowCalendarioModal(true)}
+            className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Calendario de vencimientos</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. PESTAÑAS PRINCIPALES DEL MÓDULO */}

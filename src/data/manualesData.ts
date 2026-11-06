@@ -841,11 +841,11 @@ npx supabase functions deploy arca-wsfe --project-ref dtjmckbrofevgfqbkzli --no-
       },
       {
         numero: 5,
-        titulo: 'Generar el Balance Anual (RT 54) y Presentar PUB (RG 4626) + Ganancias Web (F.713 RG 5908)',
+        titulo: 'Exportar el Balance Oficial RT 54 (.xlsx - 22 Hojas Tal Cual) y el PDF PUB (RG 4626 + F.713)',
         descripcion:
-          'Abra la pestaña "3. Balances ARCA (PUB RG 4626 + Ganancias Web RG 5908 + RT 54)", ajuste la variación anual del IPC/IPIM para el cálculo de RECPAM y Ajuste por Inflación Impositivo, revise los Rubros Resumidos de Activo, Pasivo, Patrimonio Neto y Resultado Impositivo, y pulse "Descargar PDF Único Oficial PUB (RG 4626) + F.713".',
-        accionClave: 'Botón "Descargar PDF Único Oficial PUB (RG 4626) + F.713".',
-        impactoContableODb: 'Emite el documento consolidado para subir al servicio web Presentación Única de Balances (PUB) y volcar en Ganancias Personas Jurídicas Web.'
+          'Abra la pestaña "3. Balances ARCA (PUB RG 4626 + Ganancias Web RG 5908 + RT 54)", verifique los datos de Carátula Societaria (Hoja 2), Controles (Hoja 1) y el Inspector de Mapeo de las 22 Hojas (Notas 12.1 a 12.27, Anexo IX Costos y Gastos Art. 64, Anexo VIII CMV, EEPN y EFE). Pulse "Exportar Excel Oficial RT 54 (.xlsx - 22 Hojas Tal Cual)" para descargar el libro Excel completo con sus 22 pestañas, fórmulas interconectadas y validación "✔ ACTIVO = PASIVO+PN", o pulse "Descargar PDF Único PUB (RG 4626) + F.713". También disponible desde 05 - Contabilidad.',
+        accionClave: 'Botón "Exportar Excel Oficial RT 54 (.xlsx - 22 Hojas Tal Cual)" o "Descargar PDF Único PUB (RG 4626) + F.713".',
+        impactoContableODb: 'Clona la plantilla oficial RT54.xlsx del CPCE / FACPCE e inyecta en vivo los saldos de Tesorería, Clientes, Proveedores, Inventario, Sueldos, Contabilidad y Zonda Cloud en las 22 hojas OOXML.'
       }
     ],
     reglasDeNegocioYValidaciones: [

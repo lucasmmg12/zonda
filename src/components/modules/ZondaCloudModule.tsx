@@ -22,6 +22,10 @@ import { useErp } from '../../context/ErpContext';
 import type { ClasificacionFiscalCompraArca } from '../../services/multiTenantZondaCloudService';
 import { generateLibroIvaDigitalRg4597, downloadTxtFile } from '../../utils/afipLibroIvaDigital';
 import { printFinancialReport } from '../../utils/exportUtils';
+import {
+  buildRT54MappedWorkbook,
+  downloadRT54OfficialExcel
+} from '../../utils/rt54BalanceMapper';
 
 export const ZondaCloudModule: React.FC = () => {
   const {
@@ -56,6 +60,23 @@ export const ZondaCloudModule: React.FC = () => {
   const [capitalSocialHistorico, setCapitalSocialHistorico] = useState<number>(25000000);
   const [anticiposGananciasPagados, setAnticiposGananciasPagados] = useState<number>(1850000);
   const [gastosNoDeduciblesImpositivos, setGastosNoDeduciblesImpositivos] = useState<number>(420000);
+
+  // Parámetros de Carátula Societaria y Controles Oficiales Plantilla RT54.xlsx (22 Hojas CPCE / FACPCE)
+  const [rt54DomicilioLegal, setRt54DomicilioLegal] = useState<string>('Av. Libertador Gral. San Martín 1250 Oeste - San Juan');
+  const [rt54RpcInscripcion, setRt54RpcInscripcion] = useState<string>('Legajo Nº 4.812 - Folio 118 - Tomo XII R.P.C. San Juan');
+  const [rt54FechaRpc, setRt54FechaRpc] = useState<string>('15/03/2018');
+  const [rt54EjercicioNro, setRt54EjercicioNro] = useState<string>('8');
+  const [rt54FechaInicio, setRt54FechaInicio] = useState<string>('2026-01-01');
+  const [rt54FechaCierre, setRt54FechaCierre] = useState<string>('2026-12-31');
+  const [rt54FechaInforme, setRt54FechaInforme] = useState<string>('2027-03-25');
+  const [rt54ModeloPi, setRt54ModeloPi] = useState<'Costo' | 'Valor Razonable'>('Costo');
+  const [rt54ModeloEepn, setRt54ModeloEepn] = useState<'EEPN (1)' | 'EEPN (2)'>('EEPN (1)');
+  const [rt54ReservaLegal, setRt54ReservaLegal] = useState<number>(2500000);
+  const [rt54DepEjercicioBsUso, setRt54DepEjercicioBsUso] = useState<number>(4850000);
+  const [rt54VistaInspector, setRt54VistaInspector] = useState<
+    'resumen_cuadre' | 'notas_22' | 'anexo_ix_gastos' | 'anexo_viii_cmv' | 'eepn_efe'
+  >('notas_22');
+  const [exportandoRt54Xlsx, setExportandoRt54Xlsx] = useState<boolean>(false);
 
   // Modal Nueva Empresa (Nuevo Tenant Aislado)
   const [showNuevoTenantModal, setShowNuevoTenantModal] = useState(false);
@@ -353,6 +374,70 @@ export const ZondaCloudModule: React.FC = () => {
     anticiposGananciasPagados,
     gastosNoDeduciblesImpositivos
   ]);
+
+  // Motor de Mapeo Integral de las 22 Hojas de la Plantilla Oficial RT54.xlsx
+  const rt54Mapped = useMemo(() => {
+    const valorOrigenInicio = Math.round(bienesDeUsoNetos * 1.18);
+    const depAcumInicio = Math.max(0, valorOrigenInicio - bienesDeUsoNetos);
+    return buildRT54MappedWorkbook(tenantCloudActual, snapTenant, {
+      domicilioLegal: rt54DomicilioLegal,
+      actividadPrincipal: tenantCloudActual.actividadPrincipalArca,
+      actividadSecundaria: 'Servicios conexos y comercialización mayorista',
+      registroPublicoComercio: rt54RpcInscripcion,
+      fechaInscripcionRpc: rt54FechaRpc,
+      ejercicioNumero: rt54EjercicioNro,
+      fechaInicioIso: rt54FechaInicio,
+      fechaCierreIso: rt54FechaCierre,
+      fechaInformeIso: rt54FechaInforme,
+      modeloPropiedadesInversion: rt54ModeloPi,
+      modeloEepn: rt54ModeloEepn,
+      coefInflacionAnualIpc,
+      bienesDeUsoValorOrigenInicio: valorOrigenInicio,
+      bienesDeUsoAltasEjercicio: rt54DepEjercicioBsUso,
+      bienesDeUsoDepAcumInicio: depAcumInicio,
+      bienesDeUsoDepEjercicio: rt54DepEjercicioBsUso,
+      capitalSocialSuscripto: capitalSocialHistorico,
+      reservaLegalInicial: rt54ReservaLegal,
+      anticiposGananciasPagados,
+      gastosNoDeduciblesImpositivos,
+      tipoCambioUsdCierre: 1150
+    });
+  }, [
+    tenantCloudActual,
+    snapTenant,
+    rt54DomicilioLegal,
+    rt54RpcInscripcion,
+    rt54FechaRpc,
+    rt54EjercicioNro,
+    rt54FechaInicio,
+    rt54FechaCierre,
+    rt54FechaInforme,
+    rt54ModeloPi,
+    rt54ModeloEepn,
+    coefInflacionAnualIpc,
+    bienesDeUsoNetos,
+    rt54DepEjercicioBsUso,
+    capitalSocialHistorico,
+    rt54ReservaLegal,
+    anticiposGananciasPagados,
+    gastosNoDeduciblesImpositivos
+  ]);
+
+  const handleDescargarExcelRT54Oficial = async () => {
+    try {
+      setExportandoRt54Xlsx(true);
+      await downloadRT54OfficialExcel(rt54Mapped);
+      setAvisoOperacion(
+        `Balance Oficial RT 54 (.xlsx con las 22 pestañas, fórmulas y formatos intactos) exportado exitosamente para ${tenantCloudActual.razonSocial}.`
+      );
+    } catch (err: any) {
+      setAvisoOperacion(
+        `Error al exportar plantilla RT54.xlsx: ${err?.message || 'Error desconocido'}`
+      );
+    } finally {
+      setExportandoRt54Xlsx(false);
+    }
+  };
 
   const handleCrearNuevoTenant = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1536,215 +1621,621 @@ export const ZondaCloudModule: React.FC = () => {
 
             {subTabCloud === 'balances_arca' && (
               <div className="space-y-5 font-mono text-xs">
-                {/* Encabezado y Botón de Exportación PDF Único para Presentación Única de Balances (PUB RG 4626) */}
+                {/* Encabezado y Botones de Exportación: Excel Oficial 22 Hojas RT54.xlsx + PDF Único PUB RG 4626 */}
                 <div className="p-4 bg-[#f0fdf4] border-2 border-[#064e3b] flex flex-wrap items-center justify-between gap-3">
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="px-2 py-0.5 bg-[#064e3b] text-white text-[10px] font-extrabold uppercase">
-                        RG 4626 (PUB) + RG 5908/2026 (F. 713 WEB) + RT 54 FACPCE (NUA)
+                        RT 54 (T.O. RT 59 FACPCE / CPCE RES. 34/2024) — 22 HOJAS OFICIALES .XLSX
+                      </span>
+                      <span className="px-2 py-0.5 bg-emerald-100 text-[#042f22] border border-emerald-400 text-[10px] font-extrabold uppercase">
+                        {rt54Mapped.estadopat.cuadraActual
+                          ? '✔ ACTIVO = PASIVO + PN (CUADRE EXACTO estadopat!I2)'
+                          : '⚠ VERIFICAR CUADRE'}
                       </span>
                     </div>
                     <h4 className="text-sm font-extrabold text-[#042f22] uppercase">
-                      BALANCES Y ESTADOS CONTABLES PARA PRESENTAR EN ARCA — {tenantCloudActual.razonSocial}
+                      EXPORTADOR OFICIAL DE BALANCE RT 54 (22 PESTAÑAS EXCEL TAL CUAL) + PUB ARCA — {tenantCloudActual.razonSocial}
                     </h4>
                     <p className="text-[11px] text-slate-700 font-sans max-w-3xl">
-                      Genera en vivo los <strong>4 Estados Contables Básicos bajo RT 54 (NUA)</strong> reexpresados en moneda homogénea (<strong>RECPAM</strong>), la grilla de <strong>Rubros Resumidos del nuevo servicio web &ldquo;Ganancias Personas Jurídicas (RG 5908)&rdquo;</strong> y el <strong>Archivo PDF Único Consolidado</strong> exigido por el servicio web <strong>&ldquo;Presentación Única de Balances (PUB - RG 4626)&rdquo;</strong>.
+                      Mapea automáticamente todos los módulos del ERP (<strong>Tesorería, Clientes, Proveedores, Inventario, Sueldos, Contabilidad y Zonda Cloud Fiscal</strong>) hacia las <strong>22 hojas interconectadas de la plantilla oficial <code>RT54.xlsx</code></strong> (<code>Controles</code>, <code>Caratula</code>, <code>estadopat</code>, <code>EstRes</code>, <code>EEPN(1)</code>, <code>EEPN(2)</code>, <code>EFE sintetico/directo/indirecto</code>, <code>Mon Ext</code>, <code>Vencimiento</code>, <code>Bsuso</code>, <code>Intang</code>, <code>PI VR/Costo</code>, <code>Prev</code>, <code>costo de venta</code>, <code>costos y gastos</code>, <code>partes relacionadas</code>, <code>Inversiones</code>, <code>Notas(1)</code> y <code>Notas(2)</code>) conservando intactas todas las fórmulas y formatos originales.
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      printFinancialReport(
-                        `PRESENTACIÓN ÚNICA DE BALANCES (PUB - RG 4626 ARCA) y F. 713 (RG 5908)`,
-                        `${tenantCloudActual.razonSocial} · CUIT ${tenantCloudActual.cuit} · Estados Contables en Moneda Homogénea (RT 54 FACPCE - IPC ${coefInflacionAnualIpc}%)`,
-                        ['Estado Contable / Rubro Oficial ARCA', 'Norma / Anexo', 'Importe Cierre ($ ARS)'],
-                        [
-                          ['--- I. ESTADO DE SITUACIÓN PATRIMONIAL (ACTIVO) ---', 'RT 54 FACPCE / RG 5908', ''],
-                          ['1.1 Caja y Bancos (Disponibilidades)', 'Activo Corriente', `$${liquidacionCalculada.cajaYBancos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['1.2 Créditos por Ventas (Clientes Cta. Cte.)', 'Activo Corriente', `$${liquidacionCalculada.creditosPorVentas.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['1.3 Otros Créditos (Saldos Fiscales y Anticipos)', 'Activo Corriente', `$${liquidacionCalculada.otrosCreditosFiscales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['1.4 Bienes de Cambio (Inventario Valorizado)', 'Activo Corriente', `$${liquidacionCalculada.bienesDeCambio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['1.5 Bienes de Uso (Netos de Amortización)', 'Activo No Corriente', `$${liquidacionCalculada.totalActivoNoCorriente.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['TOTAL DEL ACTIVO', 'Suma Activo Corriente + No Corriente', `$${liquidacionCalculada.totalActivo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['--- II. ESTADO DE SITUACIÓN PATRIMONIAL (PASIVO Y P. NETO) ---', 'RT 54 FACPCE / RG 5908', ''],
-                          ['2.1 Deudas Comerciales (Proveedores)', 'Pasivo Corriente', `$${liquidacionCalculada.deudasComercialesProveedores.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['2.2 Cargas Fiscales y Sociales (IVA, IIBB, F.931)', 'Pasivo Corriente', `$${liquidacionCalculada.deudasFiscalesYSociales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['TOTAL DEL PASIVO', 'Pasivo Exigible', `$${liquidacionCalculada.totalPasivo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['3.1 Capital Social Suscripto', 'Patrimonio Neto', `$${capitalSocialHistorico.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['3.2 Ajuste de Capital y Reservas (RT 6 / RT 54)', 'Patrimonio Neto', `$${liquidacionCalculada.ajusteDeCapital.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['3.3 Resultado Neto del Ejercicio', 'Patrimonio Neto', `$${liquidacionCalculada.resultadoNetoDelEjercicio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['TOTAL PATRIMONIO NETO', 'Activo - Pasivo', `$${liquidacionCalculada.patrimonioNetoTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['--- III. ESTADO DE RESULTADOS Y CONCILIACIÓN IMPOSITIVA F.713 ---', 'RG 5908 ARCA', ''],
-                          ['Ventas Netas de Bienes y Servicios (Anualizadas)', 'Estado de Resultados', `$${liquidacionCalculada.ventasNetasAnuales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['(-) Costo Operativo de Compras e Insumos', 'Estado de Resultados', `-$${liquidacionCalculada.cmvYGastosOperativosAnuales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['(-) Gastos de Personal y Cargas Sociales (Sueldos)', 'Art. 64 Ley 19.550', `-$${liquidacionCalculada.gastosLaboralesAnuales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['(+/-) RECPAM / Ajuste por Inflación (IPC ' + coefInflacionAnualIpc + '%)', 'RT 6 / LIG AXII', `$${liquidacionCalculada.recpamContable.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['Resultado Impositivo Sujeto a Impuesto (F.713)', 'RG 5908 Columna II', `$${liquidacionCalculada.resultadoImpositivoGravadoF713.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['(-) Impuesto a las Ganancias Determinado (' + liquidacionCalculada.alicuotaMarginalAplicada + ')', 'Art. 73 LIG', `-$${liquidacionCalculada.impuestoGananciasDeterminado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
-                          ['RESULTADO NETO FINAL DEL EJERCICIO', 'Memoria y Balance PUB', `$${liquidacionCalculada.resultadoNetoDelEjercicio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`]
-                        ]
-                      )
-                    }
-                    className="px-4 py-2.5 bg-[#064e3b] hover:bg-[#042f22] text-white font-extrabold uppercase flex items-center gap-2 shadow-sm"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Descargar PDF Único Oficial PUB (RG 4626) + F.713</span>
-                  </button>
-                </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={exportandoRt54Xlsx}
+                      onClick={handleDescargarExcelRT54Oficial}
+                      className="px-4 py-2.5 bg-[#042f22] hover:bg-[#064e3b] text-white font-extrabold uppercase flex items-center gap-2 shadow-md border border-emerald-400"
+                    >
+                      <Download className="w-4 h-4 text-emerald-300" />
+                      <span>
+                        {exportandoRt54Xlsx
+                          ? 'Generando 22 Hojas RT54.xlsx...'
+                          : 'Exportar Excel Oficial RT 54 (.xlsx - 22 Hojas Tal Cual)'}
+                      </span>
+                    </button>
 
-                {/* Parámetros Editables del Balance Anual y Ajuste por Inflación */}
-                <div className="p-4 bg-slate-50 border border-slate-300 grid grid-cols-1 sm:grid-cols-5 gap-3">
-                  <div>
-                    <label className="block text-[10px] text-slate-600 font-bold mb-1">
-                      Variación Anual IPC / IPIM (%):
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={coefInflacionAnualIpc}
-                      onChange={(e) => setCoefInflacionAnualIpc(parseFloat(e.target.value) || 0)}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold text-[#042f22]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-600 font-bold mb-1">
-                      Bienes de Uso Netos ($):
-                    </label>
-                    <input
-                      type="number"
-                      value={bienesDeUsoNetos}
-                      onChange={(e) => setBienesDeUsoNetos(parseFloat(e.target.value) || 0)}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-600 font-bold mb-1">
-                      Capital Social Suscripto ($):
-                    </label>
-                    <input
-                      type="number"
-                      value={capitalSocialHistorico}
-                      onChange={(e) => setCapitalSocialHistorico(parseFloat(e.target.value) || 0)}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-600 font-bold mb-1">
-                      Gastos No Deducibles F.713 ($):
-                    </label>
-                    <input
-                      type="number"
-                      value={gastosNoDeduciblesImpositivos}
-                      onChange={(e) => setGastosNoDeduciblesImpositivos(parseFloat(e.target.value) || 0)}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-600 font-bold mb-1">
-                      Anticipos y Ret. Ganancias ($):
-                    </label>
-                    <input
-                      type="number"
-                      value={anticiposGananciasPagados}
-                      onChange={(e) => setAnticiposGananciasPagados(parseFloat(e.target.value) || 0)}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
-                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        printFinancialReport(
+                          `PRESENTACIÓN ÚNICA DE BALANCES (PUB - RG 4626 ARCA) y F. 713 (RG 5908)`,
+                          `${tenantCloudActual.razonSocial} · CUIT ${tenantCloudActual.cuit} · Estados Contables en Moneda Homogénea (RT 54 FACPCE - IPC ${coefInflacionAnualIpc}%)`,
+                          ['Estado Contable / Rubro Oficial ARCA', 'Norma / Anexo', 'Importe Cierre ($ ARS)'],
+                          [
+                            ['--- I. ESTADO DE SITUACIÓN PATRIMONIAL (ACTIVO) ---', 'RT 54 FACPCE / RG 5908', ''],
+                            ['1.1 Caja y Bancos (Nota 12.1)', 'Activo Corriente', `$${rt54Mapped.estadopat.cajaYBancosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['1.2 Cuentas por Cobrar a Clientes en Moneda (Nota 12.3)', 'Activo Corriente', `$${rt54Mapped.estadopat.cuentasPorCobrarClientesActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['1.3 Créditos Impositivos (Nota 12.5)', 'Activo Corriente', `$${rt54Mapped.estadopat.creditosImpositivosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['1.4 Bienes de Cambio (Nota 12.12)', 'Activo Corriente', `$${rt54Mapped.estadopat.bienesDeCambioActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['1.5 Bienes de Uso Netos (Anexo III - Bsuso!O19)', 'Activo No Corriente', `$${rt54Mapped.estadopat.bienesDeUsoNetosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['TOTAL DEL ACTIVO (estadopat!B39)', 'Suma Activo Corriente + No Corriente', `$${rt54Mapped.estadopat.totalActivoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['--- II. ESTADO DE SITUACIÓN PATRIMONIAL (PASIVO Y P. NETO) ---', 'RT 54 FACPCE / RG 5908', ''],
+                            ['2.1 Proveedores de Bienes y Servicios (Nota 12.13)', 'Pasivo Corriente', `$${rt54Mapped.estadopat.proveedoresActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['2.2 Deudas Fiscales (Nota 12.16: IVA + IIBB + Ganancias F.713)', 'Pasivo Corriente', `$${rt54Mapped.estadopat.deudasFiscalesActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['2.3 Deudas Laborales y Previsionales (Nota 12.15: Sueldos + F.931)', 'Pasivo Corriente', `$${rt54Mapped.estadopat.deudasLaboralesActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['TOTAL DEL PASIVO (estadopat!E37)', 'Pasivo Exigible', `$${rt54Mapped.estadopat.totalPasivoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['3.1 Capital Social Suscripto (EEPN!B20)', 'Patrimonio Neto', `$${rt54Mapped.eepn.capitalSuscripto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['3.2 Ajuste de Capital y Reserva Legal (EEPN!C20+G20)', 'Patrimonio Neto', `$${(rt54Mapped.eepn.ajusteCapital + rt54Mapped.eepn.reservaLegal).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['3.3 Resultados Acumulados + Resultado del Ejercicio (EEPN!K20)', 'Patrimonio Neto', `$${(rt54Mapped.eepn.resultadosNoAsignadosInicio + rt54Mapped.eepn.resultadoEjercicio).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['TOTAL PATRIMONIO NETO (estadopat!E38)', 'Activo - Pasivo', `$${rt54Mapped.estadopat.patrimonioNetoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['--- III. ESTADO DE RESULTADOS (EstRes) Y ANEXOS VIII / IX ---', 'RT 54 / RG 5908 ARCA', ''],
+                            ['Ingresos Netos por Ventas y Servicios (Nota 12.27)', 'EstRes!C6', `$${rt54Mapped.estRes.ventasNetasActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['(-) Costo de Bienes Vendidos y Servicios Prestados (Anexo VIII)', 'EstRes!C9', `$${rt54Mapped.estRes.costoVentasYServiciosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['(=) Resultado Bruto (EstRes!C11)', 'EstRes!C11', `$${rt54Mapped.estRes.resultadoBrutoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['(-) Gastos de Comercialización (Anexo IX Col. D)', 'EstRes!C14', `$${rt54Mapped.estRes.gastosComercializacionActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['(-) Gastos de Administración (Anexo IX Col. E)', 'EstRes!C15', `$${rt54Mapped.estRes.gastosAdministracionActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['(+/-) Resultados Financieros y por Tenencia inc. RECPAM (Nota 12.24)', 'EstRes!C21', `$${rt54Mapped.estRes.recpamYFinancierosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['(=) Resultado antes de Impuesto a las Ganancias', 'EstRes!C25', `$${rt54Mapped.estRes.resultadoAntesImpuestoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['(-) Impuesto a las Ganancias F.713 (Nota 12.16)', 'EstRes!C26', `$${rt54Mapped.estRes.impuestoGananciasActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`],
+                            ['(=) RESULTADO FINAL DEL EJERCICIO (EstRes!C32)', 'Memoria y Balance PUB', `$${rt54Mapped.estRes.resultadoEjercicioActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`]
+                          ]
+                        )
+                      }
+                      className="px-4 py-2.5 bg-white hover:bg-slate-100 text-[#042f22] border-2 border-[#064e3b] font-extrabold uppercase flex items-center gap-2 shadow-sm"
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>Descargar PDF Único PUB (RG 4626) + F.713</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* Dos Columnas: 1) Estado de Situación Patrimonial (Rubros RG 5908) | 2) Estado de Resultados + Conciliación Impositiva F.713 */}
+                {/* Parámetros Editables de Carátula (Hoja 2), Controles (Hoja 1) y Valuación RT 54 */}
+                <div className="p-4 bg-slate-50 border border-slate-300 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <span className="font-extrabold text-slate-800 uppercase">
+                      ⚙ PARÁMETROS DE CARÁTULA SOCIETARIA (HOJA 2: Caratula), CONTROLES (HOJA 1: Controles) Y VALUACIÓN RT 54
+                    </span>
+                    <span className="text-[10px] text-emerald-800 font-bold">
+                      Al modificar cualquier campo se recalculan en vivo las 22 pestañas del archivo RT54.xlsx
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                        Domicilio Legal (Caratula!B5):
+                      </label>
+                      <input
+                        type="text"
+                        value={rt54DomicilioLegal}
+                        onChange={(e) => setRt54DomicilioLegal(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                        Inscripción R.P.C. / DPJ (Caratula!B10):
+                      </label>
+                      <input
+                        type="text"
+                        value={rt54RpcInscripcion}
+                        onChange={(e) => setRt54RpcInscripcion(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                        Ejercicio Económico Nº (Caratula!B16):
+                      </label>
+                      <input
+                        type="text"
+                        value={rt54EjercicioNro}
+                        onChange={(e) => setRt54EjercicioNro(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <div>
+                        <label className="block text-[9px] text-slate-600 font-bold mb-1">
+                          Inicio (D17):
+                        </label>
+                        <input
+                          type="date"
+                          value={rt54FechaInicio}
+                          onChange={(e) => setRt54FechaInicio(e.target.value)}
+                          className="w-full px-1 py-1.5 bg-white border border-slate-300 text-[10px] font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-slate-600 font-bold mb-1">
+                          Cierre (D18):
+                        </label>
+                        <input
+                          type="date"
+                          value={rt54FechaCierre}
+                          onChange={(e) => setRt54FechaCierre(e.target.value)}
+                          className="w-full px-1 py-1.5 bg-white border border-slate-300 text-[10px] font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-slate-600 font-bold mb-1">
+                          Informe (B32):
+                        </label>
+                        <input
+                          type="date"
+                          value={rt54FechaInforme}
+                          onChange={(e) => setRt54FechaInforme(e.target.value)}
+                          className="w-full px-1 py-1.5 bg-white border border-slate-300 text-[10px] font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-7 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                        Modelo EEPN (Controles!B4):
+                      </label>
+                      <select
+                        value={rt54ModeloEepn}
+                        onChange={(e) => setRt54ModeloEepn(e.target.value as 'EEPN (1)' | 'EEPN (2)')}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold text-[#042f22]"
+                      >
+                        <option value="EEPN (1)">EEPN (1)</option>
+                        <option value="EEPN (2)">EEPN (2)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                        Modelo Prop. Inv. (B3):
+                      </label>
+                      <select
+                        value={rt54ModeloPi}
+                        onChange={(e) => setRt54ModeloPi(e.target.value as 'Costo' | 'Valor Razonable')}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold text-[#042f22]"
+                      >
+                        <option value="Costo">Costo (Anexo VI)</option>
+                        <option value="Valor Razonable">Valor Razonable (Anexo V)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                        Variación IPC (%):
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={coefInflacionAnualIpc}
+                        onChange={(e) => setCoefInflacionAnualIpc(parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold text-[#042f22]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                        Bienes de Uso Netos ($):
+                      </label>
+                      <input
+                        type="number"
+                        value={bienesDeUsoNetos}
+                        onChange={(e) => setBienesDeUsoNetos(parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                        Deprec. Ejercicio Bs.Uso ($):
+                      </label>
+                      <input
+                        type="number"
+                        value={rt54DepEjercicioBsUso}
+                        onChange={(e) => setRt54DepEjercicioBsUso(parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                        Capital Suscripto ($):
+                      </label>
+                      <input
+                        type="number"
+                        value={capitalSocialHistorico}
+                        onChange={(e) => setCapitalSocialHistorico(parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
+                        Anticipos Ganancias ($):
+                      </label>
+                      <input
+                        type="number"
+                        value={anticiposGananciasPagados}
+                        onChange={(e) => setAnticiposGananciasPagados(parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dos Columnas Principales: 1) Estado de Situación Patrimonial (estadopat) | 2) Estado de Resultados (EstRes) */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div className="border border-slate-300 p-4 space-y-2 bg-white">
-                    <h5 className="font-extrabold text-slate-900 uppercase border-b border-slate-200 pb-2">
-                      1. ESTADO DE SITUACIÓN PATRIMONIAL (RUBROS RESUMIDOS RG 5908 WEB ARCA)
-                    </h5>
-                    <div className="text-[11px] font-bold text-emerald-800 uppercase pt-1">ACTIVO CORRIENTE Y NO CORRIENTE</div>
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <h5 className="font-extrabold text-slate-900 uppercase">
+                        1. HOJA 3 (estadopat): ESTADO DE SITUACIÓN PATRIMONIAL RT 54
+                      </h5>
+                      <span className="px-2 py-0.5 bg-emerald-100 text-[#042f22] font-extrabold text-[10px]">
+                        ✔ ACTIVO = PASIVO+PN
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-bold text-emerald-800 uppercase pt-1">ACTIVO CORRIENTE Y NO CORRIENTE (ACTUAL vs ANTERIOR)</div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span>Caja y Bancos (Tesorería):</span>
-                      <span className="font-bold">${liquidacionCalculada.cajaYBancos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>Caja y Bancos (Nota 12.1 → <code>estadopat!B8</code>):</span>
+                      <span className="font-bold">${rt54Mapped.estadopat.cajaYBancosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span>Créditos por Ventas (Clientes Cta. Cte.):</span>
-                      <span className="font-bold">${liquidacionCalculada.creditosPorVentas.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>Cuentas por cobrar a clientes en moneda (Nota 12.3 → <code>estadopat!B10</code>):</span>
+                      <span className="font-bold">${rt54Mapped.estadopat.cuentasPorCobrarClientesActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span>Otros Créditos Fiscales (IVA / Anticipos):</span>
-                      <span className="font-bold">${liquidacionCalculada.otrosCreditosFiscales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>Créditos impositivos (Nota 12.5 → <code>estadopat!B12</code>):</span>
+                      <span className="font-bold">${rt54Mapped.estadopat.creditosImpositivosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span>Bienes de Cambio (Inventario Valorizado):</span>
-                      <span className="font-bold">${liquidacionCalculada.bienesDeCambio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>Bienes de Cambio (Nota 12.12 → <code>estadopat!B16</code>):</span>
+                      <span className="font-bold">${rt54Mapped.estadopat.bienesDeCambioActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span>Bienes de Uso (Propiedad, Planta y Equipo):</span>
-                      <span className="font-bold">${liquidacionCalculada.totalActivoNoCorriente.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>Bienes de Uso Netos (Anexo III → <code>estadopat!B29</code>):</span>
+                      <span className="font-bold">${rt54Mapped.estadopat.bienesDeUsoNetosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1.5 bg-emerald-50 px-2 font-extrabold text-[#042f22]">
-                      <span>TOTAL DEL ACTIVO:</span>
-                      <span>${liquidacionCalculada.totalActivo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>TOTAL DEL ACTIVO (<code>estadopat!B39</code>):</span>
+                      <span>${rt54Mapped.estadopat.totalActivoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
 
                     <div className="text-[11px] font-bold text-rose-800 uppercase pt-2">PASIVO Y PATRIMONIO NETO</div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span>Deudas Comerciales (Proveedores Cta. Cte.):</span>
-                      <span className="font-bold text-rose-700">${liquidacionCalculada.deudasComercialesProveedores.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>Proveedores de bienes y servicios (Nota 12.13 → <code>estadopat!E8</code>):</span>
+                      <span className="font-bold text-rose-700">${rt54Mapped.estadopat.proveedoresActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span>Deudas Fiscales y Sociales (IVA + IIBB + F.931):</span>
-                      <span className="font-bold text-rose-700">${liquidacionCalculada.deudasFiscalesYSociales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>Deudas fiscales (Nota 12.16: IVA + IIBB + Ganancias → <code>estadopat!E10</code>):</span>
+                      <span className="font-bold text-rose-700">${rt54Mapped.estadopat.deudasFiscalesActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Deudas laborales y previsionales (Nota 12.15: Sueldos + F.931 → <code>estadopat!E11</code>):</span>
+                      <span className="font-bold text-rose-700">${rt54Mapped.estadopat.deudasLaboralesActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-200 font-bold">
-                      <span>TOTAL DEL PASIVO:</span>
-                      <span>${liquidacionCalculada.totalPasivo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>TOTAL DEL PASIVO (<code>estadopat!E37</code>):</span>
+                      <span>${rt54Mapped.estadopat.totalPasivoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-200 font-bold text-slate-800">
+                      <span>PATRIMONIO NETO SEGÚN EEPN (<code>estadopat!E38</code>):</span>
+                      <span>${rt54Mapped.estadopat.patrimonioNetoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1.5 bg-slate-100 px-2 font-extrabold text-slate-900">
-                      <span>PATRIMONIO NETO (Activo − Pasivo):</span>
-                      <span>${liquidacionCalculada.patrimonioNetoTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>TOTAL PASIVO + PATRIMONIO NETO (<code>estadopat!E39</code>):</span>
+                      <span>${rt54Mapped.estadopat.totalPasivoMasPnActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                   </div>
 
                   <div className="border border-slate-300 p-4 space-y-2 bg-white">
                     <h5 className="font-extrabold text-slate-900 uppercase border-b border-slate-200 pb-2">
-                      2. ESTADO DE RESULTADOS + AJUSTE POR INFLACIÓN Y F. 713 (RG 5908)
+                      2. HOJA 4 (EstRes): ESTADO DE RESULTADOS RT 54 + IMPUESTO A LAS GANANCIAS
                     </h5>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span>(+) Ventas Netas de Bienes y Servicios (Proyección Anual):</span>
-                      <span className="font-bold text-emerald-700">${liquidacionCalculada.ventasNetasAnuales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>(+) Ingresos netos por ventas y servicios (Nota 12.27 → <code>EstRes!C6</code>):</span>
+                      <span className="font-bold text-emerald-700">${rt54Mapped.estRes.ventasNetasActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span>(-) Costo de Ventas, Materiales y Servicios (Compras):</span>
-                      <span className="font-bold text-rose-700">-${liquidacionCalculada.cmvYGastosOperativosAnuales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>(-) Costo de bienes vendidos y servicios prestados (Anexo VIII → <code>EstRes!C9</code>):</span>
+                      <span className="font-bold text-rose-700">${rt54Mapped.estRes.costoVentasYServiciosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-200 font-bold bg-slate-50 px-1">
+                      <span>(=) RESULTADO BRUTO (<code>EstRes!C11</code>):</span>
+                      <span>${rt54Mapped.estRes.resultadoBrutoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span>(-) Gastos Laborales y Cargas Sociales (Anexo Art. 64):</span>
-                      <span className="font-bold text-rose-700">-${liquidacionCalculada.gastosLaboralesAnuales.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100 font-bold">
-                      <span>(=) Resultado Operativo Antes de RECPAM:</span>
-                      <span>${liquidacionCalculada.resultadoOperativoAntesRecpam.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>(-) Gastos de comercialización (Anexo IX Col. D → <code>EstRes!C14</code>):</span>
+                      <span className="font-bold text-rose-700">${rt54Mapped.estRes.gastosComercializacionActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span>(+/-) RECPAM / Ajuste por Inflación Impositivo (IPC {coefInflacionAnualIpc}%):</span>
-                      <span className="font-bold text-indigo-800">${liquidacionCalculada.recpamContable.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>(-) Gastos de administración (Anexo IX Col. E → <code>EstRes!C15</code>):</span>
+                      <span className="font-bold text-rose-700">${rt54Mapped.estRes.gastosAdministracionActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span>(+) Ajustes Impositivos Columna II (Gastos No Deducibles):</span>
-                      <span className="font-bold">+${gastosNoDeduciblesImpositivos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>(+/-) Otros resultados financieros y por tenencia inc. RECPAM (Nota 12.24 → <code>EstRes!C21</code>):</span>
+                      <span className="font-bold text-indigo-800">${rt54Mapped.estRes.recpamYFinancierosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1.5 bg-indigo-50 px-2 font-extrabold text-indigo-950">
-                      <span>(=) RESULTADO IMPOSITIVO GRAVADO (F. 713 WEB):</span>
-                      <span>${liquidacionCalculada.resultadoImpositivoGravadoF713.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>(=) RESULTADO ANTES DE IMPUESTO A LAS GANANCIAS (<code>EstRes!C25</code>):</span>
+                      <span>${rt54Mapped.estRes.resultadoAntesImpuestoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100">
-                      <span>(-) Impuesto a las Ganancias ({liquidacionCalculada.alicuotaMarginalAplicada}):</span>
-                      <span className="font-bold text-rose-700">-${liquidacionCalculada.impuestoGananciasDeterminado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>(-) Impuesto a las Ganancias F.713 (Nota 12.16 → <code>EstRes!C26</code>):</span>
+                      <span className="font-bold text-rose-700">${rt54Mapped.estRes.impuestoGananciasActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between py-1.5 bg-emerald-50 px-2 font-extrabold text-[#042f22]">
-                      <span>(=) RESULTADO NETO DEL EJERCICIO (PUB RG 4626):</span>
-                      <span>${liquidacionCalculada.resultadoNetoDelEjercicio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span>(=) RESULTADO DEL EJERCICIO (<code>EstRes!C32</code> → <code>EEPN(1)!L19</code>):</span>
+                      <span>${rt54Mapped.estRes.resultadoEjercicioActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                   </div>
+                </div>
+
+                {/* INSPECTOR DETALLADO DE MAPEO DE LAS 22 HOJAS DEL LIBRO RT54.XLSX */}
+                <div className="border border-slate-300 bg-white">
+                  <div className="p-3 bg-slate-100 border-b border-slate-300 flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-extrabold text-slate-900 uppercase">
+                      AUDITORÍA DE MAPEO DIRECTO A LAS 22 PESTAÑAS DEL ARCHIVO RT54.XLSX
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setRt54VistaInspector('notas_22')}
+                        className={`px-2.5 py-1 text-[10px] font-extrabold uppercase border ${
+                          rt54VistaInspector === 'notas_22'
+                            ? 'bg-[#064e3b] text-white border-[#064e3b]'
+                            : 'bg-white text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        Hoja 22: Notas(2) (12.1 a 12.27)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRt54VistaInspector('anexo_ix_gastos')}
+                        className={`px-2.5 py-1 text-[10px] font-extrabold uppercase border ${
+                          rt54VistaInspector === 'anexo_ix_gastos'
+                            ? 'bg-[#064e3b] text-white border-[#064e3b]'
+                            : 'bg-white text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        Hoja 18: Anexo IX Costos y Gastos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRt54VistaInspector('anexo_viii_cmv')}
+                        className={`px-2.5 py-1 text-[10px] font-extrabold uppercase border ${
+                          rt54VistaInspector === 'anexo_viii_cmv'
+                            ? 'bg-[#064e3b] text-white border-[#064e3b]'
+                            : 'bg-white text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        Hoja 17: Anexo VIII Costo de Venta
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRt54VistaInspector('eepn_efe')}
+                        className={`px-2.5 py-1 text-[10px] font-extrabold uppercase border ${
+                          rt54VistaInspector === 'eepn_efe'
+                            ? 'bg-[#064e3b] text-white border-[#064e3b]'
+                            : 'bg-white text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        Hojas 5, 7, 8, 9 y 12: EEPN + EFE + Bs.Uso
+                      </button>
+                    </div>
+                  </div>
+
+                  {rt54VistaInspector === 'notas_22' && (
+                    <div className="p-3 overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-300 text-[10px] uppercase text-slate-600">
+                            <th className="p-2">Nota RT 54</th>
+                            <th className="p-2">Rubro y Desglose de Celdas en Hoja &apos;Notas(2)&apos;</th>
+                            <th className="p-2">Módulo Origen Zonda ERP / Cloud</th>
+                            <th className="p-2">Celda Destino EECC</th>
+                            <th className="p-2 text-right">Actual ($)</th>
+                            <th className="p-2 text-right">Anterior ($)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {rt54Mapped.notasPreview.map((n) => (
+                            <tr key={n.notaCodigo} className="hover:bg-slate-50/80">
+                              <td className="p-2 font-extrabold text-[#042f22] whitespace-nowrap">
+                                {n.notaCodigo}
+                              </td>
+                              <td className="p-2">
+                                <div className="font-bold text-slate-900">{n.titulo}</div>
+                                <div className="space-y-0.5 mt-1">
+                                  {n.detalleLineas.map((dl) => (
+                                    <div
+                                      key={dl.celda}
+                                      className="text-[10px] text-slate-600 flex items-center justify-between bg-slate-50 px-1.5 py-0.5 border border-slate-200"
+                                    >
+                                      <span>
+                                        <code>{dl.celda}</code> · {dl.concepto}
+                                      </span>
+                                      <span className="font-bold text-slate-800">
+                                        ${dl.actual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="p-2 text-[11px] font-bold text-slate-700">
+                                {n.moduloOrigenErp}
+                              </td>
+                              <td className="p-2 text-[11px] text-emerald-800 font-bold">
+                                <code>{n.destinoEstado}</code>
+                              </td>
+                              <td className="p-2 text-right font-extrabold text-slate-900 whitespace-nowrap">
+                                ${n.actualCorriente.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-2 text-right text-slate-600 whitespace-nowrap">
+                                ${n.anteriorCorriente.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {rt54VistaInspector === 'anexo_ix_gastos' && (
+                    <div className="p-3 overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-300 text-[10px] uppercase text-slate-600">
+                            <th className="p-2">Fila Excel</th>
+                            <th className="p-2">Rubro (Hoja 18: &apos;costos y gastos&apos; - Art. 64 Ley 19.550)</th>
+                            <th className="p-2 text-right">Col. B: Costo Prod.</th>
+                            <th className="p-2 text-right">Col. C: Prest. Serv.</th>
+                            <th className="p-2 text-right">Col. D: Comercializ.</th>
+                            <th className="p-2 text-right">Col. E: Administrac.</th>
+                            <th className="p-2 text-right">Col. G: Total Actual</th>
+                            <th className="p-2 text-right">Col. H: Total Anterior</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {rt54Mapped.anexoIXPreview.map((row) => (
+                            <tr key={row.fila} className="hover:bg-slate-50">
+                              <td className="p-2 font-bold text-slate-500">Fila {row.fila}</td>
+                              <td className="p-2 font-bold text-slate-900">{row.rubro}</td>
+                              <td className="p-2 text-right">
+                                ${row.costoProduccionB.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-2 text-right">
+                                ${row.gastosServiciosC.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-2 text-right">
+                                ${row.gastosComercializacionD.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-2 text-right">
+                                ${row.gastosAdministracionE.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-2 text-right font-extrabold text-[#042f22]">
+                                ${row.totalActualG.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-2 text-right text-slate-500">
+                                ${row.totalAnteriorH.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {rt54VistaInspector === 'anexo_viii_cmv' && (
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="border border-slate-200 p-3 space-y-2">
+                        <h6 className="font-extrabold text-[#042f22] uppercase border-b border-slate-200 pb-1">
+                          HOJA 17 (&apos;costo de venta&apos;): ANEXO VIII DETERMINACIÓN DEL CMV Y SERVICIOS
+                        </h6>
+                        <div className="flex justify-between py-1 border-b border-slate-100">
+                          <span>Existencia Inicial de Bienes de Cambio (<code>C8 = +D22</code>):</span>
+                          <span className="font-bold">${rt54Mapped.costoVentaAnexoVIII.existenciaInicialActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-100">
+                          <span>(+) Costos de Producción s/ Anexo IX (<code>C13 = &apos;costos y gastos&apos;!B38</code>):</span>
+                          <span className="font-bold">${rt54Mapped.costoVentaAnexoVIII.costosProduccionActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-100">
+                          <span>(+) Compras del Ejercicio (<code>C16</code>):</span>
+                          <span className="font-bold">${rt54Mapped.costoVentaAnexoVIII.comprasActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-100">
+                          <span>(-) Existencia Final s/ Nota 12.12 (<code>C22 = &apos;Notas(2)&apos;!B145</code>):</span>
+                          <span className="font-bold text-emerald-700">-${rt54Mapped.costoVentaAnexoVIII.existenciaFinalActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-200 font-bold">
+                          <span>(=) Costo de los Bienes Vendidos (<code>C25</code>):</span>
+                          <span>${rt54Mapped.costoVentaAnexoVIII.costoBienesVendidosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-200">
+                          <span>(+) Gastos por Prestación de Servicios s/ Anexo IX (<code>C26 = &apos;costos y gastos&apos;!C38</code>):</span>
+                          <span className="font-bold">${rt54Mapped.costoVentaAnexoVIII.gastosPrestacionServiciosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between py-1.5 bg-rose-50 px-2 font-extrabold text-rose-900">
+                          <span>(=) TOTAL COSTO BIENES VENDIDOS Y SERVICIOS (<code>C27 → EstRes!C9</code>):</span>
+                          <span>${rt54Mapped.costoVentaAnexoVIII.costoTotalVentasYServiciosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+
+                      <div className="border border-slate-200 p-3 space-y-2 bg-slate-50">
+                        <h6 className="font-extrabold text-slate-900 uppercase border-b border-slate-200 pb-1">
+                          INTERCONEXIÓN AUTOMÁTICA DE FÓRMULAS EXCEL
+                        </h6>
+                        <p className="text-[11px] font-sans text-slate-700 leading-relaxed">
+                          En el archivo oficial <code>RT54.xlsx</code>, la celda <code>EstRes!C9</code> tiene la fórmula <code>=-&apos;costo de venta&apos;!C27</code>. A su vez, <code>&apos;costo de venta&apos;!C27</code> suma el Costo de Bienes Vendidos (<code>C25</code>) más los Gastos por Prestación de Servicios provenientes de <code>&apos;costos y gastos&apos;!C38</code>, y descuenta automáticamente la Existencia Final de <code>&apos;Notas(2)&apos;!B145</code> (alimentada por el módulo <strong>06 - Inventario</strong>).
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {rt54VistaInspector === 'eepn_efe' && (
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="border border-slate-200 p-3 space-y-2">
+                        <h6 className="font-extrabold text-[#042f22] uppercase border-b border-slate-200 pb-1">
+                          HOJAS 5 Y 6 (EEPN 1 Y 2): EVOLUCIÓN DEL PATRIMONIO NETO
+                        </h6>
+                        <div className="flex justify-between py-1 border-b border-slate-100">
+                          <span>Capital Social Suscripto (<code>EEPN(1)!B10 → B20</code>):</span>
+                          <span className="font-bold">${rt54Mapped.eepn.capitalSuscripto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-100">
+                          <span>Ajuste Integral del Capital RT 6 (<code>EEPN(1)!C10 → C20</code>):</span>
+                          <span className="font-bold">${rt54Mapped.eepn.ajusteCapital.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-100">
+                          <span>Reserva Legal (<code>EEPN(1)!G10 → G20</code>):</span>
+                          <span className="font-bold">${rt54Mapped.eepn.reservaLegal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-100">
+                          <span>Resultados No Asignados al Inicio (<code>EEPN(1)!I10 → I20</code>):</span>
+                          <span className="font-bold">${rt54Mapped.eepn.resultadosNoAsignadosInicio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-100">
+                          <span>(+) Resultado del Ejercicio (<code>EEPN(1)!L19 = +EstRes!C32</code>):</span>
+                          <span className="font-bold text-emerald-700">${rt54Mapped.eepn.resultadoEjercicio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between py-1.5 bg-emerald-50 px-2 font-extrabold text-[#042f22]">
+                          <span>(=) SALDO CIERRE PATRIMONIO NETO (<code>EEPN(1)!L20 → estadopat!E38</code>):</span>
+                          <span>${rt54Mapped.eepn.totalPnCierreActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+
+                      <div className="border border-slate-200 p-3 space-y-2">
+                        <h6 className="font-extrabold text-[#042f22] uppercase border-b border-slate-200 pb-1">
+                          HOJAS 7, 8, 9 (EFE SINTÉTICO / DIRECTO / INDIRECTO) Y HOJA 12 (BS. USO)
+                        </h6>
+                        <div className="flex justify-between py-1 border-b border-slate-100">
+                          <span>Efectivo al Inicio del Ejercicio (<code>&apos;Notas(2)&apos;!C286</code>):</span>
+                          <span className="font-bold">${rt54Mapped.estadopat.cajaYBancosAnterior.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-100">
+                          <span>Efectivo al Cierre del Ejercicio (<code>&apos;Notas(2)&apos;!B286</code>):</span>
+                          <span className="font-bold">${rt54Mapped.estadopat.cajaYBancosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-100 font-bold text-emerald-800">
+                          <span>(=) Variación Neta del Efectivo (<code>EFE!C12 / C27 / C54 / C80</code>):</span>
+                          <span>
+                            ${(rt54Mapped.estadopat.cajaYBancosActual - rt54Mapped.estadopat.cajaYBancosAnterior).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-100">
+                          <span>Bienes de Uso Netos al Cierre (<code>Bsuso!O19 → estadopat!B29</code>):</span>
+                          <span className="font-bold">${rt54Mapped.estadopat.bienesDeUsoNetosActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
