@@ -80,7 +80,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div className="truncate">
                 <h1 className="text-xs font-extrabold tracking-wider uppercase text-[#064e3b] leading-tight whitespace-nowrap">
-                  GROW // ERP
+                  {activeModule === 'zondacloud' || operadorActual.esCuentaZondaCloud
+                    ? 'ZONDA CLOUD'
+                    : 'GROW // ERP'}
                 </h1>
               </div>
             </div>
