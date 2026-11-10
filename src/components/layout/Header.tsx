@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Bell, Search, X, BookOpen, ArrowRight, FileDown, Cloud, Building2, Lock, Unlock, UserCheck } from 'lucide-react';
+import { Bell, Search, X, BookOpen, ArrowRight, FileDown, Cloud, Building2, Lock, Unlock, UserCheck, GraduationCap } from 'lucide-react';
 import { EmpresaConfig } from '../../types/models';
 import { ManualesCentroAyudaModal } from '../modals/ManualesCentroAyudaModal';
 import { RoleAuthModal, getActiveOperator, OperadorProfile } from '../modals/RoleAuthModal';
+import { TutorialInteractivoModal, LOGIN_TUTORIAL_STORAGE_KEY } from '../modals/TutorialInteractivoModal';
 import { getUsuariosList } from '../../services/usuariosRbacService';
 import { useErp, flattenCuentasContables } from '../../context/ErpContext';
 import type { ModuleKey } from './Sidebar';
@@ -56,6 +57,13 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
 
   const [modalManualesOpen, setModalManualesOpen] = useState(false);
   const [modalRolesOpen, setModalRolesOpen] = useState(false);
+  const [modalTutorialOpen, setModalTutorialOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(LOGIN_TUTORIAL_STORAGE_KEY) !== 'true';
+    } catch {
+      return true;
+    }
+  });
   const [operadorActual, setOperadorActual] = useState<OperadorProfile>(getActiveOperator());
 
   const mapModuleToManualId = (mod: string): string => {
@@ -680,6 +688,17 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           <span className="hidden sm:inline">Dossier PDF</span>
         </a>
 
+        {/* Botón Tutorial Interactivo con Imágenes */}
+        <button
+          type="button"
+          onClick={() => setModalTutorialOpen(true)}
+          title="Abrir Tutorial Interactivo Paso a Paso con Imágenes y Guía en Vivo"
+          className="h-8 px-2.5 border border-amber-500 bg-amber-50 hover:bg-amber-100 text-[#042f22] text-[11px] font-extrabold transition-all flex items-center gap-1.5 whitespace-nowrap"
+        >
+          <GraduationCap className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+          <span>Tutorial</span>
+        </button>
+
         {/* Botón Manuales Compacto en 1 Línea */}
         <button
           onClick={() => setModalManualesOpen(true)}
@@ -748,7 +767,22 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
         isOpen={modalRolesOpen}
         onClose={() => setModalRolesOpen(false)}
         operadorActual={operadorActual}
-        onSelectOperador={(op) => setOperadorActual(op)}
+        onSelectOperador={(op) => {
+          setOperadorActual(op);
+          try {
+            if (localStorage.getItem(LOGIN_TUTORIAL_STORAGE_KEY) !== 'true') {
+              setModalTutorialOpen(true);
+            }
+          } catch {
+            // ignore storage errors
+          }
+        }}
+      />
+
+      {/* Modal de Tutorial Interactivo al Iniciar Sesión con Imágenes */}
+      <TutorialInteractivoModal
+        isOpen={modalTutorialOpen}
+        onClose={() => setModalTutorialOpen(false)}
       />
     </header>
   );
