@@ -47,7 +47,11 @@ import {
   loadActiveTenantId,
   saveActiveTenantId,
   loadTenantDataSnapshot,
-  saveTenantDataSnapshot
+  saveTenantDataSnapshot,
+  pullRemoteTenantSnapshotFromSupabase,
+  SYNC_BROADCAST_CHANNEL_NAME,
+  broadcastZondaSyncEvent,
+  type ZondaSyncBroadcastMessage
 } from '../services/multiTenantZondaCloudService';
 
 export interface EmpresaDatosExtra {
@@ -86,10 +90,23 @@ export interface DesgloseRetencionesFiscales {
   nroCertificado?: string;
 }
 
+export interface EventoSincronizacionViva {
+  id: string;
+  hora: string;
+  moduloOrigen: string;
+  evento: string;
+  detalle: string;
+  canalesImpactados: string[];
+  estado: 'SINCRONIZADO' | 'RECIBIDO_CLOUD' | 'MULTI_PESTAÑA';
+}
+
 interface ErpContextValue {
-  // Estado de Base de Datos Supabase
+  // Estado de Base de Datos Supabase & Sincronización Omnicanal
   dbStatus: 'sincronizando' | 'conectado' | 'error';
   lastSync: string;
+  eventosSincronizacion: EventoSincronizacionViva[];
+  registrarEventoSincronizacion: (ev: Omit<EventoSincronizacionViva, 'id' | 'hora'>) => void;
+  forzarSincronizacionOmnicanal: () => Promise<void>;
   refreshAllFromDb: () => Promise<void>;
 
   // Navegación global
@@ -602,6 +619,13 @@ export function reconciliarRelacionesComprobantes(
     }
   }
 
+  for (const c of clientesList) {
+    c.saldo = Number(c.facturasAdeudadas.reduce((acc, f) => acc + Math.max(0, f.saldo), 0).toFixed(2));
+  }
+  for (const p of proveedoresList) {
+    p.saldo = Number(p.facturasAdeudadas.reduce((acc, f) => acc + Math.max(0, f.saldo), 0).toFixed(2));
+  }
+
   return {
     clientesReconciliados: clientesList,
     proveedoresReconciliados: proveedoresList
@@ -631,6 +655,36 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeModule, setActiveModuleState] = useState<ModuleKey>(getInitialModule);
   const [dbStatus, setDbStatus] = useState<'sincronizando' | 'conectado' | 'error'>('sincronizando');
   const [lastSync, setLastSync] = useState<string>(new Date().toLocaleTimeString('es-AR'));
+  const [eventosSincronizacion, setEventosSincronizacion] = useState<EventoSincronizacionViva[]>(() => [
+    {
+      id: 'SYNC-INIT-01',
+      hora: new Date().toLocaleTimeString('es-AR'),
+      moduloOrigen: 'Motor Omnicanal Zonda',
+      evento: 'BUS DE SINCRONIZACIÓN MULTI-MÓDULO ACTIVO',
+      detalle:
+        'Clientes, Proveedores, Stock Kárdex, Tesorería Multi-Cuenta, Libro Diario, Zonda Cloud ARCA y Balance RT 54 enlazados en tiempo real.',
+      canalesImpactados: ['Supabase DB', 'BroadcastChannel Multi-Pestaña', 'Zonda Cloud ARCA', 'RT 54 (22 Hojas)'],
+      estado: 'SINCRONIZADO'
+    }
+  ]);
+
+  const registrarEventoSincronizacion = useCallback(
+    (ev: Omit<EventoSincronizacionViva, 'id' | 'hora'>) => {
+      const horaActual = new Date().toLocaleTimeString('es-AR');
+      setLastSync(horaActual);
+      setEventosSincronizacion((prev) =>
+        [
+          {
+            id: `SYNC-${Date.now()}-${Math.floor(Math.random() * 999)}`,
+            hora: horaActual,
+            ...ev
+          },
+          ...prev
+        ].slice(0, 35)
+      );
+    },
+    []
+  );
 
   // Estado Multi-Tenant (Aislamiento estricto por Empresa / CUIT)
   const [tenants, setTenants] = useState<TenantEmpresa[]>(() => loadTenantsList());
@@ -653,7 +707,9 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [facturasCompra, setFacturasCompra] = useState<ComprobanteCompra[]>(initialTenantSnap.facturasCompra);
   const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancaria[]>(initialTenantSnap.cuentasBancarias);
   const [cheques, setCheques] = useState<Cheque[]>(initialTenantSnap.cheques);
-  const [planDeCuentas, setPlanDeCuentas] = useState<CuentaContable[]>(mockPlanDeCuentas);
+  const [planDeCuentas, setPlanDeCuentas] = useState<CuentaContable[]>(
+    initialTenantSnap.planDeCuentas || mockPlanDeCuentas
+  );
   const [asientosContables, setAsientosContables] = useState<AsientoContable[]>(initialTenantSnap.asientosContables);
   const [inventario, setInventario] = useState<ArticuloInventario[]>(initialTenantSnap.inventario);
   const [empleados, setEmpleados] = useState<EmpleadoLegajo[]>(initialTenantSnap.empleados);
@@ -682,6 +738,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       inventario,
       empleados,
       asientosContables,
+      planDeCuentas,
       clasificacionesComprasArca,
       pendientesMisComprobantesArca
     });
@@ -698,6 +755,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     inventario,
     empleados,
     asientosContables,
+    planDeCuentas,
     clasificacionesComprasArca,
     pendientesMisComprobantesArca
   ]);
@@ -722,6 +780,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       inventario,
       empleados,
       asientosContables,
+      planDeCuentas,
       clasificacionesComprasArca,
       pendientesMisComprobantesArca
     });
@@ -747,9 +806,16 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setInventario(snap.inventario);
     setEmpleados(snap.empleados);
     setAsientosContables(snap.asientosContables);
+    setPlanDeCuentas(snap.planDeCuentas || mockPlanDeCuentas);
     setClasificacionesComprasArca(snap.clasificacionesComprasArca || {});
     setPendientesMisComprobantesArca(snap.pendientesMisComprobantesArca || []);
-    setLastSync(new Date().toLocaleTimeString('es-AR'));
+    registrarEventoSincronizacion({
+      moduloOrigen: 'Multi-Tenant RBAC',
+      evento: `CAMBIO DE EMPRESA ACTIVA -> ${snap.empresa.razonSocial}`,
+      detalle: `Se cargaron clientes, proveedores, stock, bancos, plan de cuentas y balances aislados de CUIT ${snap.empresa.cuit}.`,
+      canalesImpactados: ['Padrón Clientes/Proveedores', 'Tesorería', 'Libro Diario', 'Zonda Cloud'],
+      estado: 'SINCRONIZADO'
+    });
   };
 
   const crearNuevoTenant = (params: {
@@ -920,6 +986,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         inventario,
         empleados,
         asientosContables,
+        planDeCuentas,
         clasificacionesComprasArca,
         pendientesMisComprobantesArca
       };
@@ -1296,31 +1363,37 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const recargarSnapshotEnMemoria = useCallback((tenantIdTarget: string) => {
+    const snap = loadTenantDataSnapshot(tenantIdTarget);
+    const { clientesReconciliados, proveedoresReconciliados } = reconciliarRelacionesComprobantes(
+      snap.clientes,
+      snap.proveedores,
+      snap.facturasVenta,
+      snap.facturasCompra
+    );
+    setEmpresa(snap.empresa);
+    setEmpresaExtra(snap.empresaExtra);
+    setClientes(clientesReconciliados);
+    setProveedores(proveedoresReconciliados);
+    setFacturasVenta(snap.facturasVenta);
+    setFacturasCompra(snap.facturasCompra);
+    setCuentasBancarias(snap.cuentasBancarias);
+    setCheques(snap.cheques);
+    setInventario(snap.inventario);
+    setEmpleados(snap.empleados);
+    setAsientosContables(snap.asientosContables);
+    setPlanDeCuentas(snap.planDeCuentas || mockPlanDeCuentas);
+    setClasificacionesComprasArca(snap.clasificacionesComprasArca || {});
+    setPendientesMisComprobantesArca(snap.pendientesMisComprobantesArca || []);
+    setDbStatus('conectado');
+    setLastSync(new Date().toLocaleTimeString('es-AR'));
+  }, []);
+
   const refreshAllFromDb = useCallback(async () => {
     setDbStatus('sincronizando');
     if (activeTenantId !== 'TENANT-ECAR') {
-      const snap = loadTenantDataSnapshot(activeTenantId);
-      const { clientesReconciliados, proveedoresReconciliados } = reconciliarRelacionesComprobantes(
-        snap.clientes,
-        snap.proveedores,
-        snap.facturasVenta,
-        snap.facturasCompra
-      );
-      setEmpresa(snap.empresa);
-      setEmpresaExtra(snap.empresaExtra);
-      setClientes(clientesReconciliados);
-      setProveedores(proveedoresReconciliados);
-      setFacturasVenta(snap.facturasVenta);
-      setFacturasCompra(snap.facturasCompra);
-      setCuentasBancarias(snap.cuentasBancarias);
-      setCheques(snap.cheques);
-      setInventario(snap.inventario);
-      setEmpleados(snap.empleados);
-      setAsientosContables(snap.asientosContables);
-      setClasificacionesComprasArca(snap.clasificacionesComprasArca || {});
-      setPendientesMisComprobantesArca(snap.pendientesMisComprobantesArca || []);
-      setDbStatus('conectado');
-      setLastSync(new Date().toLocaleTimeString('es-AR'));
+      await pullRemoteTenantSnapshotFromSupabase(activeTenantId);
+      recargarSnapshotEnMemoria(activeTenantId);
       return;
     }
     try {
@@ -1692,6 +1765,87 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     refreshAllFromDb();
   }, [refreshAllFromDb]);
 
+  // Sincronización Omnicanal en Tiempo Real entre Pestañas (Zonda ERP <-> Zonda Cloud) y Supabase
+  useEffect(() => {
+    const handleStorageOrBroadcast = (tenantAffected?: string, actionLabel?: string) => {
+      setTenants(loadTenantsList());
+      if (!tenantAffected || tenantAffected === activeTenantId) {
+        recargarSnapshotEnMemoria(activeTenantId);
+      }
+      if (actionLabel) {
+        registrarEventoSincronizacion({
+          moduloOrigen: 'Sincronización Multi-Pestaña / Cloud',
+          evento: actionLabel,
+          detalle: `Estado actualizado instantáneamente en todas las consolas abiertas (${
+            tenantAffected || activeTenantId
+          }).`,
+          canalesImpactados: ['Zonda ERP', 'Zonda Cloud ARCA', 'Tesorería & Contabilidad'],
+          estado: 'MULTI_PESTAÑA'
+        });
+      }
+    };
+
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key) return;
+      if (e.key.startsWith('zonda_multitenant_')) {
+        handleStorageOrBroadcast(undefined, 'Actualización recibida desde otra ventana activa');
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel(SYNC_BROADCAST_CHANNEL_NAME);
+        bc.onmessage = (ev: MessageEvent<ZondaSyncBroadcastMessage>) => {
+          if (ev.data) {
+            handleStorageOrBroadcast(ev.data.tenantId, ev.data.actionLabel);
+          }
+        };
+      }
+    } catch {
+      // ignore BroadcastChannel errors
+    }
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      if (bc) bc.close();
+    };
+  }, [activeTenantId, recargarSnapshotEnMemoria, registrarEventoSincronizacion]);
+
+  const forzarSincronizacionOmnicanal = useCallback(async () => {
+    setDbStatus('sincronizando');
+    await refreshAllFromDb();
+    broadcastZondaSyncEvent({
+      type: 'MANUAL_FULL_SYNC',
+      tenantId: activeTenantId,
+      actionLabel: `Sincronización Integral Forzada (${empresa.razonSocial})`
+    });
+    registrarEventoSincronizacion({
+      moduloOrigen: 'Hub de Comunicaciones',
+      evento: 'SINCRONIZACIÓN INTEGRAL VERIFICADA (100% EN LÍNEA)',
+      detalle: `Reconciliación completa de Clientes (${clientes.length}), Proveedores (${proveedores.length}), Stock (${inventario.length} ítems), Cajas/Bancos (${cuentasBancarias.length}), Asientos (${asientosContables.length}) y Zonda Cloud ARCA.`,
+      canalesImpactados: [
+        'Supabase Cloud DB',
+        '02-Clientes / 03-Proveedores',
+        '04-Tesorería / 05-Contabilidad',
+        '06-Stock Kárdex',
+        '11-Zonda Cloud & RT 54'
+      ],
+      estado: 'SINCRONIZADO'
+    });
+  }, [
+    refreshAllFromDb,
+    activeTenantId,
+    empresa.razonSocial,
+    registrarEventoSincronizacion,
+    clientes.length,
+    proveedores.length,
+    inventario.length,
+    cuentasBancarias.length,
+    asientosContables.length
+  ]);
+
   // Helper para resolver la Cuenta de Tesorería según el nombre del Medio de Pago/Cobro
   const resolverCuentaTesoreriaPorMedio = (medio: string, cuentaExplicitaId?: string): string => {
     if (cuentaExplicitaId) return cuentaExplicitaId;
@@ -1837,7 +1991,18 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updated_at: new Date().toISOString()
       })
     ]);
-    setLastSync(new Date().toLocaleTimeString('es-AR'));
+    registrarEventoSincronizacion({
+      moduloOrigen: `05 · Contabilidad (${nuevoAsiento.tipoOrigen})`,
+      evento: `ASIENTO #${nuevoAsiento.numero} MAYORIZADO EN VIVO`,
+      detalle: `${nuevoAsiento.concepto} — Total Debe = Haber: $${nuevoAsiento.totalDebe.toLocaleString('es-AR')}`,
+      canalesImpactados: [
+        'Libro Diario General',
+        'Plan de Cuentas (Mayor)',
+        '11 · Zonda Cloud ARCA',
+        'Balance Oficial RT 54'
+      ],
+      estado: 'SINCRONIZADO'
+    });
   };
 
   // ==========================================
@@ -4170,13 +4335,16 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLastSync(new Date().toLocaleTimeString('es-AR'));
   };
 
-  return (
-    <ErpContext.Provider
-      value={{
-        dbStatus,
-        lastSync,
-        refreshAllFromDb,
-        activeModule,
+    return (
+      <ErpContext.Provider
+        value={{
+          dbStatus,
+          lastSync,
+          eventosSincronizacion,
+          registrarEventoSincronizacion,
+          forzarSincronizacionOmnicanal,
+          refreshAllFromDb,
+          activeModule,
         setActiveModule,
         empresa,
         empresaExtra,

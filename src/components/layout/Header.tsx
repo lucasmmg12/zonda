@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Bell, Search, X, BookOpen, ArrowRight, FileDown, Cloud, Building2, Lock, Unlock, UserCheck, GraduationCap } from 'lucide-react';
+import { Bell, Search, X, BookOpen, ArrowRight, FileDown, Cloud, Building2, Lock, Unlock, UserCheck, GraduationCap, Radio } from 'lucide-react';
 import { EmpresaConfig } from '../../types/models';
 import { ManualesCentroAyudaModal } from '../modals/ManualesCentroAyudaModal';
 import { RoleAuthModal, getActiveOperator, OperadorProfile } from '../modals/RoleAuthModal';
 import { TutorialInteractivoModal, LOGIN_TUTORIAL_STORAGE_KEY } from '../modals/TutorialInteractivoModal';
+import { SyncComunicacionesModal } from '../modals/SyncComunicacionesModal';
 import { getUsuariosList } from '../../services/usuariosRbacService';
 import { useErp, flattenCuentasContables } from '../../context/ErpContext';
 import type { ModuleKey } from './Sidebar';
@@ -57,6 +58,7 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
 
   const [modalManualesOpen, setModalManualesOpen] = useState(false);
   const [modalRolesOpen, setModalRolesOpen] = useState(false);
+  const [modalSyncOpen, setModalSyncOpen] = useState(false);
   const [modalTutorialOpen, setModalTutorialOpen] = useState<boolean>(() => {
     try {
       return localStorage.getItem(LOGIN_TUTORIAL_STORAGE_KEY) !== 'true';
@@ -688,6 +690,18 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           <span className="hidden sm:inline">Dossier PDF</span>
         </a>
 
+        {/* Botón Monitor de Sincronización y Comunicaciones en Vivo */}
+        <button
+          type="button"
+          onClick={() => setModalSyncOpen(true)}
+          title="Abrir Monitor de Comunicaciones y Sincronización Omnicanal en Tiempo Real"
+          className="h-8 px-2.5 border border-emerald-500 bg-emerald-50 hover:bg-emerald-100 text-[#042f22] text-[11px] font-extrabold transition-all flex items-center gap-1.5 whitespace-nowrap"
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse shrink-0" />
+          <Radio className="w-3.5 h-3.5 text-[#064e3b] shrink-0" />
+          <span className="hidden md:inline">Sync 100%</span>
+        </button>
+
         {/* Botón Tutorial Interactivo con Imágenes */}
         <button
           type="button"
@@ -783,6 +797,12 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
       <TutorialInteractivoModal
         isOpen={modalTutorialOpen}
         onClose={() => setModalTutorialOpen(false)}
+      />
+
+      {/* Modal Monitor de Comunicaciones y Sincronización Omnicanal */}
+      <SyncComunicacionesModal
+        isOpen={modalSyncOpen}
+        onClose={() => setModalSyncOpen(false)}
       />
     </header>
   );

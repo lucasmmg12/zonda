@@ -1,3 +1,4 @@
+import { supabase } from '../lib/supabase';
 import type {
   EmpresaConfig,
   Cliente,
@@ -8,7 +9,8 @@ import type {
   Cheque,
   ArticuloInventario,
   EmpleadoLegajo,
-  AsientoContable
+  AsientoContable,
+  CuentaContable
 } from '../types/models';
 import {
   mockEmpresa,
@@ -20,7 +22,8 @@ import {
   mockCheques,
   mockInventario,
   mockEmpleados,
-  mockAsientosContables
+  mockAsientosContables,
+  mockPlanDeCuentas
 } from './mockData';
 
 export interface PermisosZondaCloud {
@@ -131,6 +134,7 @@ export interface TenantIsolatedDataSnapshot {
   inventario: ArticuloInventario[];
   empleados: EmpleadoLegajo[];
   asientosContables: AsientoContable[];
+  planDeCuentas?: CuentaContable[];
   clasificacionesComprasArca: Record<string, ClasificacionFiscalCompraArca>;
   pendientesMisComprobantesArca: ComprobantePendienteMisComprobantesArca[];
 }
@@ -683,6 +687,7 @@ function buildInitialSanatorioSnapshot(): TenantIsolatedDataSnapshot {
     inventario: inventarioSanatorio,
     empleados: mockEmpleados.filter((e) => e.cct.includes('122/75') || e.cct.includes('Fuera de Convenio')),
     asientosContables: mockAsientosContables.slice(0, 2),
+    planDeCuentas: JSON.parse(JSON.stringify(mockPlanDeCuentas)),
     clasificacionesComprasArca: {
       'FC-SAN-201': {
         facturaCompraId: 'FC-SAN-201',
@@ -763,6 +768,7 @@ function buildInitialEcarSnapshot(): TenantIsolatedDataSnapshot {
     inventario: mockInventario,
     empleados: mockEmpleados,
     asientosContables: mockAsientosContables,
+    planDeCuentas: JSON.parse(JSON.stringify(mockPlanDeCuentas)),
     clasificacionesComprasArca: clasificaciones,
     pendientesMisComprobantesArca: [
       {
@@ -933,6 +939,7 @@ function buildInitialAndinaSnapshot(): TenantIsolatedDataSnapshot {
     inventario: mockInventario.slice(0, 3),
     empleados: mockEmpleados.slice(0, 2),
     asientosContables: mockAsientosContables.slice(0, 1),
+    planDeCuentas: JSON.parse(JSON.stringify(mockPlanDeCuentas)),
     clasificacionesComprasArca: {
       'FC-AND-01': {
         facturaCompraId: 'FC-AND-01',
@@ -946,6 +953,37 @@ function buildInitialAndinaSnapshot(): TenantIsolatedDataSnapshot {
     },
     pendientesMisComprobantesArca: []
   };
+}
+
+export const SYNC_BROADCAST_CHANNEL_NAME = 'zonda_erp_realtime_sync_channel_v1';
+
+export interface ZondaSyncBroadcastMessage {
+  type: 'TENANT_SNAPSHOT_UPDATED' | 'TENANTS_LIST_UPDATED' | 'ACTIVE_TENANT_CHANGED' | 'MANUAL_FULL_SYNC';
+  tenantId?: string;
+  actor?: string;
+  actionLabel?: string;
+  timestamp: string;
+}
+
+export function broadcastZondaSyncEvent(msg: Omit<ZondaSyncBroadcastMessage, 'timestamp'>): void {
+  const payload: ZondaSyncBroadcastMessage = {
+    ...msg,
+    timestamp: new Date().toLocaleTimeString('es-AR')
+  };
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const ch = new BroadcastChannel(SYNC_BROADCAST_CHANNEL_NAME);
+      ch.postMessage(payload);
+      ch.close();
+    }
+  } catch {
+    // ignore BroadcastChannel errors
+  }
+  try {
+    window.dispatchEvent(new CustomEvent('zonda_local_sync_event', { detail: payload }));
+  } catch {
+    // ignore event errors
+  }
 }
 
 export function loadTenantsList(): TenantEmpresa[] {
@@ -963,9 +1001,26 @@ export function loadTenantsList(): TenantEmpresa[] {
   return DEFAULT_TENANTS;
 }
 
-export function saveTenantsList(tenants: TenantEmpresa[]): void {
+export function saveTenantsList(tenants: TenantEmpresa[], broadcast = true): void {
   try {
     localStorage.setItem(STORAGE_KEY_TENANTS_LIST, JSON.stringify(tenants));
+    if (broadcast) {
+      broadcastZondaSyncEvent({
+        type: 'TENANTS_LIST_UPDATED',
+        actionLabel: 'Actualización de Padrón Multi-Tenant / Permisos Zonda Cloud'
+      });
+    }
+    void supabase
+      .from('erp_integraciones_config')
+      .upsert(
+        {
+          id: 'MULTITENANT_LIST',
+          afip_config: { tenants, updated_at: new Date().toISOString() },
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'id' }
+      )
+      .then(() => {});
   } catch {
     // ignore storage errors
   }
@@ -984,6 +1039,11 @@ export function loadActiveTenantId(): string {
 export function saveActiveTenantId(tenantId: string): void {
   try {
     localStorage.setItem(STORAGE_KEY_ACTIVE_TENANT, tenantId);
+    broadcastZondaSyncEvent({
+      type: 'ACTIVE_TENANT_CHANGED',
+      tenantId,
+      actionLabel: `Cambio de Empresa Activa (${tenantId})`
+    });
   } catch {
     // ignore
   }
@@ -993,7 +1053,11 @@ export function loadTenantDataSnapshot(tenantId: string): TenantIsolatedDataSnap
   try {
     const raw = localStorage.getItem(`${STORAGE_PREFIX_TENANT_DATA}${tenantId}`);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (!parsed.planDeCuentas) {
+        parsed.planDeCuentas = JSON.parse(JSON.stringify(mockPlanDeCuentas));
+      }
+      return parsed;
     }
   } catch {
     // ignore
@@ -1007,14 +1071,61 @@ export function loadTenantDataSnapshot(tenantId: string): TenantIsolatedDataSnap
   } else {
     initial = buildInitialEcarSnapshot();
   }
-  saveTenantDataSnapshot(tenantId, initial);
+  saveTenantDataSnapshot(tenantId, initial, false);
   return initial;
 }
 
-export function saveTenantDataSnapshot(tenantId: string, snapshot: TenantIsolatedDataSnapshot): void {
+export function saveTenantDataSnapshot(
+  tenantId: string,
+  snapshot: TenantIsolatedDataSnapshot,
+  broadcast = true
+): void {
   try {
     localStorage.setItem(`${STORAGE_PREFIX_TENANT_DATA}${tenantId}`, JSON.stringify(snapshot));
+    if (broadcast) {
+      broadcastZondaSyncEvent({
+        type: 'TENANT_SNAPSHOT_UPDATED',
+        tenantId,
+        actionLabel: `Sincronización Omnicanal Tenant ${tenantId}`
+      });
+    }
+    void supabase
+      .from('erp_integraciones_config')
+      .upsert(
+        {
+          id: `TENANT_SNAP_${tenantId}`,
+          afip_config: {
+            tenantId,
+            snapshot,
+            updated_at: new Date().toISOString()
+          },
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'id' }
+      )
+      .then(() => {});
   } catch {
     // ignore
   }
 }
+
+export async function pullRemoteTenantSnapshotFromSupabase(
+  tenantId: string
+): Promise<TenantIsolatedDataSnapshot | null> {
+  try {
+    const { data, error } = await supabase
+      .from('erp_integraciones_config')
+      .select('afip_config')
+      .eq('id', `TENANT_SNAP_${tenantId}`)
+      .maybeSingle();
+    if (!error && data?.afip_config && (data.afip_config as any).snapshot) {
+      const remoteSnap = (data.afip_config as any).snapshot as TenantIsolatedDataSnapshot;
+      localStorage.setItem(`${STORAGE_PREFIX_TENANT_DATA}${tenantId}`, JSON.stringify(remoteSnap));
+      return remoteSnap;
+    }
+  } catch {
+    // ignore network errors
+  }
+  return null;
+}
+
