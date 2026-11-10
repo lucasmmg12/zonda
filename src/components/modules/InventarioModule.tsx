@@ -568,6 +568,60 @@ export const InventarioModule: React.FC = () => {
         </div>
       )}
 
+      {/* PANEL AUTOMÁTICO DE ALERTAS DE STOCK CRÍTICO / NEGATIVO Y REPOSICIÓN RÁPIDA EN 1 CLIC */}
+      {(() => {
+        const itemsCriticos = inventario.filter(
+          (art) => art.disponible <= (art.stockMinimo || 5)
+        );
+        if (itemsCriticos.length === 0) return null;
+        return (
+          <div className="bg-amber-50 border-b border-amber-300 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+            <div className="flex items-center gap-2 text-amber-950">
+              <span className="px-2 py-0.5 bg-amber-600 text-white font-bold uppercase text-[10px]">
+                ⚠️ Alerta de Stock Crítico ({itemsCriticos.length})
+              </span>
+              <span className="font-sans text-[11px]">
+                Artículos por debajo o al límite del stock mínimo:{' '}
+                <strong>
+                  {itemsCriticos
+                    .slice(0, 3)
+                    .map((i) => `[${i.codigo}] ${i.descripcion} (Disp: ${i.disponible} / Mín: ${i.stockMinimo || 5})`)
+                    .join(' · ')}
+                </strong>
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {itemsCriticos.slice(0, 2).map((artCrit) => (
+                <button
+                  key={artCrit.id}
+                  type="button"
+                  onClick={() => {
+                    try {
+                      sessionStorage.setItem(
+                        'zonda_open_proveedor_factura_stock',
+                        JSON.stringify({
+                          proveedorId: proveedores[0]?.id,
+                          articuloId: artCrit.id,
+                          cantidadSugerida: Math.max(25, (artCrit.stockMinimo || 10) * 2),
+                          costoSugerido: artCrit.costoCalculado
+                        })
+                      );
+                    } catch {
+                      // ignore
+                    }
+                    setActiveModule('proveedores');
+                  }}
+                  className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white font-bold text-[10px] uppercase flex items-center gap-1"
+                >
+                  <span>⚡ Reponer {artCrit.codigo} en Proveedores</span>
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 2. PESTAÑAS PRINCIPALES DEL MÓDULO */}
       <div className="bg-[#ecfdf5]/40 border-b border-slate-300 px-2 pt-1 flex items-center gap-1">
         {[

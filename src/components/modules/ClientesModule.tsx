@@ -207,7 +207,11 @@ export const ClientesModule: React.FC = () => {
     recalcularNetoDesdeItemsVenta(filtrada);
   };
 
-  // Formulario Cobro (Con trazabilidad de Métodos de Cobro, Cuentas de Tesorería, Cheques y Tarjetas)
+  // Modalidad de Cobro al emitir Factura (Cuenta Corriente vs. Cancelación Al Contado en 1 paso)
+  const [modalidadCobroFactura, setModalidadCobroFactura] = useState<'cta_cte' | 'contado'>('cta_cte');
+  const [cuentaCobroContadoId, setCuentaCobroContadoId] = useState<string>('CTA-02');
+
+  // Formulario Cobro (Con trazabilidad de Métodos de Cobro, Cobro Mixto Multi-Medio, Retenciones, Cuentas, Cheques y Tarjetas)
   const [montoCobro, setMontoCobro] = useState(100000);
   const [medioCobro, setMedioCobro] = useState('Transferencia Bancaria Santander');
   const [cuentaCobroId, setCuentaCobroId] = useState('CTA-02');
@@ -221,21 +225,113 @@ export const ClientesModule: React.FC = () => {
   const [medioCobroFactura, setMedioCobroFactura] = useState('Transferencia Bancaria Santander');
   const [facturaCobroId, setFacturaCobroId] = useState<string>('');
 
+  // Cobro Mixto Multi-Medio (combinar Efectivo + Transferencia + Cheque + Posnet en un mismo Recibo X)
+  const [modoCobroMixto, setModoCobroMixto] = useState(false);
+  const [lineasCobroMixto, setLineasCobroMixto] = useState<
+    {
+      id: string;
+      medio: string;
+      cuentaBancariaId: string;
+      importe: number;
+      nroCheque?: string;
+      bancoCheque?: string;
+      fechaPagoCheque?: string;
+      marcaTarjeta?: string;
+      nroCuponTarjeta?: string;
+    }[]
+  >([
+    {
+      id: 'MIX-COB-1',
+      medio: 'Efectivo en Caja Central',
+      cuentaBancariaId: 'CTA-01',
+      importe: 50000
+    },
+    {
+      id: 'MIX-COB-2',
+      medio: 'Transferencia Bancaria Santander',
+      cuentaBancariaId: 'CTA-02',
+      importe: 50000
+    }
+  ]);
+
+  // Retenciones Fiscales Sufridas en Cobranza (Certificados ARCA / Rentas IIBB)
+  const [retencionIIBBCobro, setRetencionIIBBCobro] = useState(0);
+  const [retencionGananciasCobro, setRetencionGananciasCobro] = useState(0);
+  const [retencionIVACobro, setRetencionIVACobro] = useState(0);
+  const [retencionSUSSCobro, setRetencionSUSSCobro] = useState(0);
+  const [nroCertificadoRetCobro, setNroCertificadoRetCobro] = useState('');
+
+  const resolverCuentaPorMedioLocal = (medio: string) => {
+    const m = medio.toLowerCase();
+    if (m.includes('santander')) return 'CTA-02';
+    if (m.includes('galicia')) return 'CTA-04';
+    if (m.includes('tarjeta') || m.includes('posnet') || m.includes('mercado pago')) return 'CTA-03';
+    return 'CTA-01';
+  };
+
   const sincronizarCuentaPorMedioCobro = (medio: string) => {
     setMedioCobro(medio);
+    setCuentaCobroId(resolverCuentaPorMedioLocal(medio));
     const m = medio.toLowerCase();
-    if (m.includes('santander')) {
-      setCuentaCobroId('CTA-02');
-    } else if (m.includes('galicia')) {
-      setCuentaCobroId('CTA-04');
-    } else if (m.includes('tarjeta') || m.includes('posnet') || m.includes('mercado pago')) {
-      setCuentaCobroId('CTA-03');
-    } else {
-      setCuentaCobroId('CTA-01');
-    }
     if ((m.includes('cheque') || m.includes('e-cheq')) && !nroChequeCobro) {
       setNroChequeCobro(String(Math.floor(77100000 + Math.random() * 999999)));
     }
+  };
+
+  const agregarTramoCobroMixto = () => {
+    const nuevoId = `MIX-COB-${Date.now()}-${Math.floor(Math.random() * 999)}`;
+    setLineasCobroMixto((prev) => [
+      ...prev,
+      {
+        id: nuevoId,
+        medio: 'Cheque de Terceros',
+        cuentaBancariaId: 'CTA-01',
+        importe: 0,
+        nroCheque: String(Math.floor(77200000 + Math.random() * 799999)),
+        bancoCheque: 'Banco San Juan',
+        fechaPagoCheque: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      }
+    ]);
+  };
+
+  const actualizarTramoCobroMixto = (
+    idTramo: string,
+    cambios: Partial<{
+      medio: string;
+      cuentaBancariaId: string;
+      importe: number;
+      nroCheque: string;
+      bancoCheque: string;
+      fechaPagoCheque: string;
+      marcaTarjeta: string;
+      nroCuponTarjeta: string;
+    }>
+  ) => {
+    setLineasCobroMixto((prev) =>
+      prev.map((tr) => {
+        if (tr.id !== idTramo) return tr;
+        const actualizado = { ...tr, ...cambios };
+        if (cambios.medio && !cambios.cuentaBancariaId) {
+          actualizado.cuentaBancariaId = resolverCuentaPorMedioLocal(cambios.medio);
+          if (
+            (cambios.medio.toLowerCase().includes('cheque') || cambios.medio.toLowerCase().includes('e-cheq')) &&
+            !actualizado.nroCheque
+          ) {
+            actualizado.nroCheque = String(Math.floor(77200000 + Math.random() * 799999));
+            actualizado.bancoCheque = actualizado.bancoCheque || 'Banco San Juan';
+            actualizado.fechaPagoCheque =
+              actualizado.fechaPagoCheque ||
+              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          }
+        }
+        return actualizado;
+      })
+    );
+  };
+
+  const eliminarTramoCobroMixto = (idTramo: string) => {
+    if (lineasCobroMixto.length <= 1) return;
+    setLineasCobroMixto((prev) => prev.filter((tr) => tr.id !== idTramo));
   };
 
   // Formulario Nuevo Cliente
@@ -261,7 +357,7 @@ export const ClientesModule: React.FC = () => {
 
   const clienteActivo = clientes.find((c) => c.id === clienteSeleccionadoId) || clientesFiltrados[0];
 
-  // Crear Factura con persistencia en Supabase + Contabilidad + Todos los Impuestos
+  // Crear Factura con persistencia en Supabase + Contabilidad + Todos los Impuestos (Soporta Cta. Cte. o Contado en 1 paso)
   const handleCrearFactura = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!clienteActivo || guardando) return;
@@ -286,6 +382,7 @@ export const ClientesModule: React.FC = () => {
 
       const itemsValidosVenta = itemsVentaFactura.filter((it) => it.articuloId && it.cantidad > 0);
       const totalUnidadesDescontadas = itemsValidosVenta.reduce((acc, it) => acc + it.cantidad, 0);
+      const esAlContado = modalidadCobroFactura === 'contado';
 
       await emitirFacturaVenta({
         clienteId: clienteActivo.id,
@@ -306,19 +403,37 @@ export const ClientesModule: React.FC = () => {
           cantidad: it.cantidad,
           precioUnitarioNeto: it.precioUnitarioNeto,
           deposito: it.deposito
-        }))
+        })),
+        cancelacionAlContado: esAlContado
+          ? {
+              activa: true,
+              cuentaBancariaId: cuentaCobroContadoId,
+              lineasMediosCobro: [
+                {
+                  medio: medioCobroFactura,
+                  cuentaBancariaId: cuentaCobroContadoId,
+                  importe: totalCalc
+                }
+              ]
+            }
+          : undefined
       });
       setMontoCobro(totalCalc);
       setMedioCobro(medioCobroFactura);
-      setAvisoVentaEmitida({
-        total: totalCalc,
-        medioPactado: medioCobroFactura,
-        clienteNombre: clienteActivo.razonSocial,
-        unidadesDescontadas: totalUnidadesDescontadas,
-        itemsCount: itemsValidosVenta.length,
-        primerArticuloId: itemsValidosVenta[0]?.articuloId
-      });
+      if (!esAlContado) {
+        setAvisoVentaEmitida({
+          total: totalCalc,
+          medioPactado: medioCobroFactura,
+          clienteNombre: clienteActivo.razonSocial,
+          unidadesDescontadas: totalUnidadesDescontadas,
+          itemsCount: itemsValidosVenta.length,
+          primerArticuloId: itemsValidosVenta[0]?.articuloId
+        });
+      } else {
+        setAvisoVentaEmitida(null);
+      }
       setItemsVentaFactura([]);
+      setModalidadCobroFactura('cta_cte');
       setShowFacturaModal(false);
       setDescFactura('');
       setNoGravadoExentoFactura(0);
@@ -330,35 +445,80 @@ export const ClientesModule: React.FC = () => {
     }
   };
 
-  // Agregar Cobro con persistencia en Supabase + Tesorería + Cartera de Cheques + Contabilidad
+  // Agregar Cobro con persistencia en Supabase + Tesorería + Cartera de Cheques + Contabilidad (Soporta Cobro Mixto + Retenciones)
   const handleAgregarCobro = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!clienteActivo || guardando) return;
     setGuardando(true);
     try {
       const facSel = clienteActivo.facturasAdeudadas.find((f) => f.id === facturaCobroId);
-      const esCheque = medioCobro.toLowerCase().includes('cheque') || medioCobro.toLowerCase().includes('e-cheq');
-      const esTarjeta =
-        medioCobro.toLowerCase().includes('tarjeta') ||
-        medioCobro.toLowerCase().includes('posnet') ||
-        medioCobro.toLowerCase().includes('mercado pago');
-      await registrarCobroCliente({
-        clienteId: clienteActivo.id,
-        monto: montoCobro,
-        medioCobro,
-        cuentaBancariaId: cuentaCobroId,
-        nroCheque: esCheque ? nroChequeCobro || undefined : undefined,
-        bancoCheque: esCheque ? bancoChequeCobro || undefined : undefined,
-        fechaPagoCheque: esCheque ? fechaCobroCheque || undefined : undefined,
-        marcaTarjeta: esTarjeta ? marcaTarjetaCobro || undefined : undefined,
-        nroCuponTarjeta: esTarjeta ? nroCuponCobro || undefined : undefined,
-        facturaId: facSel?.id,
-        facturaNro: facSel ? `${facSel.tipo} ${facSel.nroComprobante}` : undefined
-      });
+      const totalRet =
+        Number(retencionIIBBCobro || 0) +
+        Number(retencionGananciasCobro || 0) +
+        Number(retencionIVACobro || 0) +
+        Number(retencionSUSSCobro || 0);
+      const retObj =
+        totalRet > 0
+          ? {
+              retencionIIBB: Number(retencionIIBBCobro || 0),
+              retencionGanancias: Number(retencionGananciasCobro || 0),
+              retencionIVA: Number(retencionIVACobro || 0),
+              retencionSUSS: Number(retencionSUSSCobro || 0),
+              nroCertificado: nroCertificadoRetCobro || undefined
+            }
+          : undefined;
+
+      if (modoCobroMixto) {
+        const tramosValidos = lineasCobroMixto.filter((t) => Number(t.importe) > 0);
+        const sumaTramos = tramosValidos.reduce((acc, t) => acc + Number(t.importe), 0);
+        await registrarCobroCliente({
+          clienteId: clienteActivo.id,
+          monto: Number((sumaTramos + totalRet).toFixed(2)),
+          medioCobro: tramosValidos.map((t) => t.medio).join(' + ') || 'Cobro Mixto',
+          facturaId: facSel?.id,
+          facturaNro: facSel ? `${facSel.tipo} ${facSel.nroComprobante}` : undefined,
+          lineasMediosCobro: tramosValidos.map((t) => ({
+            medio: t.medio,
+            cuentaBancariaId: t.cuentaBancariaId,
+            importe: Number(t.importe),
+            nroCheque: t.nroCheque,
+            bancoCheque: t.bancoCheque,
+            fechaPagoCheque: t.fechaPagoCheque,
+            marcaTarjeta: t.marcaTarjeta,
+            nroCuponTarjeta: t.nroCuponTarjeta
+          })),
+          retencionesSufridas: retObj
+        });
+      } else {
+        const esCheque = medioCobro.toLowerCase().includes('cheque') || medioCobro.toLowerCase().includes('e-cheq');
+        const esTarjeta =
+          medioCobro.toLowerCase().includes('tarjeta') ||
+          medioCobro.toLowerCase().includes('posnet') ||
+          medioCobro.toLowerCase().includes('mercado pago');
+        await registrarCobroCliente({
+          clienteId: clienteActivo.id,
+          monto: montoCobro,
+          medioCobro,
+          cuentaBancariaId: cuentaCobroId,
+          nroCheque: esCheque ? nroChequeCobro || undefined : undefined,
+          bancoCheque: esCheque ? bancoChequeCobro || undefined : undefined,
+          fechaPagoCheque: esCheque ? fechaCobroCheque || undefined : undefined,
+          marcaTarjeta: esTarjeta ? marcaTarjetaCobro || undefined : undefined,
+          nroCuponTarjeta: esTarjeta ? nroCuponCobro || undefined : undefined,
+          facturaId: facSel?.id,
+          facturaNro: facSel ? `${facSel.tipo} ${facSel.nroComprobante}` : undefined,
+          retencionesSufridas: retObj
+        });
+      }
       setShowCobroModal(false);
       setFacturaCobroId('');
       setNroChequeCobro('');
       setNroCuponCobro('');
+      setRetencionIIBBCobro(0);
+      setRetencionGananciasCobro(0);
+      setRetencionIVACobro(0);
+      setRetencionSUSSCobro(0);
+      setNroCertificadoRetCobro('');
     } finally {
       setGuardando(false);
     }
@@ -1990,33 +2150,100 @@ export const ClientesModule: React.FC = () => {
                 </div>
               </div>
 
-              {/* MEDIO DE COBRO PACTADO + INSTRUCTIVO 2 PASOS DESPLEGABLE */}
-              <div className="p-3 bg-emerald-50/80 border border-emerald-300 space-y-2">
-                <div>
-                  <label className="block text-[#042f22] font-bold mb-1">
-                    Medio de Pago / Cobro Pactado (Queda Pendiente):
-                  </label>
-                  <select
-                    value={medioCobroFactura}
-                    onChange={(e) => setMedioCobroFactura(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-white border border-emerald-400 font-bold text-[#042f22] text-xs"
-                  >
-                    <option value="Transferencia Bancaria Santander">Transferencia Santander Cta Cte</option>
-                    <option value="Transferencia Bancaria Galicia">Transferencia Galicia Cta Cte</option>
-                    <option value="Cheque de Terceros">Cheque de Terceros a Depositar</option>
-                    <option value="Mercado Pago (Link / QR)">Mercado Pago (Link / QR)</option>
-                    <option value="Efectivo en Caja Central">Efectivo en Caja Central</option>
-                  </select>
+              {/* MODALIDAD DE COBRO (CUENTA CORRIENTE vs. CANCELACIÓN AL CONTADO EN 1 PASO) */}
+              <div className="p-3 bg-emerald-50/80 border border-emerald-300 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-bold text-[#042f22] uppercase text-[11px]">
+                    Modalidad de Cobro de la Factura:
+                  </span>
+                  <div className="flex items-center gap-1 bg-white p-0.5 border border-emerald-300">
+                    <button
+                      type="button"
+                      onClick={() => setModalidadCobroFactura('cta_cte')}
+                      className={`px-2.5 py-1 text-[10px] font-bold uppercase transition-colors ${
+                        modalidadCobroFactura === 'cta_cte'
+                          ? 'bg-[#064e3b] text-white'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      Cuenta Corriente (Pendiente)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModalidadCobroFactura('contado');
+                        setCuentaCobroContadoId(resolverCuentaPorMedioLocal(medioCobroFactura));
+                      }}
+                      className={`px-2.5 py-1 text-[10px] font-bold uppercase transition-colors ${
+                        modalidadCobroFactura === 'contado'
+                          ? 'bg-emerald-700 text-white'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      ⚡ Cancelación Al Contado (1 Paso)
+                    </button>
+                  </div>
                 </div>
-                <details className="group border-t border-emerald-200 pt-1.5">
-                  <summary className="font-mono text-[10px] font-bold text-[#042f22] uppercase flex items-center justify-between cursor-pointer select-none list-none">
-                    <span>¿Cómo se registra y se cobra esta factura?</span>
-                    <span className="group-open:rotate-180 transition-transform">▼</span>
-                  </summary>
-                  <p className="text-[10px] text-slate-700 font-sans leading-snug pt-1.5">
-                    <strong>Paso 1:</strong> Al emitir esta factura el importe queda <strong>PENDIENTE</strong> en Cuenta Corriente. <strong>Paso 2:</strong> Luego pulsá <strong>&ldquo;Agregar cobro&rdquo;</strong> para registrar el ingreso real del pago en Tesorería.
-                  </p>
-                </details>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[#042f22] font-bold mb-1">
+                      {modalidadCobroFactura === 'contado'
+                        ? 'Medio de Cobro Inmediato (Emite Recibo X):'
+                        : 'Medio de Pago / Cobro Pactado (Queda Pendiente):'}
+                    </label>
+                    <select
+                      value={medioCobroFactura}
+                      onChange={(e) => {
+                        setMedioCobroFactura(e.target.value);
+                        setCuentaCobroContadoId(resolverCuentaPorMedioLocal(e.target.value));
+                      }}
+                      className="w-full px-2.5 py-1.5 bg-white border border-emerald-400 font-bold text-[#042f22] text-xs"
+                    >
+                      <option value="Transferencia Bancaria Santander">Transferencia Santander Cta Cte</option>
+                      <option value="Transferencia Bancaria Galicia">Transferencia Galicia Cta Cte</option>
+                      <option value="Cheque de Terceros">Cheque de Terceros a Depositar</option>
+                      <option value="Mercado Pago (Link / QR)">Mercado Pago (Link / QR)</option>
+                      <option value="Efectivo en Caja Central">Efectivo en Caja Central</option>
+                    </select>
+                  </div>
+
+                  {modalidadCobroFactura === 'contado' && (
+                    <div>
+                      <label className="block text-[#042f22] font-bold mb-1">
+                        Cuenta de Tesorería que recibe el Cobro:
+                      </label>
+                      <select
+                        value={cuentaCobroContadoId}
+                        onChange={(e) => setCuentaCobroContadoId(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-emerald-500 font-bold text-slate-900 text-xs"
+                      >
+                        {cuentasBancarias.map((cta) => (
+                          <option key={cta.id} value={cta.id}>
+                            {cta.nombre} (${cta.saldoActual.toLocaleString('es-AR')})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {modalidadCobroFactura === 'contado' ? (
+                  <div className="p-2 bg-emerald-900 text-white text-[10px] font-sans">
+                    ⚡ <strong>Cancelación Simultánea Activa:</strong> Al confirmar, Zonda ERP emitirá la{' '}
+                    <strong>{tipoFactura}</strong> y generará automáticamente el <strong>Recibo X</strong> en un solo paso, dejando la factura en <strong>Pagado Total (Saldo $0)</strong> e ingresando los fondos en Tesorería y Libro Diario.
+                  </div>
+                ) : (
+                  <details className="group border-t border-emerald-200 pt-1.5">
+                    <summary className="font-mono text-[10px] font-bold text-[#042f22] uppercase flex items-center justify-between cursor-pointer select-none list-none">
+                      <span>¿Cómo se registra y se cobra esta factura?</span>
+                      <span className="group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <p className="text-[10px] text-slate-700 font-sans leading-snug pt-1.5">
+                      <strong>Paso 1:</strong> Al emitir esta factura el importe queda <strong>PENDIENTE</strong> en Cuenta Corriente. <strong>Paso 2:</strong> Luego pulsá <strong>&ldquo;Agregar cobro&rdquo;</strong> (admite Cobro Mixto Multi-Medio y Retenciones) para registrar el ingreso en Tesorería.
+                    </p>
+                  </details>
+                )}
               </div>
 
               {/* SECCIÓN: ARTÍCULOS DE INVENTARIO A VENDER (DESCUENTA UNIDADES AUTOMÁTICAMENTE) */}
@@ -2046,8 +2273,10 @@ export const ClientesModule: React.FC = () => {
                     {itemsVentaFactura.map((linea) => {
                       const art = inventario.find((a) => a.id === linea.articuloId);
                       const stockActual = art ? art.disponible : 0;
+                      const stockMin = art ? art.stockMinimo : 0;
                       const stockResultante = Number((stockActual - linea.cantidad).toFixed(2));
                       const subtotalLinea = Number((linea.cantidad * linea.precioUnitarioNeto).toFixed(2));
+                      const esStockCritico = stockResultante <= stockMin;
 
                       return (
                         <div key={linea.id} className="p-2.5 bg-white border border-rose-200 space-y-2">
@@ -2142,7 +2371,7 @@ export const ClientesModule: React.FC = () => {
                                 <option value="Almacén Técnico">Almacén Técnico</option>
                               </select>
                             </div>
-                            <div>
+                            <div className="flex items-center gap-2">
                               <span className="text-slate-600">
                                 Impacto en Stock:{' '}
                                 <strong>{stockActual.toFixed(2)}</strong> →{' '}
@@ -2151,6 +2380,33 @@ export const ClientesModule: React.FC = () => {
                                 </strong>{' '}
                                 <span className="text-rose-700 font-bold">(-{linea.cantidad})</span>
                               </span>
+                              {esStockCritico && art && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    try {
+                                      sessionStorage.setItem(
+                                        'zonda_open_proveedor_factura_stock',
+                                        JSON.stringify({
+                                          articuloId: art.id,
+                                          codigo: art.codigo,
+                                          descripcion: art.descripcion,
+                                          costoSugerido: art.costoCalculado,
+                                          cantidadSugerida: Math.max(20, (art.stockMinimo || 10) * 2)
+                                        })
+                                      );
+                                    } catch {
+                                      // ignore
+                                    }
+                                    setShowFacturaModal(false);
+                                    setActiveModule('proveedores');
+                                  }}
+                                  className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white font-bold uppercase text-[9px]"
+                                  title="Ir a Proveedores para cargar compra de reposición de este artículo"
+                                >
+                                  ⚠️ {stockResultante < 0 ? 'Stock Negativo' : 'Stock Crítico'} · Reponer con Proveedor
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -2289,7 +2545,13 @@ export const ClientesModule: React.FC = () => {
                   className="px-4 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold uppercase flex items-center gap-1.5"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>{guardando ? 'Guardando en Supabase...' : 'Emitir Comprobante'}</span>
+                  <span>
+                    {guardando
+                      ? 'Guardando en Supabase...'
+                      : modalidadCobroFactura === 'contado'
+                      ? 'Emitir Factura + Cobro Contado'
+                      : 'Emitir Comprobante'}
+                  </span>
                 </button>
               </div>
             </form>
@@ -2297,188 +2559,536 @@ export const ClientesModule: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: AGREGAR COBRO */}
+      {/* MODAL: AGREGAR COBRO (SOPORTA COBRO SIMPLE, COBRO MIXTO MULTI-MEDIO Y RETENCIONES IMPOSITIVAS) */}
       {showCobroModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-300 max-w-xl w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-300 max-w-2xl w-full p-6 shadow-2xl space-y-4 font-mono text-xs my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <h3 className="text-sm font-bold text-slate-900 uppercase">
-                AGREGAR COBRO // {clienteActivo?.razonSocial}
-              </h3>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 uppercase">
+                  AGREGAR COBRO (RECIBO X) // {clienteActivo?.razonSocial}
+                </h3>
+                <span className="text-[10px] text-slate-500">
+                  Soporta un único medio o <strong>Cobro Mixto Multi-Medio</strong> (Efectivo + Transferencia + Cheque + Posnet + Retenciones)
+                </span>
+              </div>
               <button onClick={() => setShowCobroModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleAgregarCobro} className="space-y-4">
-              <div>
-                <label className="block text-[#042f22] font-bold mb-1">1. Cliente que abona:</label>
-                <select
-                  value={clienteActivo?.id || ''}
-                  onChange={(e) => {
-                    setClienteSeleccionadoId(e.target.value);
-                    setFacturaCobroId('');
-                  }}
-                  className="w-full px-2.5 py-1.5 bg-emerald-50 border border-emerald-400 font-bold text-[#042f22]"
-                >
-                  {clientes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.razonSocial} (Saldo: ${c.saldo.toLocaleString('es-AR')})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">2. Factura Adeudada a Imputar:</label>
-                <select
-                  value={facturaCobroId}
-                  onChange={(e) => {
-                    const idFac = e.target.value;
-                    setFacturaCobroId(idFac);
-                    const facObj = clienteActivo?.facturasAdeudadas.find((f) => f.id === idFac);
-                    if (facObj && facObj.saldo > 0) {
-                      setMontoCobro(facObj.saldo);
-                    }
-                  }}
-                  className="w-full px-2.5 py-1.5 bg-white border border-slate-300 font-bold text-slate-900"
-                >
-                  <option value="">-- Imputación Automática (Más antigua) --</option>
-                  {clienteActivo?.facturasAdeudadas
-                    .filter((f) => f.saldo > 0)
-                    .map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.tipo} {f.nroComprobante} — Saldo: ${f.saldo.toLocaleString('es-AR')}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-600 font-bold mb-1">Monto a Cobrar ($ ARS):</label>
-                <input
-                  type="number"
-                  required
-                  step="0.01"
-                  value={montoCobro}
-                  onChange={(e) => setMontoCobro(parseFloat(e.target.value) || 0)}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-slate-900"
-                />
-              </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-600 font-bold mb-1">3. Método de Cobro:</label>
+                  <label className="block text-[#042f22] font-bold mb-1">1. Cliente que abona:</label>
                   <select
-                    value={medioCobro}
-                    onChange={(e) => sincronizarCuentaPorMedioCobro(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-[#042f22]"
+                    value={clienteActivo?.id || ''}
+                    onChange={(e) => {
+                      setClienteSeleccionadoId(e.target.value);
+                      setFacturaCobroId('');
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-emerald-50 border border-emerald-400 font-bold text-[#042f22]"
                   >
-                    <option value="Transferencia Bancaria Santander">Transferencia Santander Cta Cte</option>
-                    <option value="Transferencia Bancaria Galicia">Transferencia Galicia Cta Cte</option>
-                    <option value="Cheque de Terceros">Cheque de Terceros a Depositar (Cartera)</option>
-                    <option value="E-Cheq de Terceros">E-Cheq de Terceros (Cartera)</option>
-                    <option value="Efectivo en Caja Central">Efectivo en Caja Central</option>
-                    <option value="Tarjeta de Crédito / Débito (Posnet)">Tarjeta de Crédito / Débito (Posnet)</option>
-                    <option value="Mercado Pago (Link / QR)">Mercado Pago (Link / QR / CVU)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 font-bold mb-1">4. Cuenta de Tesorería Destino:</label>
-                  <select
-                    value={cuentaCobroId}
-                    onChange={(e) => setCuentaCobroId(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-slate-800"
-                  >
-                    {cuentasBancarias.map((cta) => (
-                      <option key={cta.id} value={cta.id}>
-                        {cta.nombre} (${cta.saldoActual.toLocaleString('es-AR')})
+                    {clientes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.razonSocial} (Saldo: ${c.saldo.toLocaleString('es-AR')})
                       </option>
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">2. Factura Adeudada a Imputar:</label>
+                  <select
+                    value={facturaCobroId}
+                    onChange={(e) => {
+                      const idFac = e.target.value;
+                      setFacturaCobroId(idFac);
+                      const facObj = clienteActivo?.facturasAdeudadas.find((f) => f.id === idFac);
+                      if (facObj && facObj.saldo > 0) {
+                        setMontoCobro(facObj.saldo);
+                        if (modoCobroMixto && lineasCobroMixto.length >= 2) {
+                          const mitad = Number((facObj.saldo / 2).toFixed(2));
+                          setLineasCobroMixto((prev) =>
+                            prev.map((tr, i) => ({
+                              ...tr,
+                              importe: i === 0 ? mitad : i === 1 ? Number((facObj.saldo - mitad).toFixed(2)) : 0
+                            }))
+                          );
+                        }
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 font-bold text-slate-900"
+                  >
+                    <option value="">-- Imputación Automática (Más antigua) --</option>
+                    {clienteActivo?.facturasAdeudadas
+                      .filter((f) => f.saldo > 0)
+                      .map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.tipo} {f.nroComprobante} — Saldo: ${f.saldo.toLocaleString('es-AR')}
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
 
-              {(medioCobro.toLowerCase().includes('cheque') || medioCobro.toLowerCase().includes('e-cheq')) && (
+              {/* SELECTOR DE MODO: COBRO SIMPLE (1 MEDIO) VS COBRO MIXTO (MULTI-MEDIO) */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-100 border border-slate-300">
+                <span className="font-bold text-slate-800 uppercase text-[11px]">
+                  3. Modalidad de Medios de Cobro:
+                </span>
+                <div className="flex items-center gap-1 bg-white p-0.5 border border-slate-300">
+                  <button
+                    type="button"
+                    onClick={() => setModoCobroMixto(false)}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase transition-colors ${
+                      !modoCobroMixto ? 'bg-[#064e3b] text-white' : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    Medio Único (Simple)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModoCobroMixto(true);
+                      const base = montoCobro > 0 ? montoCobro : 100000;
+                      const mitad = Number((base / 2).toFixed(2));
+                      if (lineasCobroMixto.length === 2) {
+                        setLineasCobroMixto([
+                          {
+                            ...lineasCobroMixto[0],
+                            importe: mitad
+                          },
+                          {
+                            ...lineasCobroMixto[1],
+                            importe: Number((base - mitad).toFixed(2))
+                          }
+                        ]);
+                      }
+                    }}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase transition-colors ${
+                      modoCobroMixto ? 'bg-indigo-700 text-white' : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    ⚡ Cobro Mixto Multi-Medio (Combinar)
+                  </button>
+                </div>
+              </div>
+
+              {!modoCobroMixto ? (
+                <>
+                  <div>
+                    <label className="block text-slate-600 font-bold mb-1">
+                      Monto Total a Cancelar al Cliente ($ ARS):
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      step="0.01"
+                      value={montoCobro}
+                      onChange={(e) => setMontoCobro(parseFloat(e.target.value) || 0)}
+                      className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-slate-900"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">Método de Cobro:</label>
+                      <select
+                        value={medioCobro}
+                        onChange={(e) => sincronizarCuentaPorMedioCobro(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-[#042f22]"
+                      >
+                        <option value="Transferencia Bancaria Santander">Transferencia Santander Cta Cte</option>
+                        <option value="Transferencia Bancaria Galicia">Transferencia Galicia Cta Cte</option>
+                        <option value="Cheque de Terceros">Cheque de Terceros a Depositar (Cartera)</option>
+                        <option value="E-Cheq de Terceros">E-Cheq de Terceros (Cartera)</option>
+                        <option value="Efectivo en Caja Central">Efectivo en Caja Central</option>
+                        <option value="Tarjeta de Crédito / Débito (Posnet)">Tarjeta de Crédito / Débito (Posnet)</option>
+                        <option value="Mercado Pago (Link / QR)">Mercado Pago (Link / QR / CVU)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">Cuenta de Tesorería Destino:</label>
+                      <select
+                        value={cuentaCobroId}
+                        onChange={(e) => setCuentaCobroId(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-slate-800"
+                      >
+                        {cuentasBancarias.map((cta) => (
+                          <option key={cta.id} value={cta.id}>
+                            {cta.nombre} (${cta.saldoActual.toLocaleString('es-AR')})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {(medioCobro.toLowerCase().includes('cheque') || medioCobro.toLowerCase().includes('e-cheq')) && (
+                    <div className="p-3 bg-indigo-50/70 border border-indigo-300 space-y-2.5">
+                      <div className="text-[10px] font-bold text-indigo-950 uppercase">
+                        🏦 Datos del Cheque / E-Cheq de Tercero (Ingresa a Cartera en 04 - Tesorería)
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-600 font-bold mb-0.5">N° de Cheque:</label>
+                          <input
+                            type="text"
+                            required
+                            value={nroChequeCobro}
+                            onChange={(e) => setNroChequeCobro(e.target.value)}
+                            placeholder="Ej: 77410920"
+                            className="w-full px-2 py-1 bg-white border border-indigo-300 font-bold text-slate-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-600 font-bold mb-0.5">Banco Emisor:</label>
+                          <input
+                            type="text"
+                            required
+                            value={bancoChequeCobro}
+                            onChange={(e) => setBancoChequeCobro(e.target.value)}
+                            placeholder="Ej: Banco San Juan"
+                            className="w-full px-2 py-1 bg-white border border-indigo-300 font-bold text-slate-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-600 font-bold mb-0.5">Fecha de Cobro:</label>
+                          <input
+                            type="date"
+                            required
+                            value={fechaCobroCheque}
+                            onChange={(e) => setFechaCobroCheque(e.target.value)}
+                            className="w-full px-2 py-1 bg-amber-50 border border-amber-300 font-bold text-amber-950"
+                          />
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-indigo-800 font-sans">
+                        ✓ Quedará disponible en <strong>Cartera de Cheques</strong> con trazabilidad al librador ({clienteActivo?.razonSocial}) para depositar o endosar a proveedores.
+                      </div>
+                    </div>
+                  )}
+
+                  {(medioCobro.toLowerCase().includes('tarjeta') ||
+                    medioCobro.toLowerCase().includes('posnet') ||
+                    medioCobro.toLowerCase().includes('mercado pago')) && (
+                    <div className="p-3 bg-emerald-50/70 border border-emerald-300 space-y-2">
+                      <div className="text-[10px] font-bold text-emerald-950 uppercase">
+                        💳 Trazabilidad de Tarjeta / Posnet / Billetera Digital
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-600 font-bold mb-0.5">Marca / Medio:</label>
+                          <select
+                            value={marcaTarjetaCobro}
+                            onChange={(e) => setMarcaTarjetaCobro(e.target.value)}
+                            className="w-full px-2 py-1 bg-white border border-emerald-300 font-bold text-slate-900"
+                          >
+                            <option value="Visa Corporativa">Visa Corporativa / Crédito</option>
+                            <option value="Visa Débito">Visa Débito</option>
+                            <option value="Mastercard">Mastercard</option>
+                            <option value="MercadoPago QR">MercadoPago QR / Link</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-600 font-bold mb-0.5">N° Cupón / Lote / Op.:</label>
+                          <input
+                            type="text"
+                            value={nroCuponCobro}
+                            onChange={(e) => setNroCuponCobro(e.target.value)}
+                            placeholder="Ej: LOTE-045-CUP-8812"
+                            className="w-full px-2 py-1 bg-white border border-emerald-300 font-bold text-slate-900"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* GRILLA INTERACTIVA DE COBRO MIXTO MULTI-MEDIO */
                 <div className="p-3 bg-indigo-50/70 border border-indigo-300 space-y-2.5">
-                  <div className="text-[10px] font-bold text-indigo-950 uppercase">
-                    🏦 Datos del Cheque / E-Cheq de Tercero (Ingresa a Cartera en 04 - Tesorería)
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className="font-bold text-indigo-950 uppercase block text-[11px]">
+                        ⚡ Desglose de Cobro Mixto (Múltiples Medios en 1 Recibo X)
+                      </span>
+                      <span className="text-[10px] text-slate-600">
+                        Cada tramo impacta automáticamente en su Cuenta de Tesorería (Caja, Banco o Tarjeta) y registra Cheques en Cartera.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={agregarTramoCobroMixto}
+                      className="px-2.5 py-1 bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-[10px] uppercase flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Agregar Medio de Cobro</span>
+                    </button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <div>
-                      <label className="block text-[10px] text-slate-600 font-bold mb-0.5">N° de Cheque:</label>
-                      <input
-                        type="text"
-                        required
-                        value={nroChequeCobro}
-                        onChange={(e) => setNroChequeCobro(e.target.value)}
-                        placeholder="Ej: 77410920"
-                        className="w-full px-2 py-1 bg-white border border-indigo-300 font-bold text-slate-900"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-600 font-bold mb-0.5">Banco Emisor:</label>
-                      <input
-                        type="text"
-                        required
-                        value={bancoChequeCobro}
-                        onChange={(e) => setBancoChequeCobro(e.target.value)}
-                        placeholder="Ej: Banco San Juan"
-                        className="w-full px-2 py-1 bg-white border border-indigo-300 font-bold text-slate-900"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-600 font-bold mb-0.5">Fecha de Cobro:</label>
-                      <input
-                        type="date"
-                        required
-                        value={fechaCobroCheque}
-                        onChange={(e) => setFechaCobroCheque(e.target.value)}
-                        className="w-full px-2 py-1 bg-amber-50 border border-amber-300 font-bold text-amber-950"
-                      />
-                    </div>
-                  </div>
-                  <div className="text-[10px] text-indigo-800 font-sans">
-                    ✓ Quedará disponible en <strong>Cartera de Cheques</strong> con trazabilidad al librador ({clienteActivo?.razonSocial}) para depositar o endosar a proveedores.
+
+                  <div className="space-y-2">
+                    {lineasCobroMixto.map((tramo, idx) => {
+                      const esChq =
+                        tramo.medio.toLowerCase().includes('cheque') || tramo.medio.toLowerCase().includes('e-cheq');
+                      return (
+                        <div key={tramo.id} className="p-2.5 bg-white border border-indigo-200 space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                            <div className="sm:col-span-5">
+                              <label className="block text-[10px] text-slate-600 font-bold mb-0.5">
+                                Tramo #{idx + 1} — Medio de Cobro:
+                              </label>
+                              <select
+                                value={tramo.medio}
+                                onChange={(e) => actualizarTramoCobroMixto(tramo.id, { medio: e.target.value })}
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-300 font-bold text-[#042f22] text-[11px]"
+                              >
+                                <option value="Efectivo en Caja Central">Efectivo en Caja Central</option>
+                                <option value="Transferencia Bancaria Santander">Transferencia Santander Cta Cte</option>
+                                <option value="Transferencia Bancaria Galicia">Transferencia Galicia Cta Cte</option>
+                                <option value="Cheque de Terceros">Cheque de Terceros (Cartera)</option>
+                                <option value="E-Cheq de Terceros">E-Cheq de Terceros (Cartera)</option>
+                                <option value="Tarjeta de Crédito / Débito (Posnet)">Tarjeta Crédito / Débito (Posnet)</option>
+                                <option value="Mercado Pago (Link / QR)">Mercado Pago (QR / Link)</option>
+                              </select>
+                            </div>
+
+                            <div className="sm:col-span-4">
+                              <label className="block text-[10px] text-slate-600 font-bold mb-0.5">
+                                Cuenta Tesorería Destino:
+                              </label>
+                              <select
+                                value={tramo.cuentaBancariaId}
+                                onChange={(e) =>
+                                  actualizarTramoCobroMixto(tramo.id, { cuentaBancariaId: e.target.value })
+                                }
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-300 font-bold text-slate-800 text-[11px]"
+                              >
+                                {cuentasBancarias.map((cta) => (
+                                  <option key={cta.id} value={cta.id}>
+                                    {cta.nombre}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="sm:col-span-2">
+                              <label className="block text-[10px] text-indigo-900 font-bold mb-0.5">
+                                Importe ($):
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={tramo.importe}
+                                onChange={(e) =>
+                                  actualizarTramoCobroMixto(tramo.id, {
+                                    importe: parseFloat(e.target.value) || 0
+                                  })
+                                }
+                                className="w-full px-2 py-1 bg-indigo-50 border border-indigo-300 font-bold text-indigo-950 text-right text-[11px]"
+                              />
+                            </div>
+
+                            <div className="sm:col-span-1 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => eliminarTramoCobroMixto(tramo.id)}
+                                disabled={lineasCobroMixto.length <= 1}
+                                className="p-1 text-slate-400 hover:text-rose-600 disabled:opacity-30"
+                                title="Eliminar tramo"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {esChq && (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1.5 border-t border-indigo-100">
+                              <div>
+                                <label className="block text-[9px] text-slate-500 font-bold">N° Cheque Tercero:</label>
+                                <input
+                                  type="text"
+                                  value={tramo.nroCheque || ''}
+                                  onChange={(e) =>
+                                    actualizarTramoCobroMixto(tramo.id, { nroCheque: e.target.value })
+                                  }
+                                  placeholder="Ej: 77810234"
+                                  className="w-full px-2 py-0.5 bg-white border border-indigo-300 font-bold text-[10px]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] text-slate-500 font-bold">Banco Emisor:</label>
+                                <input
+                                  type="text"
+                                  value={tramo.bancoCheque || 'Banco San Juan'}
+                                  onChange={(e) =>
+                                    actualizarTramoCobroMixto(tramo.id, { bancoCheque: e.target.value })
+                                  }
+                                  className="w-full px-2 py-0.5 bg-white border border-indigo-300 font-bold text-[10px]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] text-slate-500 font-bold">Fecha Cobro:</label>
+                                <input
+                                  type="date"
+                                  value={
+                                    tramo.fechaPagoCheque ||
+                                    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                                  }
+                                  onChange={(e) =>
+                                    actualizarTramoCobroMixto(tramo.id, { fechaPagoCheque: e.target.value })
+                                  }
+                                  className="w-full px-2 py-0.5 bg-amber-50 border border-amber-300 font-bold text-[10px]"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {(medioCobro.toLowerCase().includes('tarjeta') ||
-                medioCobro.toLowerCase().includes('posnet') ||
-                medioCobro.toLowerCase().includes('mercado pago')) && (
-                <div className="p-3 bg-emerald-50/70 border border-emerald-300 space-y-2">
-                  <div className="text-[10px] font-bold text-emerald-950 uppercase">
-                    💳 Trazabilidad de Tarjeta / Posnet / Billetera Digital
+              {/* SECCIÓN 4: RETENCIONES FISCALES SUFRIDAS (IIBB / GANANCIAS / IVA / SUSS) */}
+              <div className="p-3 bg-amber-50/70 border border-amber-300 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="font-bold text-amber-950 uppercase block text-[10px]">
+                      🏛️ Retenciones Impositivas Sufridas (Certificados ARCA / IIBB entregados por el Cliente)
+                    </span>
+                    <span className="text-[10px] text-slate-600">
+                      Se imputan en la cuenta <strong>2.1.02 Cargas Fiscales y Retenciones</strong> y cancelan saldo de la factura.
+                    </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] text-slate-600 font-bold mb-0.5">Marca / Medio:</label>
-                      <select
-                        value={marcaTarjetaCobro}
-                        onChange={(e) => setMarcaTarjetaCobro(e.target.value)}
-                        className="w-full px-2 py-1 bg-white border border-emerald-300 font-bold text-slate-900"
-                      >
-                        <option value="Visa Corporativa">Visa Corporativa / Crédito</option>
-                        <option value="Visa Débito">Visa Débito</option>
-                        <option value="Mastercard">Mastercard</option>
-                        <option value="MercadoPago QR">MercadoPago QR / Link</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-600 font-bold mb-0.5">N° Cupón / Lote / Op.:</label>
-                      <input
-                        type="text"
-                        value={nroCuponCobro}
-                        onChange={(e) => setNroCuponCobro(e.target.value)}
-                        placeholder="Ej: LOTE-045-CUP-8812"
-                        className="w-full px-2 py-1 bg-white border border-emerald-300 font-bold text-slate-900"
-                      />
-                    </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const baseCalc = modoCobroMixto
+                          ? lineasCobroMixto.reduce((a, b) => a + Number(b.importe || 0), 0)
+                          : montoCobro;
+                        setRetencionIIBBCobro(Number(((baseCalc / 1.21) * 0.03).toFixed(2)));
+                      }}
+                      className="px-2 py-0.5 bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-[9px] uppercase"
+                    >
+                      Calc. IIBB 3% s/Neto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const baseCalc = modoCobroMixto
+                          ? lineasCobroMixto.reduce((a, b) => a + Number(b.importe || 0), 0)
+                          : montoCobro;
+                        setRetencionGananciasCobro(Number(((baseCalc / 1.21) * 0.02).toFixed(2)));
+                      }}
+                      className="px-2 py-0.5 bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-[9px] uppercase"
+                    >
+                      Calc. Ganancias 2%
+                    </button>
                   </div>
                 </div>
-              )}
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  <div>
+                    <label className="block text-[9px] text-slate-600 font-bold mb-0.5">Ret. IIBB ($):</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={retencionIIBBCobro}
+                      onChange={(e) => setRetencionIIBBCobro(parseFloat(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-white border border-amber-300 font-bold text-slate-900 text-right"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-slate-600 font-bold mb-0.5">Ret. Ganancias ($):</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={retencionGananciasCobro}
+                      onChange={(e) => setRetencionGananciasCobro(parseFloat(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-white border border-amber-300 font-bold text-slate-900 text-right"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-slate-600 font-bold mb-0.5">Ret. IVA ($):</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={retencionIVACobro}
+                      onChange={(e) => setRetencionIVACobro(parseFloat(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-white border border-amber-300 font-bold text-slate-900 text-right"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-slate-600 font-bold mb-0.5">Ret. SUSS ($):</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={retencionSUSSCobro}
+                      onChange={(e) => setRetencionSUSSCobro(parseFloat(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-white border border-amber-300 font-bold text-slate-900 text-right"
+                    />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-[9px] text-slate-600 font-bold mb-0.5">N° Certificado:</label>
+                    <input
+                      type="text"
+                      value={nroCertificadoRetCobro}
+                      onChange={(e) => setNroCertificadoRetCobro(e.target.value)}
+                      placeholder="CERT-2026"
+                      className="w-full px-2 py-1 bg-white border border-amber-300 font-bold text-slate-900"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* RESUMEN CONSOLIDADO DEL RECIBO X */}
+              {(() => {
+                const totalRet = Number(
+                  (
+                    Number(retencionIIBBCobro || 0) +
+                    Number(retencionGananciasCobro || 0) +
+                    Number(retencionIVACobro || 0) +
+                    Number(retencionSUSSCobro || 0)
+                  ).toFixed(2)
+                );
+                const netoTesoreria = modoCobroMixto
+                  ? Number(lineasCobroMixto.reduce((acc, t) => acc + Number(t.importe || 0), 0).toFixed(2))
+                  : Math.max(0, Number((montoCobro - totalRet).toFixed(2)));
+                const totalCanceladoCtaCte = modoCobroMixto
+                  ? Number((netoTesoreria + totalRet).toFixed(2))
+                  : Number(montoCobro.toFixed(2));
+                return (
+                  <div className="p-3 bg-slate-900 text-white space-y-1 text-[11px]">
+                    <div className="flex justify-between text-slate-300">
+                      <span>Ingreso Neto en Caja / Bancos / Cartera ({modoCobroMixto ? `${lineasCobroMixto.length} medios` : '1 medio'}):</span>
+                      <span className="font-bold text-emerald-400">
+                        ${netoTesoreria.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    {totalRet > 0 && (
+                      <div className="flex justify-between text-amber-300">
+                        <span>+ Retenciones Impositivas Sufridas (2.1.02 ARCA/IIBB):</span>
+                        <span className="font-bold">
+                          ${totalRet.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-white pt-1 border-t border-slate-700 text-xs">
+                      <span>TOTAL RECIBO X (Cancela Cuenta Corriente Cliente):</span>
+                      <span className="text-emerald-300">
+                        ${totalCanceladoCtaCte.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
@@ -2494,7 +3104,13 @@ export const ClientesModule: React.FC = () => {
                   className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold uppercase flex items-center gap-1.5"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{guardando ? 'Registrando...' : 'Confirmar Cobro'}</span>
+                  <span>
+                    {guardando
+                      ? 'Registrando...'
+                      : modoCobroMixto
+                      ? `Confirmar Cobro Mixto (${lineasCobroMixto.length} Medios)`
+                      : 'Confirmar Cobro'}
+                  </span>
                 </button>
               </div>
             </form>

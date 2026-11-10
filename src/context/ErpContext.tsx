@@ -65,6 +65,27 @@ export interface EmpresaDatosExtra {
   logoArchivo?: string;
 }
 
+export interface LineaMedioPagoMixto {
+  id?: string;
+  medio: string;
+  cuentaBancariaId?: string;
+  importe: number;
+  nroCheque?: string;
+  bancoCheque?: string;
+  fechaPagoCheque?: string;
+  chequeCarteraId?: string;
+  marcaTarjeta?: string;
+  nroCuponTarjeta?: string;
+}
+
+export interface DesgloseRetencionesFiscales {
+  retencionIIBB?: number;
+  retencionGanancias?: number;
+  retencionIVA?: number;
+  retencionSUSS?: number;
+  nroCertificado?: string;
+}
+
 interface ErpContextValue {
   // Estado de Base de Datos Supabase
   dbStatus: 'sincronizando' | 'conectado' | 'error';
@@ -119,6 +140,13 @@ interface ErpContextValue {
       precioUnitarioNeto: number;
       deposito?: string;
     }[];
+    cancelacionAlContado?: {
+      activa: boolean;
+      cuentaBancariaId?: string;
+      nroCheque?: string;
+      lineasMediosCobro?: LineaMedioPagoMixto[];
+      retencionesSufridas?: DesgloseRetencionesFiscales;
+    };
   }) => Promise<void>;
   registrarCobroCliente: (params: {
     clienteId: string;
@@ -132,6 +160,8 @@ interface ErpContextValue {
     marcaTarjeta?: string;
     facturaId?: string;
     facturaNro?: string;
+    lineasMediosCobro?: LineaMedioPagoMixto[];
+    retencionesSufridas?: DesgloseRetencionesFiscales;
   }) => Promise<void>;
 
   // Acciones Proveedores y Compras
@@ -153,6 +183,13 @@ interface ErpContextValue {
       cantidad: number;
       costoUnitarioNeto: number;
     }[];
+    cancelacionAlContado?: {
+      activa: boolean;
+      cuentaBancariaId?: string;
+      nroCheque?: string;
+      lineasMediosPago?: LineaMedioPagoMixto[];
+      retencionesPracticadas?: DesgloseRetencionesFiscales;
+    };
   }) => Promise<void>;
   registrarPagoProveedor: (params: {
     proveedorId: string;
@@ -173,6 +210,8 @@ interface ErpContextValue {
       cuotaNro?: number;
       totalCuotas?: number;
     }[];
+    lineasMediosPago?: LineaMedioPagoMixto[];
+    retencionesPracticadas?: DesgloseRetencionesFiscales;
   }) => Promise<void>;
 
   // Acciones Tesorería
@@ -1653,60 +1692,134 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     refreshAllFromDb();
   }, [refreshAllFromDb]);
 
+  // Helper para resolver la Cuenta de Tesorería según el nombre del Medio de Pago/Cobro
+  const resolverCuentaTesoreriaPorMedio = (medio: string, cuentaExplicitaId?: string): string => {
+    if (cuentaExplicitaId) return cuentaExplicitaId;
+    const m = (medio || '').toLowerCase();
+    if (m.includes('santander')) return 'CTA-02';
+    if (m.includes('galicia')) return 'CTA-04';
+    if (m.includes('tarjeta') || m.includes('posnet') || m.includes('visa') || m.includes('mercado pago')) return 'CTA-03';
+    if (m.includes('cheque propio')) return 'CTA-05';
+    return 'CTA-01';
+  };
+
+  // Helper interno para impactar un lote de movimientos en Tesorería (soporta Pagos/Cobros Mixtos sin colisión de estado)
+  const registrarLoteMovimientosTesoreria = async (
+    items: {
+      cuentaId: string;
+      tipo: string;
+      clienteProveedor: string;
+      descripcion: string;
+      ingresos: number;
+      egresos: number;
+      nroCheque?: string;
+    }[]
+  ) => {
+    if (!items || items.length === 0) return;
+    const fechaStr = new Date().toISOString().split('T')[0].split('-').reverse().join('/');
+    const cuentasModificadasMap = new Map<string, CuentaBancaria>();
+
+    setCuentasBancarias((prev) => {
+      const next = prev.map((c) => ({ ...c, movimientos: [...(c.movimientos || [])] }));
+      items.forEach((params, idx) => {
+        if (params.ingresos <= 0 && params.egresos <= 0) return;
+        const target = next.find((c) => c.id === params.cuentaId) || next[0];
+        if (!target) return;
+        const nuevoSaldo = Number((target.saldoActual + params.ingresos - params.egresos).toFixed(2));
+        const nuevoMov: MovimientoTesoreria = {
+          id: `MOV-T${Date.now()}-${idx}-${Math.floor(Math.random() * 999)}`,
+          fecha: fechaStr,
+          clienteProveedor: params.clienteProveedor,
+          tipo: params.tipo,
+          nro: `0001-00000${Math.floor(100 + Math.random() * 899)}`,
+          nroCheque: params.nroCheque || '',
+          descripcion: params.descripcion,
+          ingresos: params.ingresos,
+          egresos: params.egresos,
+          saldo: nuevoSaldo
+        };
+        target.saldoActual = nuevoSaldo;
+        target.movimientos = [nuevoMov, ...(target.movimientos || [])];
+        cuentasModificadasMap.set(target.id, target);
+      });
+      return next;
+    });
+
+    if (cuentasModificadasMap.size > 0) {
+      await supabase.from('erp_cuentas_bancarias').upsert(
+        Array.from(cuentasModificadasMap.values()).map((actualizada) => ({
+          id: actualizada.id,
+          nombre: actualizada.nombre,
+          banco: actualizada.banco,
+          tipo_cuenta: actualizada.tipoCuenta,
+          moneda: actualizada.moneda,
+          cbu: actualizada.cbu || null,
+          saldo_actual: actualizada.saldoActual,
+          saldo_conciliado: actualizada.saldoConciliado,
+          conectar_disponible: !!actualizada.conectarDisponible,
+          movimientos: actualizada.movimientos,
+          updated_at: new Date().toISOString()
+        }))
+      );
+    }
+  };
+
   // Helper interno para impactar un asiento en el Plan de Cuentas y Asientos Contables
   const impactarAsientoContable = async (nuevoAsiento: AsientoContable, tipoDocMayor = 'ASI') => {
     setAsientosContables((prev) => [nuevoAsiento, ...prev]);
 
-    let nuevoPlan = [...planDeCuentas];
     const fechaFormateada = nuevoAsiento.fecha.includes('-')
       ? nuevoAsiento.fecha.split('-').reverse().join('/')
       : nuevoAsiento.fecha;
 
-    for (const renglon of nuevoAsiento.renglones) {
-      nuevoPlan = updatePlanCuentasTree(nuevoPlan, renglon.cuentaCodigo, (cuenta) => {
-        const prevDebito = cuenta.debito ?? 0;
-        const prevCredito = cuenta.credito ?? 0;
-        const prevSaldo = cuenta.saldoFinal ?? 0;
-        const nuevoDebito = prevDebito + renglon.debe;
-        const nuevoCredito = prevCredito + renglon.haber;
-        const nuevoSaldo = prevSaldo + renglon.debe - renglon.haber;
+    let planActualizadoRef: CuentaContable[] = [];
+    setPlanDeCuentas((prevPlan) => {
+      let nuevoPlan = [...prevPlan];
+      for (const renglon of nuevoAsiento.renglones) {
+        nuevoPlan = updatePlanCuentasTree(nuevoPlan, renglon.cuentaCodigo, (cuenta) => {
+          const prevDebito = cuenta.debito ?? 0;
+          const prevCredito = cuenta.credito ?? 0;
+          const prevSaldo = cuenta.saldoFinal ?? 0;
+          const nuevoDebito = prevDebito + renglon.debe;
+          const nuevoCredito = prevCredito + renglon.haber;
+          const nuevoSaldo = prevSaldo + renglon.debe - renglon.haber;
 
-        const nuevoMovMayor: MovimientoMayor = {
-          id: `MM-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          fecha: fechaFormateada,
-          tipo: tipoDocMayor,
-          nro: String(nuevoAsiento.numero).padStart(8, '0'),
-          descripcion: nuevoAsiento.concepto,
-          debito: renglon.debe,
-          credito: renglon.haber,
-          saldo: nuevoSaldo
-        };
+          const nuevoMovMayor: MovimientoMayor = {
+            id: `MM-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            fecha: fechaFormateada,
+            tipo: tipoDocMayor,
+            nro: String(nuevoAsiento.numero).padStart(8, '0'),
+            descripcion: nuevoAsiento.concepto,
+            debito: renglon.debe,
+            credito: renglon.haber,
+            saldo: nuevoSaldo
+          };
 
-        return {
-          ...cuenta,
-          debito: nuevoDebito,
-          credito: nuevoCredito,
-          saldoFinal: nuevoSaldo,
-          saldoDeudor: nuevoSaldo > 0 ? nuevoSaldo : 0,
-          saldoAcreedor: nuevoSaldo < 0 ? Math.abs(nuevoSaldo) : 0,
-          movimientosMayor: [nuevoMovMayor, ...(cuenta.movimientosMayor || [])]
-        };
-      });
-    }
-
-    // Actualizar fila de Totales ('99')
-    nuevoPlan = nuevoPlan.map((n) => {
-      if (n.codigo === '99') {
-        return {
-          ...n,
-          debito: (n.debito ?? 0) + nuevoAsiento.totalDebe,
-          credito: (n.credito ?? 0) + nuevoAsiento.totalHaber
-        };
+          return {
+            ...cuenta,
+            debito: nuevoDebito,
+            credito: nuevoCredito,
+            saldoFinal: nuevoSaldo,
+            saldoDeudor: nuevoSaldo > 0 ? nuevoSaldo : 0,
+            saldoAcreedor: nuevoSaldo < 0 ? Math.abs(nuevoSaldo) : 0,
+            movimientosMayor: [nuevoMovMayor, ...(cuenta.movimientosMayor || [])]
+          };
+        });
       }
-      return n;
-    });
 
-    setPlanDeCuentas(nuevoPlan);
+      nuevoPlan = nuevoPlan.map((n) => {
+        if (n.codigo === '99') {
+          return {
+            ...n,
+            debito: (n.debito ?? 0) + nuevoAsiento.totalDebe,
+            credito: (n.credito ?? 0) + nuevoAsiento.totalHaber
+          };
+        }
+        return n;
+      });
+      planActualizadoRef = nuevoPlan;
+      return nuevoPlan;
+    });
 
     await Promise.all([
       supabase.from('erp_asientos_contables').upsert({
@@ -1720,7 +1833,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }),
       supabase.from('erp_plan_cuentas').upsert({
         id: 'DEFAULT',
-        nodos: nuevoPlan,
+        nodos: planActualizadoRef.length > 0 ? planActualizadoRef : planDeCuentas,
         updated_at: new Date().toISOString()
       })
     ]);
@@ -1805,6 +1918,11 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       precioUnitarioNeto: number;
       deposito?: string;
     }[];
+    cancelacionAlContado?: {
+      activa: boolean;
+      lineasMediosCobro?: LineaMedioPagoMixto[];
+      retencionesSufridas?: DesgloseRetencionesFiscales;
+    };
   }) => {
     const cliente = clientes.find((c) => c.id === params.clienteId);
     if (!cliente) return;
@@ -1911,8 +2029,11 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
+    const esContado = !!params.cancelacionAlContado?.activa;
+    const idFacAdeudada = `FAC-ADE-${Date.now()}-${Math.floor(Math.random() * 999)}`;
+
     const nuevaAdeudada: FacturaAdeudada = {
-      id: `FAC-ADE-${Date.now()}-${Math.floor(Math.random() * 999)}`,
+      id: idFacAdeudada,
       nroComprobante,
       tipo: params.tipo,
       fechaEmision: hoy,
@@ -1921,26 +2042,75 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       medioCobroPactado: params.medioCobroPactado || 'Transferencia Bancaria Santander',
       valorMe: 0,
       total,
-      cobrado: 0,
-      saldo: total,
-      saldoAcumulado: cliente.saldo + total
+      cobrado: esContado ? total : 0,
+      saldo: esContado ? 0 : total,
+      saldoAcumulado: esContado ? cliente.saldo : cliente.saldo + total
     };
 
-    const nuevoMov = {
+    const nuevoMovVenta = {
       id: `MOV-${Date.now()}-${Math.floor(Math.random() * 999)}`,
       fecha: hoy,
       comprobante: `${params.tipo} ${nroComprobante}`,
-      concepto: params.descripcion || 'Emisión de Comprobante Electrónico',
+      concepto: `${params.descripcion || 'Emisión de Comprobante Electrónico'}${
+        esContado ? ' [CANCELACIÓN INMEDIATA AL CONTADO]' : ''
+      }`,
       debe: total,
       haber: 0,
       saldo: cliente.saldo + total
     };
 
+    const nroReciboContado = `0003-00000${Math.floor(415 + Math.random() * 500)}`;
+    const lineasContado =
+      esContado && params.cancelacionAlContado?.lineasMediosCobro && params.cancelacionAlContado.lineasMediosCobro.length > 0
+        ? params.cancelacionAlContado.lineasMediosCobro
+        : esContado
+        ? [
+            {
+              medio: params.medioCobroPactado || 'Transferencia Bancaria Santander',
+              cuentaBancariaId: resolverCuentaTesoreriaPorMedio(
+                params.medioCobroPactado || 'Transferencia Bancaria Santander'
+              ),
+              importe: total
+            }
+          ]
+        : [];
+
+    const retContado = params.cancelacionAlContado?.retencionesSufridas || {};
+    const totalRetContado = Number(
+      (
+        (retContado.retencionIIBB || 0) +
+        (retContado.retencionGanancias || 0) +
+        (retContado.retencionIVA || 0) +
+        (retContado.retencionSUSS || 0)
+      ).toFixed(2)
+    );
+
+    const resumenLineasContado = lineasContado
+      .map((l) => `${l.medio}: $${Number(l.importe).toLocaleString('es-AR')}`)
+      .concat(totalRetContado > 0 ? [`Retenciones: $${totalRetContado.toLocaleString('es-AR')}`] : [])
+      .join(' + ');
+
+    const movimientosNuevosCliente = esContado
+      ? [
+          ...cliente.movimientos,
+          nuevoMovVenta,
+          {
+            id: `MOV-REC-CONT-${Date.now()}`,
+            fecha: hoy,
+            comprobante: `Recibo X ${nroReciboContado}`,
+            concepto: `Cancelación al Contado (${resumenLineasContado}) [Imputado a: ${etiquetaComprobanteVenta}]`,
+            debe: 0,
+            haber: total,
+            saldo: cliente.saldo
+          }
+        ]
+      : [...cliente.movimientos, nuevoMovVenta];
+
     const clienteActualizado: Cliente = {
       ...cliente,
-      saldo: cliente.saldo + total,
-      facturasAdeudadas: [nuevaAdeudada, ...cliente.facturasAdeudadas],
-      movimientos: [...cliente.movimientos, nuevoMov]
+      saldo: esContado ? cliente.saldo : Number((cliente.saldo + total).toFixed(2)),
+      facturasAdeudadas: esContado ? cliente.facturasAdeudadas : [nuevaAdeudada, ...cliente.facturasAdeudadas],
+      movimientos: movimientosNuevosCliente
     };
 
     const nuevoComprobanteVenta: ComprobanteVenta = {
@@ -2050,6 +2220,90 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       },
       'FAC'
     );
+
+    // Si se activó Cancelación Inmediata al Contado en 1 paso, impactar Tesorería, Cheques y Asiento de Cobranza simultáneamente
+    if (esContado && lineasContado.length > 0) {
+      await registrarLoteMovimientosTesoreria(
+        lineasContado.map((l, idx) => ({
+          cuentaId: resolverCuentaTesoreriaPorMedio(l.medio, l.cuentaBancariaId),
+          tipo: 'REC',
+          clienteProveedor: cliente.razonSocial,
+          descripcion: `Recibo X Contado ${nroReciboContado} [${ idx + 1 }/${lineasContado.length}: ${l.medio}] [${etiquetaComprobanteVenta}]`,
+          ingresos: Number(l.importe || 0),
+          egresos: 0,
+          nroCheque: l.nroCheque || l.nroCuponTarjeta
+        }))
+      );
+
+      const chequesContado = lineasContado.filter(
+        (l) => l.medio.toLowerCase().includes('cheque') || l.medio.toLowerCase().includes('e-cheq')
+      );
+      if (chequesContado.length > 0) {
+        const nuevosChequesContado: Cheque[] = chequesContado.map((l, idx) => ({
+          id: `CHQ-CONT-${Date.now()}-${idx}`,
+          tipo: 'Cheque Terceros (Cartera)',
+          numero: l.nroCheque || String(Math.floor(10000000 + Math.random() * 89999999)),
+          bancoEmisor: l.bancoCheque || 'Banco San Juan',
+          librador: cliente.razonSocial,
+          cuitLibrador: cliente.cuit,
+          fechaEmision: hoy,
+          fechaPago:
+            l.fechaPagoCheque || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          importe: Number(l.importe),
+          estado: 'En Cartera',
+          facturaId: idFacAdeudada,
+          facturaNro: etiquetaComprobanteVenta
+        }));
+        setCheques((prev) => [...nuevosChequesContado, ...prev]);
+        await supabase.from('erp_cheques').upsert(
+          nuevosChequesContado.map((c) => ({
+            id: c.id,
+            tipo: c.tipo,
+            numero: c.numero,
+            banco_emisor: c.bancoEmisor,
+            librador: c.librador,
+            cuit_librador: c.cuitLibrador,
+            fecha_emision: c.fechaEmision,
+            fecha_pago: c.fechaPago,
+            importe: c.importe,
+            estado: c.estado
+          }))
+        );
+      }
+
+      const sumaCajaContado = Number(lineasContado.reduce((acc, l) => acc + Number(l.importe || 0), 0).toFixed(2));
+      const totalReciboContado = Number((sumaCajaContado + totalRetContado).toFixed(2));
+      const renglonesReciboContado: AsientoContable['renglones'] = [
+        { cuentaCodigo: '1.1.01', cuentaNombre: 'Caja y Bancos', debe: sumaCajaContado, haber: 0 }
+      ];
+      if (totalRetContado > 0) {
+        renglonesReciboContado.push({
+          cuentaCodigo: '2.1.02',
+          cuentaNombre: 'Cargas Fiscales, Retenciones Sufridas (IIBB/Ganancias/IVA/SUSS)',
+          debe: totalRetContado,
+          haber: 0
+        });
+      }
+      renglonesReciboContado.push({
+        cuentaCodigo: '1.1.02',
+        cuentaNombre: 'Créditos por Ventas (Clientes)',
+        debe: 0,
+        haber: totalReciboContado
+      });
+
+      await impactarAsientoContable(
+        {
+          numero: nextAsientoNum + 1,
+          fecha: hoy,
+          concepto: `Cobranza al Contado Recibo X ${nroReciboContado} (${resumenLineasContado}) - ${cliente.razonSocial}`,
+          tipoOrigen: 'Tesorería',
+          renglones: renglonesReciboContado,
+          totalDebe: totalReciboContado,
+          totalHaber: totalReciboContado
+        },
+        'REC'
+      );
+    }
   };
 
   const registrarCobroCliente = async (params: {
@@ -2064,13 +2318,46 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     marcaTarjeta?: string;
     facturaId?: string;
     facturaNro?: string;
+    lineasMediosCobro?: LineaMedioPagoMixto[];
+    retencionesSufridas?: DesgloseRetencionesFiscales;
   }) => {
     const cliente = clientes.find((c) => c.id === params.clienteId);
     if (!cliente) return;
 
     const hoy = new Date().toISOString().split('T')[0];
     const nroRecibo = `0003-00000${Math.floor(415 + Math.random() * 500)}`;
-    const nuevoSaldoCliente = Math.max(0, Number((cliente.saldo - params.monto).toFixed(2)));
+
+    const ret = params.retencionesSufridas || {};
+    const totalRetenciones = Number(
+      (
+        (ret.retencionIIBB || 0) +
+        (ret.retencionGanancias || 0) +
+        (ret.retencionIVA || 0) +
+        (ret.retencionSUSS || 0)
+      ).toFixed(2)
+    );
+
+    const lineasActivas: LineaMedioPagoMixto[] =
+      params.lineasMediosCobro && params.lineasMediosCobro.length > 0
+        ? params.lineasMediosCobro.filter((l) => Number(l.importe) > 0)
+        : [
+            {
+              medio: params.medioCobro,
+              cuentaBancariaId: resolverCuentaTesoreriaPorMedio(params.medioCobro, params.cuentaBancariaId),
+              importe: Math.max(0, Number((params.monto - totalRetenciones).toFixed(2))),
+              nroCheque: params.nroCheque,
+              bancoCheque: params.bancoCheque,
+              fechaPagoCheque: params.fechaPagoCheque,
+              marcaTarjeta: params.marcaTarjeta,
+              nroCuponTarjeta: params.nroCuponTarjeta
+            }
+          ];
+
+    const sumaMediosTesoreria = Number(
+      lineasActivas.reduce((acc, l) => acc + Number(l.importe || 0), 0).toFixed(2)
+    );
+    const montoTotalCancelado = Number((sumaMediosTesoreria + totalRetenciones).toFixed(2)) || params.monto;
+    const nuevoSaldoCliente = Math.max(0, Number((cliente.saldo - montoTotalCancelado).toFixed(2)));
 
     // Priorizar factura seleccionada si se indicó facturaId
     const facturaObjetivo =
@@ -2087,7 +2374,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ]
       : cliente.facturasAdeudadas;
 
-    let montoRestante = params.monto;
+    let montoRestante = montoTotalCancelado;
     const mapActualizadas = new Map<string, FacturaAdeudada>();
     for (const f of ordenFacturas) {
       if (montoRestante <= 0 || f.saldo <= 0) {
@@ -2109,11 +2396,30 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .map((f) => mapActualizadas.get(f.id) || f)
       .filter((f) => f.saldo > 0);
 
-    const detalleInstrumento = params.nroCheque
-      ? ` (Cheque #${params.nroCheque} ${params.bancoCheque || ''})`
-      : params.nroCuponTarjeta
-      ? ` (${params.marcaTarjeta || 'Tarjeta'} Cupón #${params.nroCuponTarjeta})`
-      : '';
+    const esMixto = lineasActivas.length > 1 || totalRetenciones > 0;
+    const resumenMedios = lineasActivas
+      .map((l) => {
+        const extra = l.nroCheque
+          ? ` (Cheque #${l.nroCheque} ${l.bancoCheque || ''})`
+          : l.nroCuponTarjeta
+          ? ` (${l.marcaTarjeta || 'Tarjeta'} Cupón #${l.nroCuponTarjeta})`
+          : '';
+        return `${l.medio}${extra}: $${Number(l.importe).toLocaleString('es-AR')}`;
+      })
+      .concat(
+        totalRetenciones > 0
+          ? [
+              `Retenciones Sufridas${ret.nroCertificado ? ` Cert #${ret.nroCertificado}` : ''} (IIBB $${(
+                ret.retencionIIBB || 0
+              ).toLocaleString('es-AR')} / Gan. $${(ret.retencionGanancias || 0).toLocaleString(
+                'es-AR'
+              )} / IVA $${(ret.retencionIVA || 0).toLocaleString('es-AR')} / SUSS $${(
+                ret.retencionSUSS || 0
+              ).toLocaleString('es-AR')}): $${totalRetenciones.toLocaleString('es-AR')}`
+            ]
+          : []
+      )
+      .join(' + ');
 
     const clienteActualizado: Cliente = {
       ...cliente,
@@ -2125,9 +2431,9 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `MOV-${Date.now()}`,
           fecha: hoy,
           comprobante: `Recibo X ${nroRecibo}`,
-          concepto: `Cobro mediante ${params.medioCobro}${detalleInstrumento} [Imputado a: ${refComprobanteCobrado}]`,
+          concepto: `${esMixto ? 'Cobro Mixto' : 'Cobro'} mediante ${resumenMedios} [Imputado a: ${refComprobanteCobrado}]`,
           debe: 0,
-          haber: params.monto,
+          haber: montoTotalCancelado,
           saldo: nuevoSaldoCliente
         }
       ]
@@ -2154,76 +2460,101 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updated_at: new Date().toISOString()
     });
 
-    // Impactar en Tesorería (Cajas/Bancos/Tarjetas)
-    const medioLow = params.medioCobro.toLowerCase();
-    const targetCuentaId =
-      params.cuentaBancariaId ||
-      (medioLow.includes('santander')
-        ? 'CTA-02'
-        : medioLow.includes('galicia')
-        ? 'CTA-04'
-        : medioLow.includes('tarjeta') || medioLow.includes('posnet') || medioLow.includes('visa')
-        ? 'CTA-03'
-        : 'CTA-01');
+    // Impactar todos los tramos del cobro en sus respectivas Cuentas de Tesorería (Cajas/Bancos/Tarjetas)
+    await registrarLoteMovimientosTesoreria(
+      lineasActivas.map((l, idx) => {
+        const extra = l.nroCheque
+          ? ` (Cheque #${l.nroCheque} ${l.bancoCheque || ''})`
+          : l.nroCuponTarjeta
+          ? ` (${l.marcaTarjeta || 'Tarjeta'} Cupón #${l.nroCuponTarjeta})`
+          : '';
+        return {
+          cuentaId: resolverCuentaTesoreriaPorMedio(l.medio, l.cuentaBancariaId),
+          tipo: 'REC',
+          clienteProveedor: cliente.razonSocial,
+          descripcion: `Recibo X ${nroRecibo}${
+            lineasActivas.length > 1 ? ` [Tramo ${idx + 1}/${lineasActivas.length}]` : ''
+          } (${l.medio}${extra}) [${refComprobanteCobrado}]`,
+          ingresos: Number(l.importe || 0),
+          egresos: 0,
+          nroCheque: l.nroCheque || l.nroCuponTarjeta
+        };
+      })
+    );
 
-    await registrarMovimientoTesoreria({
-      cuentaId: targetCuentaId,
-      tipo: 'REC',
-      clienteProveedor: cliente.razonSocial,
-      descripcion: `Recibo X ${nroRecibo} (${params.medioCobro}${detalleInstrumento}) [${refComprobanteCobrado}]`,
-      ingresos: params.monto,
-      egresos: 0,
-      nroCheque: params.nroCheque || params.nroCuponTarjeta
-    });
-
-    // Si es Cheque de Terceros o E-Cheq, agregarlo a Cartera de Cheques con trazabilidad a Factura y Cliente
-    if (medioLow.includes('cheque') || medioLow.includes('e-cheq')) {
-      const nuevoCheque: Cheque = {
-        id: `CHQ-${Date.now()}`,
+    // Si una o varias líneas son Cheque de Terceros o E-Cheq, agregarlas a Cartera de Cheques con trazabilidad a Factura y Cliente
+    const lineasCheque = lineasActivas.filter(
+      (l) => l.medio.toLowerCase().includes('cheque') || l.medio.toLowerCase().includes('e-cheq')
+    );
+    if (lineasCheque.length > 0) {
+      const nuevosCheques: Cheque[] = lineasCheque.map((l, idx) => ({
+        id: `CHQ-${Date.now()}-${idx}`,
         tipo: 'Cheque Terceros (Cartera)',
-        numero: params.nroCheque || String(Math.floor(10000000 + Math.random() * 89999999)),
-        bancoEmisor: params.bancoCheque || 'Banco San Juan',
+        numero: l.nroCheque || String(Math.floor(10000000 + Math.random() * 89999999)),
+        bancoEmisor: l.bancoCheque || 'Banco San Juan',
         librador: cliente.razonSocial,
         cuitLibrador: cliente.cuit,
         fechaEmision: hoy,
         fechaPago:
-          params.fechaPagoCheque ||
-          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        importe: params.monto,
+          l.fechaPagoCheque || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        importe: Number(l.importe),
         estado: 'En Cartera',
         facturaId: facturaObjetivo?.id || params.facturaId,
         facturaNro: refComprobanteCobrado
-      };
-      setCheques((prev) => [nuevoCheque, ...prev]);
-      await supabase.from('erp_cheques').upsert({
-        id: nuevoCheque.id,
-        tipo: nuevoCheque.tipo,
-        numero: nuevoCheque.numero,
-        banco_emisor: nuevoCheque.bancoEmisor,
-        librador: nuevoCheque.librador,
-        cuit_librador: nuevoCheque.cuitLibrador,
-        fecha_emision: nuevoCheque.fechaEmision,
-        fecha_pago: nuevoCheque.fechaPago,
-        importe: nuevoCheque.importe,
-        estado: nuevoCheque.estado
-      });
+      }));
+      setCheques((prev) => [...nuevosCheques, ...prev]);
+      await supabase.from('erp_cheques').upsert(
+        nuevosCheques.map((nuevoCheque) => ({
+          id: nuevoCheque.id,
+          tipo: nuevoCheque.tipo,
+          numero: nuevoCheque.numero,
+          banco_emisor: nuevoCheque.bancoEmisor,
+          librador: nuevoCheque.librador,
+          cuit_librador: nuevoCheque.cuitLibrador,
+          fecha_emision: nuevoCheque.fechaEmision,
+          fecha_pago: nuevoCheque.fechaPago,
+          importe: nuevoCheque.importe,
+          estado: nuevoCheque.estado
+        }))
+      );
     }
 
-    // Impactar Asiento Contable
+    // Impactar Asiento Contable (con desglose de Caja/Bancos + Retenciones Sufridas contra Créditos por Ventas)
     const nextAsientoNum =
       asientosContables.length > 0 ? Math.max(...asientosContables.map((a) => a.numero)) + 1 : 4094;
+    const renglonesCobro: AsientoContable['renglones'] = [];
+    if (sumaMediosTesoreria > 0) {
+      renglonesCobro.push({
+        cuentaCodigo: '1.1.01',
+        cuentaNombre: 'Caja y Bancos',
+        debe: sumaMediosTesoreria,
+        haber: 0
+      });
+    }
+    if (totalRetenciones > 0) {
+      renglonesCobro.push({
+        cuentaCodigo: '2.1.02',
+        cuentaNombre: 'Cargas Fiscales, Retenciones Sufridas (IIBB/Ganancias/IVA/SUSS)',
+        debe: totalRetenciones,
+        haber: 0
+      });
+    }
+    renglonesCobro.push({
+      cuentaCodigo: '1.1.02',
+      cuentaNombre: 'Créditos por Ventas (Clientes)',
+      debe: 0,
+      haber: montoTotalCancelado
+    });
+
     await impactarAsientoContable(
       {
         numero: nextAsientoNum,
         fecha: hoy,
-        concepto: `Cobranza Recibo X ${nroRecibo} (${params.medioCobro}${detalleInstrumento}) - ${cliente.razonSocial}`,
+        concepto: `Cobranza Recibo X ${nroRecibo} (${resumenMedios}) - ${cliente.razonSocial}`,
         tipoOrigen: 'Tesorería',
-        renglones: [
-          { cuentaCodigo: '1.1.01', cuentaNombre: 'Caja y Bancos', debe: params.monto, haber: 0 },
-          { cuentaCodigo: '1.1.02', cuentaNombre: 'Créditos por Ventas (Clientes)', debe: 0, haber: params.monto }
-        ],
-        totalDebe: params.monto,
-        totalHaber: params.monto
+        renglones: renglonesCobro,
+        totalDebe: montoTotalCancelado,
+        totalHaber: montoTotalCancelado
       },
       'REC'
     );
@@ -2296,6 +2627,13 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cantidad: number;
       costoUnitarioNeto: number;
     }[];
+    cancelacionAlContado?: {
+      activa: boolean;
+      cuentaBancariaId?: string;
+      nroCheque?: string;
+      lineasMediosPago?: LineaMedioPagoMixto[];
+      retencionesPracticadas?: DesgloseRetencionesFiscales;
+    };
   }) => {
     const proveedor = proveedores.find((p) => p.id === params.proveedorId);
     if (!proveedor) return;
@@ -2311,6 +2649,38 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const iva = Number((params.netoGravado * 0.21).toFixed(2));
     const total = Number((params.netoGravado + iva).toFixed(2));
     const medioPactado = params.medioPagoPactado || 'Transferencia Bancaria Santander';
+    const esContado = Boolean(params.cancelacionAlContado?.activa);
+    const nroOpContado = `0001-00000${Math.floor(150 + Math.random() * 800)}`;
+
+    const retContado = params.cancelacionAlContado?.retencionesPracticadas;
+    const retIIBBContado = Number(retContado?.retencionIIBB || 0);
+    const retGanContado = Number(retContado?.retencionGanancias || 0);
+    const retIVAContado = Number(retContado?.retencionIVA || 0);
+    const retSUSSContado = Number(retContado?.retencionSUSS || 0);
+    const totalRetContado = Number((retIIBBContado + retGanContado + retIVAContado + retSUSSContado).toFixed(2));
+
+    const lineasContado: LineaMedioPagoMixto[] =
+      esContado &&
+      params.cancelacionAlContado?.lineasMediosPago &&
+      params.cancelacionAlContado.lineasMediosPago.filter((l) => Number(l.importe) > 0).length > 0
+        ? params.cancelacionAlContado.lineasMediosPago.filter((l) => Number(l.importe) > 0)
+        : esContado
+        ? [
+            {
+              medio: medioPactado,
+              importe: Math.max(0, Number((total - totalRetContado).toFixed(2))),
+              cuentaBancariaId: params.cancelacionAlContado?.cuentaBancariaId,
+              nroCheque: params.cancelacionAlContado?.nroCheque
+            }
+          ]
+        : [];
+
+    const resumenMediosContado = esContado
+      ? [
+          ...lineasContado.map((l) => `${l.medio} ($${Number(l.importe).toLocaleString('es-AR')})`),
+          ...(totalRetContado > 0 ? [`Retenciones ($${totalRetContado.toLocaleString('es-AR')})`] : [])
+        ].join(' + ')
+      : medioPactado;
 
     // Impactar Stock y Precio de Costo en los productos de Inventario asociados (con trazabilidad obligatoria de Factura + Proveedor)
     if (params.itemsInventarioAsociados && params.itemsInventarioAsociados.length > 0) {
@@ -2363,7 +2733,6 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const nuevoStock = Number((art.stockActual + item.cantidad).toFixed(2));
             const nuevoDisponible = Number((art.disponible + item.cantidad).toFixed(2));
             const nuevoCosto = Number(item.costoUnitarioNeto.toFixed(2));
-            // Si el precio de venta estaba igualado al costo anterior o por debajo del nuevo costo, lo actualizamos
             const margenPrevio =
               art.costoCalculado > 0 ? art.precioVentaNeto / art.costoCalculado : 1;
             const nuevoPrecioVenta = Number((nuevoCosto * Math.max(1, margenPrevio)).toFixed(2));
@@ -2429,35 +2798,53 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       nroComprobante: nroFact,
       tipo: params.tipo,
       fechaEmision: hoy,
-      fechaPago: vto,
+      fechaPago: esContado ? hoy : vto,
       descripcion: params.descripcion || 'Provisión de materiales e insumos operativos',
-      medioPagoPactado: medioPactado,
+      medioPagoPactado: esContado ? `${resumenMediosContado} (PAGADO CONTADO)` : medioPactado,
       cantidadCuotas: params.cantidadCuotas || 1,
-      cuotasPagadas: 0,
+      cuotasPagadas: esContado ? params.cantidadCuotas || 1 : 0,
       chequesAsociados: [],
       valorMe: 0,
       total,
-      pagado: 0,
-      saldo: total,
-      saldoAcumulado: proveedor.saldo + total
+      pagado: esContado ? total : 0,
+      saldo: esContado ? 0 : total,
+      saldoAcumulado: esContado ? proveedor.saldo : proveedor.saldo + total
     };
+
+    const nuevosMovimientosPrv: Proveedor['movimientos'] = [
+      ...proveedor.movimientos,
+      {
+        id: `MP-${Date.now()}`,
+        fecha: hoy,
+        comprobante: `${params.tipo} ${nroFact}`,
+        concepto: `${params.descripcion || 'Registro de Factura de Compra'} [${
+          esContado
+            ? `CANCELADO AL CONTADO — OP ${nroOpContado} (${resumenMediosContado})`
+            : `Medio previsto: ${medioPactado} · PENDIENTE DE PAGO`
+        }]`,
+        debe: 0,
+        haber: total,
+        saldo: Number((proveedor.saldo + total).toFixed(2))
+      }
+    ];
+
+    if (esContado) {
+      nuevosMovimientosPrv.push({
+        id: `MP-${Date.now() + 1}`,
+        fecha: hoy,
+        comprobante: `OP ${nroOpContado}`,
+        concepto: `Cancelación Al Contado (${resumenMediosContado}) [${params.tipo} ${nroFact}]`,
+        debe: total,
+        haber: 0,
+        saldo: Number(proveedor.saldo.toFixed(2))
+      });
+    }
 
     const proveedorActualizado: Proveedor = {
       ...proveedor,
-      saldo: Number((proveedor.saldo + total).toFixed(2)),
-      facturasAdeudadas: [nuevaFacturaAdeudada, ...proveedor.facturasAdeudadas],
-      movimientos: [
-        ...proveedor.movimientos,
-        {
-          id: `MP-${Date.now()}`,
-          fecha: hoy,
-          comprobante: `${params.tipo} ${nroFact}`,
-          concepto: `${params.descripcion || 'Registro de Factura de Compra'} [Medio previsto: ${medioPactado} · PENDIENTE DE PAGO]`,
-          debe: 0,
-          haber: total,
-          saldo: Number((proveedor.saldo + total).toFixed(2))
-        }
-      ]
+      saldo: esContado ? Number(proveedor.saldo.toFixed(2)) : Number((proveedor.saldo + total).toFixed(2)),
+      facturasAdeudadas: esContado ? proveedor.facturasAdeudadas : [nuevaFacturaAdeudada, ...proveedor.facturasAdeudadas],
+      movimientos: nuevosMovimientosPrv
     };
 
     const nuevoComprobanteCompra: ComprobanteCompra = {
@@ -2471,11 +2858,11 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cuentaGasto: params.cuentaGasto || proveedor.cuentaGastoHabitual,
       netoGravado: params.netoGravado,
       iva,
-      retencionIva: 0,
-      retencionIIBB: 0,
+      retencionIva: retIVAContado,
+      retencionIIBB: Number((retIIBBContado + retGanContado + retSUSSContado).toFixed(2)),
       total,
-      estadoPago: 'Pendiente',
-      medioPagoPactado: medioPactado
+      estadoPago: esContado ? 'Pagado Total' : 'Pendiente',
+      medioPagoPactado: esContado ? resumenMediosContado : medioPactado
     };
 
     setProveedores((prev) => prev.map((p) => (p.id === proveedor.id ? proveedorActualizado : p)));
@@ -2560,7 +2947,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         numero: nextAsientoNum,
         fecha: hoy,
-        concepto: `Compra ${params.tipo} ${nroFact} - ${proveedor.razonSocial} (${
+        concepto: `Compra ${params.tipo} ${nroFact}${esContado ? ' [AL CONTADO]' : ''} - ${proveedor.razonSocial} (${
           montoStockActivado > 0 ? '1.1.03 Bienes de Cambio + ' : ''
         }${rawCuentaGasto})`,
         tipoOrigen: 'Compras',
@@ -2570,6 +2957,83 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       },
       'COM'
     );
+
+    // Si es Compra Al Contado en 1 paso: impactar Tesorería, Cheques y Asiento de Orden de Pago simultáneamente
+    if (esContado) {
+      await registrarLoteMovimientosTesoreria(
+        lineasContado.map((l, idx) => ({
+          cuentaId: resolverCuentaTesoreriaPorMedio(l.medio, l.cuentaBancariaId),
+          tipo: 'PAG',
+          clienteProveedor: proveedor.razonSocial,
+          descripcion: `Orden de Pago Contado ${nroOpContado}${
+            lineasContado.length > 1 ? ` [Tramo ${idx + 1}/${lineasContado.length}]` : ''
+          } (${l.medio}) [${params.tipo} ${nroFact}]`,
+          ingresos: 0,
+          egresos: Number(l.importe || 0),
+          nroCheque: l.nroCheque
+        }))
+      );
+
+      const lineasChequeContado = lineasContado.filter(
+        (l) => l.medio.toLowerCase().includes('cheque') || l.medio.toLowerCase().includes('e-cheq')
+      );
+      if (lineasChequeContado.length > 0) {
+        const nuevosChequesContado: Cheque[] = lineasChequeContado.map((l, idx) => ({
+          id: l.chequeCarteraId || `CHQ-CONT-${Date.now()}-${idx}`,
+          tipo: l.chequeCarteraId ? 'Cheque Terceros (Cartera)' : 'Cheque Propio Diferido',
+          numero: l.nroCheque || `0000${Math.floor(5000 + Math.random() * 4000)}`,
+          bancoEmisor: l.bancoCheque || 'Banco Santander',
+          librador: empresa.razonSocial,
+          cuitLibrador: empresa.cuit,
+          fechaEmision: hoy,
+          fechaPago:
+            l.fechaPagoCheque || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          importe: Number(l.importe),
+          estado: 'Entregado a Proveedor',
+          proveedorId: proveedor.id,
+          proveedorNombre: proveedor.razonSocial,
+          facturaId: idFacturaGenerada,
+          facturaNro: `${params.tipo} ${nroFact}`
+        }));
+        setCheques((prev) => [...nuevosChequesContado, ...prev]);
+      }
+
+      const sumaTesoreriaContado = Number(
+        lineasContado.reduce((acc, l) => acc + Number(l.importe || 0), 0).toFixed(2)
+      );
+      const renglonesOpContado: AsientoContable['renglones'] = [
+        { cuentaCodigo: '2.1.01', cuentaNombre: 'Proveedores Comerciales', debe: total, haber: 0 }
+      ];
+      if (sumaTesoreriaContado > 0) {
+        renglonesOpContado.push({
+          cuentaCodigo: '1.1.01',
+          cuentaNombre: 'Caja y Bancos',
+          debe: 0,
+          haber: sumaTesoreriaContado
+        });
+      }
+      if (totalRetContado > 0) {
+        renglonesOpContado.push({
+          cuentaCodigo: '2.1.02',
+          cuentaNombre: 'Cargas Fiscales, Retenciones Practicadas a Proveedor (ARCA/IIBB)',
+          debe: 0,
+          haber: totalRetContado
+        });
+      }
+
+      await impactarAsientoContable(
+        {
+          numero: nextAsientoNum + 1,
+          fecha: hoy,
+          concepto: `OP Contado ${nroOpContado} (${resumenMediosContado}) - ${params.tipo} ${nroFact} - ${proveedor.razonSocial}`,
+          tipoOrigen: 'Tesorería',
+          renglones: renglonesOpContado,
+          totalDebe: total,
+          totalHaber: total
+        },
+        'PAG'
+      );
+    }
   };
 
   const registrarPagoProveedor = async (params: {
@@ -2591,13 +3055,45 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cuotaNro?: number;
       totalCuotas?: number;
     }[];
+    lineasMediosPago?: LineaMedioPagoMixto[];
+    retencionesPracticadas?: DesgloseRetencionesFiscales;
   }) => {
     const proveedor = proveedores.find((p) => p.id === params.proveedorId);
     if (!proveedor) return;
 
     const hoy = new Date().toISOString().split('T')[0];
     const nroOp = `0001-00000${Math.floor(150 + Math.random() * 800)}`;
-    const nuevoSaldoPrv = Math.max(0, Number((proveedor.saldo - params.monto).toFixed(2)));
+
+    // Calcular Retenciones Practicadas al Proveedor (IIBB, Ganancias RG 830, IVA, SUSS)
+    const ret = params.retencionesPracticadas;
+    const retIIBB = Number(ret?.retencionIIBB || 0);
+    const retGan = Number(ret?.retencionGanancias || 0);
+    const retIVA = Number(ret?.retencionIVA || 0);
+    const retSUSS = Number(ret?.retencionSUSS || 0);
+    const totalRetenciones = Number((retIIBB + retGan + retIVA + retSUSS).toFixed(2));
+
+    // Normalizar tramos de pago (soporta Pago Simple, Multi-Cheque o Pago Mixto Multi-Medio)
+    const lineasActivas: LineaMedioPagoMixto[] =
+      params.lineasMediosPago && params.lineasMediosPago.filter((l) => Number(l.importe) > 0).length > 0
+        ? params.lineasMediosPago.filter((l) => Number(l.importe) > 0)
+        : [
+            {
+              medio: params.medioPago,
+              importe: Math.max(0, Number((params.monto - totalRetenciones).toFixed(2))),
+              cuentaBancariaId: params.cuentaBancariaId,
+              nroCheque: params.nroCheque
+            }
+          ];
+
+    const sumaMediosTesoreria = Number(
+      lineasActivas.reduce((acc, l) => acc + Number(l.importe || 0), 0).toFixed(2)
+    );
+    const montoTotalCancelado =
+      params.lineasMediosPago && params.lineasMediosPago.length > 0
+        ? Number((sumaMediosTesoreria + totalRetenciones).toFixed(2))
+        : Number(params.monto.toFixed(2));
+
+    const nuevoSaldoPrv = Math.max(0, Number((proveedor.saldo - montoTotalCancelado).toFixed(2)));
 
     // Identificar la factura objetivo (si se indicó facturaId, o la primera con saldo > 0)
     const facturaObjetivo =
@@ -2609,17 +3105,40 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       params.facturaNro ||
       (facturaObjetivo ? `${facturaObjetivo.tipo} ${facturaObjetivo.nroComprobante}` : 'Pago a Cuenta');
 
-    // Construir lista de cheques asociados si se paga con 1 o varios cheques
+    // Construir lista de cheques asociados (tanto de params.chequesEmitidos como de tramos de cheque en lineasMediosPago)
+    const chequesDeLineasMixtas =
+      params.lineasMediosPago && params.lineasMediosPago.length > 0
+        ? lineasActivas
+            .filter(
+              (l) => l.medio.toLowerCase().includes('cheque') || l.medio.toLowerCase().includes('e-cheq')
+            )
+            .map((l, idx) => ({
+              numero: l.nroCheque || `0000${Math.floor(5100 + Math.random() * 4000)}`,
+              bancoEmisor: l.bancoCheque || 'Banco Santander',
+              fechaPago:
+                l.fechaPagoCheque || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              importe: Number(l.importe),
+              tipo: (l.chequeCarteraId || l.medio.toLowerCase().includes('terceros') || l.medio.toLowerCase().includes('endos')
+                ? 'Cheque Terceros (Cartera)'
+                : 'Cheque Propio Diferido') as 'Cheque Propio Diferido' | 'Cheque Terceros (Cartera)',
+              chequeCarteraId: l.chequeCarteraId,
+              cuotaNro: idx + 1,
+              totalCuotas: params.cantidadCuotas || 1
+            }))
+        : [];
+
     const listaChequesInput =
       params.chequesEmitidos && params.chequesEmitidos.length > 0
         ? params.chequesEmitidos
+        : chequesDeLineasMixtas.length > 0
+        ? chequesDeLineasMixtas
         : params.medioPago.toLowerCase().includes('cheque')
         ? [
             {
               numero: params.nroCheque || `0000${Math.floor(4922 + Math.random() * 1000)}`,
               bancoEmisor: 'Banco Santander',
               fechaPago: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              importe: params.monto,
+              importe: sumaMediosTesoreria,
               tipo: 'Cheque Propio Diferido' as const,
               cuotaNro: 1,
               totalCuotas: params.cantidadCuotas || 1
@@ -2644,7 +3163,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       proveedorNombre: proveedor.razonSocial
     }));
 
-    let montoRestante = params.monto;
+    let montoRestante = montoTotalCancelado;
 
     // Primero imputar a la factura seleccionada (si existe) y luego al resto en orden
     const ordenFacturas = params.facturaId
@@ -2694,6 +3213,17 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .map((f) => mapActualizadas.get(f.id) || f)
       .filter((f) => f.saldo > 0 || (f.chequesAsociados && f.chequesAsociados.length > 0));
 
+    const resumenMediosPago = [
+      ...lineasActivas.map((l) => `${l.medio} ($${Number(l.importe).toLocaleString('es-AR')})`),
+      ...(totalRetenciones > 0
+        ? [
+            `Retenciones ($${totalRetenciones.toLocaleString('es-AR')}${
+              ret?.nroCertificado ? ` Cert #${ret.nroCertificado}` : ''
+            })`
+          ]
+        : [])
+    ].join(' + ');
+
     const detalleChequesTexto =
       chequesAsociadosNuevos.length > 0
         ? ` [Factura: ${facturaRefNro} · ${chequesAsociadosNuevos.length} Cheque(s): ${chequesAsociadosNuevos
@@ -2711,8 +3241,8 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `MP-${Date.now()}`,
           fecha: hoy,
           comprobante: `OP ${nroOp}`,
-          concepto: `Orden de Pago mediante ${params.medioPago}${detalleChequesTexto}`,
-          debe: params.monto,
+          concepto: `Orden de Pago (${resumenMediosPago})${detalleChequesTexto}`,
+          debe: montoTotalCancelado,
           haber: 0,
           saldo: nuevoSaldoPrv
         }
@@ -2721,18 +3251,29 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setProveedores((prev) => prev.map((p) => (p.id === proveedor.id ? proveedorActualizado : p)));
 
-    // Sincronizar estadoPago = 'Pagado Total' en facturasCompra para todas las facturas canceladas
+    // Sincronizar estadoPago = 'Pagado Total' y Retenciones Practicadas en facturasCompra (conectado con Zonda Cloud ARCA)
     const nrosCancelados = new Set<string>();
     for (const [, fUpd] of mapActualizadas.entries()) {
       if (fUpd.saldo <= 0) {
         nrosCancelados.add(fUpd.nroComprobante);
       }
     }
-    if (nrosCancelados.size > 0) {
+    const nroFacPrincipal = facturaObjetivo?.nroComprobante;
+    if (nrosCancelados.size > 0 || (totalRetenciones > 0 && nroFacPrincipal)) {
       setFacturasCompra((prev) =>
-        prev.map((fc) =>
-          nrosCancelados.has(fc.numero) ? { ...fc, estadoPago: 'Pagado Total' } : fc
-        )
+        prev.map((fc) => {
+          const esCancelada = nrosCancelados.has(fc.numero);
+          const esObj = nroFacPrincipal && fc.numero === nroFacPrincipal;
+          if (!esCancelada && !esObj) return fc;
+          return {
+            ...fc,
+            estadoPago: esCancelada ? 'Pagado Total' : fc.estadoPago,
+            retencionIva: esObj ? Number((fc.retencionIva + retIVA).toFixed(2)) : fc.retencionIva,
+            retencionIIBB: esObj
+              ? Number((fc.retencionIIBB + retIIBB + retGan + retSUSS).toFixed(2))
+              : fc.retencionIIBB
+          };
+        })
       );
       for (const nroCanc of nrosCancelados) {
         supabase
@@ -2761,29 +3302,24 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updated_at: new Date().toISOString()
     });
 
-    // Impactar en Tesorería
-    const targetCuentaId =
-      params.cuentaBancariaId ||
-      (params.medioPago.toLowerCase().includes('santander')
-        ? 'CTA-02'
-        : params.medioPago.toLowerCase().includes('galicia')
-        ? 'CTA-04'
-        : params.medioPago.toLowerCase().includes('cheque')
-        ? 'CTA-05'
-        : 'CTA-01');
-
-    await registrarMovimientoTesoreria({
-      cuentaId: targetCuentaId,
-      tipo: 'PAG',
-      clienteProveedor: proveedor.razonSocial,
-      descripcion: `Orden de Pago ${nroOp} (${params.medioPago})${detalleChequesTexto}`,
-      ingresos: 0,
-      egresos: params.monto,
-      nroCheque:
-        chequesAsociadosNuevos.length > 0
-          ? chequesAsociadosNuevos.map((c) => c.numero).join(', ')
-          : params.nroCheque
-    });
+    // Impactar todos los tramos del Pago Mixto en sus respectivas Cuentas de Tesorería (Cajas/Bancos/Tarjetas/Cheques)
+    await registrarLoteMovimientosTesoreria(
+      lineasActivas.map((l, idx) => ({
+        cuentaId: resolverCuentaTesoreriaPorMedio(l.medio, l.cuentaBancariaId),
+        tipo: 'PAG',
+        clienteProveedor: proveedor.razonSocial,
+        descripcion: `Orden de Pago ${nroOp}${
+          lineasActivas.length > 1 ? ` [Tramo ${idx + 1}/${lineasActivas.length}]` : ''
+        } (${l.medio})${detalleChequesTexto}`,
+        ingresos: 0,
+        egresos: Number(l.importe || 0),
+        nroCheque:
+          l.nroCheque ||
+          (chequesAsociadosNuevos.length > 0 && l.medio.toLowerCase().includes('cheque')
+            ? chequesAsociadosNuevos.map((c) => c.numero).join(', ')
+            : undefined)
+      }))
+    );
 
     // Si hay 1 o varios cheques emitidos/endosados, guardarlos todos en erp_cheques y vincularlos a factura + proveedor
     if (chequesAsociadosNuevos.length > 0) {
@@ -2831,21 +3367,38 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }
 
-    // Impactar Asiento Contable
+    // Impactar Asiento Contable (con desglose de Proveedores Comerciales a Caja/Bancos + Retenciones Practicadas)
     const nextAsientoNum =
       asientosContables.length > 0 ? Math.max(...asientosContables.map((a) => a.numero)) + 1 : 4096;
+    const renglonesPago: AsientoContable['renglones'] = [
+      { cuentaCodigo: '2.1.01', cuentaNombre: 'Proveedores Comerciales', debe: montoTotalCancelado, haber: 0 }
+    ];
+    if (sumaMediosTesoreria > 0) {
+      renglonesPago.push({
+        cuentaCodigo: '1.1.01',
+        cuentaNombre: 'Caja y Bancos',
+        debe: 0,
+        haber: sumaMediosTesoreria
+      });
+    }
+    if (totalRetenciones > 0) {
+      renglonesPago.push({
+        cuentaCodigo: '2.1.02',
+        cuentaNombre: 'Cargas Fiscales, Retenciones Practicadas a Proveedor (ARCA/IIBB)',
+        debe: 0,
+        haber: totalRetenciones
+      });
+    }
+
     await impactarAsientoContable(
       {
         numero: nextAsientoNum,
         fecha: hoy,
-        concepto: `Orden de Pago ${nroOp} - ${proveedor.razonSocial}`,
+        concepto: `Orden de Pago ${nroOp} (${resumenMediosPago}) - ${proveedor.razonSocial}`,
         tipoOrigen: 'Tesorería',
-        renglones: [
-          { cuentaCodigo: '2.1.01', cuentaNombre: 'Proveedores Comerciales', debe: params.monto, haber: 0 },
-          { cuentaCodigo: '1.1.01', cuentaNombre: 'Caja y Bancos', debe: 0, haber: params.monto }
-        ],
-        totalDebe: params.monto,
-        totalHaber: params.monto
+        renglones: renglonesPago,
+        totalDebe: montoTotalCancelado,
+        totalHaber: montoTotalCancelado
       },
       'PAG'
     );
