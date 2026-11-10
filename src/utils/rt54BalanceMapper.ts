@@ -170,7 +170,7 @@ export function buildRT54MappedWorkbook(
 
   // Helper para buscar saldo en el Plan de Cuentas del Tenant
   const findSaldoPlan = (codigoTarget: string): number => {
-    const stack = [...(snap.planDeCuentas || [])];
+    const stack = [...((snap as any).planDeCuentas || [])];
     while (stack.length > 0) {
       const node = stack.pop()!;
       if (node.codigo === codigoTarget) return Math.max(0, node.saldoFinal || 0);

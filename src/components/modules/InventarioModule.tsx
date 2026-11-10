@@ -256,7 +256,7 @@ export const InventarioModule: React.FC = () => {
         nroComprobante: nuevoArtNroFactura.trim() || '0001-00045190',
         netoGravado: Number((nuevoStock * nuevoCosto).toFixed(2)),
         descripcion: `Alta e ingreso inicial de stock: ${creado.descripcion} (${nuevoStock} u.)`,
-        cuentaGasto: prvSel.cuentaGastoHabitual || '5.1.01 Materiales e Insumos',
+        cuentaGasto: '1.1.03 Bienes de Cambio (Inventario)',
         medioPagoPactado: 'Cuenta Corriente 30 Días',
         itemsInventarioAsociados: []
       });

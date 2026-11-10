@@ -40,6 +40,7 @@ export const ClientesModule: React.FC = () => {
     empresa,
     clientes,
     facturasVenta,
+    cuentasBancarias,
     inventario,
     crearCliente,
     emitirFacturaVenta,
@@ -206,11 +207,36 @@ export const ClientesModule: React.FC = () => {
     recalcularNetoDesdeItemsVenta(filtrada);
   };
 
-  // Formulario Cobro
+  // Formulario Cobro (Con trazabilidad de Métodos de Cobro, Cuentas de Tesorería, Cheques y Tarjetas)
   const [montoCobro, setMontoCobro] = useState(100000);
   const [medioCobro, setMedioCobro] = useState('Transferencia Bancaria Santander');
+  const [cuentaCobroId, setCuentaCobroId] = useState('CTA-02');
+  const [nroChequeCobro, setNroChequeCobro] = useState('');
+  const [bancoChequeCobro, setBancoChequeCobro] = useState('Banco San Juan');
+  const [fechaCobroCheque, setFechaCobroCheque] = useState(
+    () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  );
+  const [marcaTarjetaCobro, setMarcaTarjetaCobro] = useState('Visa Corporativa');
+  const [nroCuponCobro, setNroCuponCobro] = useState('');
   const [medioCobroFactura, setMedioCobroFactura] = useState('Transferencia Bancaria Santander');
   const [facturaCobroId, setFacturaCobroId] = useState<string>('');
+
+  const sincronizarCuentaPorMedioCobro = (medio: string) => {
+    setMedioCobro(medio);
+    const m = medio.toLowerCase();
+    if (m.includes('santander')) {
+      setCuentaCobroId('CTA-02');
+    } else if (m.includes('galicia')) {
+      setCuentaCobroId('CTA-04');
+    } else if (m.includes('tarjeta') || m.includes('posnet') || m.includes('mercado pago')) {
+      setCuentaCobroId('CTA-03');
+    } else {
+      setCuentaCobroId('CTA-01');
+    }
+    if ((m.includes('cheque') || m.includes('e-cheq')) && !nroChequeCobro) {
+      setNroChequeCobro(String(Math.floor(77100000 + Math.random() * 999999)));
+    }
+  };
 
   // Formulario Nuevo Cliente
   const [nuevoNombre, setNuevoNombre] = useState('');
@@ -304,22 +330,35 @@ export const ClientesModule: React.FC = () => {
     }
   };
 
-  // Agregar Cobro con persistencia en Supabase + Tesorería + Contabilidad
+  // Agregar Cobro con persistencia en Supabase + Tesorería + Cartera de Cheques + Contabilidad
   const handleAgregarCobro = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!clienteActivo || guardando) return;
     setGuardando(true);
     try {
       const facSel = clienteActivo.facturasAdeudadas.find((f) => f.id === facturaCobroId);
+      const esCheque = medioCobro.toLowerCase().includes('cheque') || medioCobro.toLowerCase().includes('e-cheq');
+      const esTarjeta =
+        medioCobro.toLowerCase().includes('tarjeta') ||
+        medioCobro.toLowerCase().includes('posnet') ||
+        medioCobro.toLowerCase().includes('mercado pago');
       await registrarCobroCliente({
         clienteId: clienteActivo.id,
         monto: montoCobro,
         medioCobro,
+        cuentaBancariaId: cuentaCobroId,
+        nroCheque: esCheque ? nroChequeCobro || undefined : undefined,
+        bancoCheque: esCheque ? bancoChequeCobro || undefined : undefined,
+        fechaPagoCheque: esCheque ? fechaCobroCheque || undefined : undefined,
+        marcaTarjeta: esTarjeta ? marcaTarjetaCobro || undefined : undefined,
+        nroCuponTarjeta: esTarjeta ? nroCuponCobro || undefined : undefined,
         facturaId: facSel?.id,
         facturaNro: facSel ? `${facSel.tipo} ${facSel.nroComprobante}` : undefined
       });
       setShowCobroModal(false);
       setFacturaCobroId('');
+      setNroChequeCobro('');
+      setNroCuponCobro('');
     } finally {
       setGuardando(false);
     }
@@ -2261,7 +2300,7 @@ export const ClientesModule: React.FC = () => {
       {/* MODAL: AGREGAR COBRO */}
       {showCobroModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-300 max-w-md w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
+          <div className="bg-white border border-slate-300 max-w-xl w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <h3 className="text-sm font-bold text-slate-900 uppercase">
                 AGREGAR COBRO // {clienteActivo?.razonSocial}
@@ -2327,19 +2366,119 @@ export const ClientesModule: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-600 font-bold mb-1">Medio de Pago / Cuenta:</label>
-                <select
-                  value={medioCobro}
-                  onChange={(e) => setMedioCobro(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300"
-                >
-                  <option value="Transferencia Bancaria Santander">Transferencia Santander Cta Cte</option>
-                  <option value="Transferencia Bancaria Galicia">Transferencia Galicia Cta Cte</option>
-                  <option value="Cheque de Terceros">Cheque de Terceros a Depositar</option>
-                  <option value="Efectivo en Caja Central">Efectivo en Caja Central</option>
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">3. Método de Cobro:</label>
+                  <select
+                    value={medioCobro}
+                    onChange={(e) => sincronizarCuentaPorMedioCobro(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-[#042f22]"
+                  >
+                    <option value="Transferencia Bancaria Santander">Transferencia Santander Cta Cte</option>
+                    <option value="Transferencia Bancaria Galicia">Transferencia Galicia Cta Cte</option>
+                    <option value="Cheque de Terceros">Cheque de Terceros a Depositar (Cartera)</option>
+                    <option value="E-Cheq de Terceros">E-Cheq de Terceros (Cartera)</option>
+                    <option value="Efectivo en Caja Central">Efectivo en Caja Central</option>
+                    <option value="Tarjeta de Crédito / Débito (Posnet)">Tarjeta de Crédito / Débito (Posnet)</option>
+                    <option value="Mercado Pago (Link / QR)">Mercado Pago (Link / QR / CVU)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">4. Cuenta de Tesorería Destino:</label>
+                  <select
+                    value={cuentaCobroId}
+                    onChange={(e) => setCuentaCobroId(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 font-bold text-slate-800"
+                  >
+                    {cuentasBancarias.map((cta) => (
+                      <option key={cta.id} value={cta.id}>
+                        {cta.nombre} (${cta.saldoActual.toLocaleString('es-AR')})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
+              {(medioCobro.toLowerCase().includes('cheque') || medioCobro.toLowerCase().includes('e-cheq')) && (
+                <div className="p-3 bg-indigo-50/70 border border-indigo-300 space-y-2.5">
+                  <div className="text-[10px] font-bold text-indigo-950 uppercase">
+                    🏦 Datos del Cheque / E-Cheq de Tercero (Ingresa a Cartera en 04 - Tesorería)
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-0.5">N° de Cheque:</label>
+                      <input
+                        type="text"
+                        required
+                        value={nroChequeCobro}
+                        onChange={(e) => setNroChequeCobro(e.target.value)}
+                        placeholder="Ej: 77410920"
+                        className="w-full px-2 py-1 bg-white border border-indigo-300 font-bold text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-0.5">Banco Emisor:</label>
+                      <input
+                        type="text"
+                        required
+                        value={bancoChequeCobro}
+                        onChange={(e) => setBancoChequeCobro(e.target.value)}
+                        placeholder="Ej: Banco San Juan"
+                        className="w-full px-2 py-1 bg-white border border-indigo-300 font-bold text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-0.5">Fecha de Cobro:</label>
+                      <input
+                        type="date"
+                        required
+                        value={fechaCobroCheque}
+                        onChange={(e) => setFechaCobroCheque(e.target.value)}
+                        className="w-full px-2 py-1 bg-amber-50 border border-amber-300 font-bold text-amber-950"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-indigo-800 font-sans">
+                    ✓ Quedará disponible en <strong>Cartera de Cheques</strong> con trazabilidad al librador ({clienteActivo?.razonSocial}) para depositar o endosar a proveedores.
+                  </div>
+                </div>
+              )}
+
+              {(medioCobro.toLowerCase().includes('tarjeta') ||
+                medioCobro.toLowerCase().includes('posnet') ||
+                medioCobro.toLowerCase().includes('mercado pago')) && (
+                <div className="p-3 bg-emerald-50/70 border border-emerald-300 space-y-2">
+                  <div className="text-[10px] font-bold text-emerald-950 uppercase">
+                    💳 Trazabilidad de Tarjeta / Posnet / Billetera Digital
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-0.5">Marca / Medio:</label>
+                      <select
+                        value={marcaTarjetaCobro}
+                        onChange={(e) => setMarcaTarjetaCobro(e.target.value)}
+                        className="w-full px-2 py-1 bg-white border border-emerald-300 font-bold text-slate-900"
+                      >
+                        <option value="Visa Corporativa">Visa Corporativa / Crédito</option>
+                        <option value="Visa Débito">Visa Débito</option>
+                        <option value="Mastercard">Mastercard</option>
+                        <option value="MercadoPago QR">MercadoPago QR / Link</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-bold mb-0.5">N° Cupón / Lote / Op.:</label>
+                      <input
+                        type="text"
+                        value={nroCuponCobro}
+                        onChange={(e) => setNroCuponCobro(e.target.value)}
+                        placeholder="Ej: LOTE-045-CUP-8812"
+                        className="w-full px-2 py-1 bg-white border border-emerald-300 font-bold text-slate-900"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
