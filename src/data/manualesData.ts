@@ -110,11 +110,12 @@ export const MANUALES_ZONDA_ERP: SeccionManual[] = [
     funcionesPrincipales: [
       'Padrón de Clientes con alta rápida, condición frente al IVA y estado de Cuenta Corriente.',
       'Emisión de Facturas A, Facturas B, Facturas C, Notas de Crédito y Notas de Débito.',
-      'Vinculación de Artículos de Inventario en el comprobante de venta con descuento automático de unidades físicas y validación de stock disponible.',
+      'Modalidad Dual de Facturación: en Cuenta Corriente (queda pendiente) o ⚡ Cancelación Al Contado en 1 Paso (emite Factura + Recibo X simultáneamente).',
+      'Vinculación de Artículos de Inventario en el comprobante de venta con descuento automático de unidades físicas, asiento automático de Costo de Mercaderías Vendidas (CMV 5.1 a 1.1.03) y alerta de Stock Crítico con reposición en 1 clic.',
       'Obtención automática de CAE (14 dígitos) y fecha de vencimiento vía Web Service ARCA (WSFEv1).',
-      'Generación de Cobro Digital con Mercado Pago (Checkout Pro Link + QR Interoperable Transferencias 3.0).',
-      'Registro de Cobranzas (Efectivo, Transferencia Bancaria, Cheque de Terceros o Mercado Pago) con impacto automático en Tesorería y Contabilidad.',
-      'Descarga de Comprobantes en PDF y exportación de padrón/facturas a Excel (CSV).'
+      'Cobros Mixtos Multi-Medio en un mismo Recibo X: permite combinar Efectivo en Caja + Transferencia Santander/Galicia + Cheque/E-Cheq de Terceros + Tarjeta Posnet / Mercado Pago.',
+      'Desglose y Cálculo Automático de Retenciones Sufridas (IIBB 3%, Ganancias 2%, IVA, SUSS + N° Certificado) imputadas en 2.1.02 Cargas Fiscales.',
+      'Descarga de Comprobantes en PDF con QR Oficial ARCA (RG 4892) y exportación a Excel (CSV).'
     ],
     pasosOperativos: [
       {
@@ -181,9 +182,10 @@ export const MANUALES_ZONDA_ERP: SeccionManual[] = [
       'El módulo de Proveedores gestiona el circuito Procure-to-Pay: registro de proveedores de insumos, obras y servicios, carga de facturas de compra para cómputo de IVA Crédito Fiscal, seguimiento de vencimientos y emisión de Órdenes de Pago.',
     funcionesPrincipales: [
       'Alta y edición de Proveedores con categorización de rubro / cuenta de gasto e identificación CUIT.',
-      'Carga de Facturas de Compra (A, B, C, Liquidaciones) discriminando Neto Gravado, IVA Crédito Fiscal y Total.',
-      'Emisión de Órdenes de Pago seleccionando la cuenta bancaria o caja de salida de fondos.',
-      'Actualización automática del saldo acreedor en la Cuenta Corriente del proveedor.',
+      'Carga de Facturas de Compra (A, B, C, Liquidaciones) con escáner OCR IA por foto/cámara y asociación de ítems al Inventario (activa 1.1.03 Bienes de Cambio y suma stock automáticamente).',
+      'Modalidad Dual de Compra: Cuenta Corriente (queda pendiente) o ⚡ Cancelación Al Contado en 1 Paso (registra Factura + Stock + Orden de Pago simultáneamente).',
+      'Órdenes de Pago con soporte para Medio Único, Cuotas con Múltiples Cheques y ⚡ Pago Mixto Multi-Medio (combinar Efectivo + Transferencia + Cheque Propio Diferido + Endoso de Cheque en Cartera + Tarjeta).',
+      'Desglose y Cálculo Automático de Retenciones Practicadas (IIBB 3%, Ganancias RG 830 2%, IVA, SUSS + N° Certificado) sincronizado con 11 - Zonda Cloud (ARCA) y 2.1.02 Cargas Fiscales.',
       'Exportación a Excel (CSV) y reporte PDF de deuda a proveedores.'
     ],
     pasosOperativos: [
@@ -865,7 +867,83 @@ npx supabase functions deploy arca-wsfe --project-ref dtjmckbrofevgfqbkzli --no-
           'En la pestaña "3. Balances ARCA", Zonda Cloud estructura el Estado de Situación Patrimonial exactamente en los rubros globales que pide el nuevo servicio web Ganancias Personas Jurídicas (RG 5908), calcula el Ajuste por Inflación Contable (RT 54 FACPCE) e Impositivo, determina el impuesto por tramos (25%/30%/35%) y exporta el PDF único consolidado para subir al servicio Presentación Única de Balances (PUB - RG 4626).'
       }
     ]
+  },
+  {
+    id: 'operaciones-avanzadas',
+    codigo: 'MAN-14',
+    titulo: 'Pagos y Cobros Mixtos Multi-Medio, Contado en 1 Paso, Retenciones ARCA y Reposición de Stock',
+    subtitulo: 'Guía operativa de las 4 funcionalidades avanzadas de Tesorería, Impuestos y Trazabilidad de Inventario',
+    moduloRelacionado: '02 - Clientes · 03 - Proveedores · 04 - Tesorería · 06 - Inventario',
+    tablasSupabase: [
+      'erp_clientes',
+      'erp_proveedores',
+      'erp_comprobantes_venta',
+      'erp_comprobantes_compra',
+      'erp_cuentas_bancarias',
+      'erp_cheques',
+      'erp_inventario',
+      'erp_asientos_contables'
+    ],
+    resumenEjecutivo:
+      'Documenta las 4 funcionalidades avanzadas de operación comercial y financiera en Zonda ERP: 1) Cancelación Al Contado en 1 solo paso al emitir ventas o registrar compras, 2) Cobros y Pagos Mixtos Multi-Medio en un mismo Recibo X u Orden de Pago, 3) Desglose y cálculo automático de Retenciones Fiscales (IIBB, Ganancias RG 830, IVA, SUSS) conectado a Zonda Cloud (ARCA), y 4) Alertas de Stock Crítico / Negativo con reposición rápida en 1 clic hacia Proveedores.',
+    funcionesPrincipales: [
+      'Cancelación Al Contado en 1 Paso: emite Factura + Recibo X (en Clientes) o Factura + Orden de Pago (en Proveedores) en una sola operación atómica, dejando el comprobante en Pagado Total (Saldo $0).',
+      'Cobros y Pagos Mixtos Multi-Medio: permite combinar en un mismo Recibo X u Orden de Pago Efectivo en Caja + Transferencia Bancaria Santander/Galicia + Cheque de Terceros / Cheque Propio Diferido / Endoso de Cheque en Cartera + Tarjeta Posnet / Mercado Pago.',
+      'Impacto por Tramo en Tesorería: cada línea de un cobro o pago mixto impacta su cuenta específica (CTA-01 Caja, CTA-02 Santander, CTA-03 Tarjetas, CTA-04 Galicia, CTA-05 Cheques) con trazabilidad [Tramo X/N].',
+      'Calculadora de Retenciones Fiscales (IIBB 3%, Ganancias RG 830 2%, IVA, SUSS + N° Certificado) que imputa en 2.1.02 Cargas Fiscales y sincroniza los comprobantes con 11 - Zonda Cloud (ARCA).',
+      'Alerta Automática de Stock Crítico / Negativo en 06 - Inventario y al facturar en 02 - Clientes con botón "⚡ Reponer en Proveedores" en 1 clic.'
+    ],
+    pasosOperativos: [
+      {
+        numero: 1,
+        titulo: 'Emitir una Venta o Compra con Cancelación Al Contado en 1 Paso',
+        descripcion:
+          'Al abrir "Agregar factura" en 02 - Clientes o "Cargar factura" en 03 - Proveedores, seleccione el botón "⚡ Cancelación Al Contado (1 Paso)" en Modalidad de Cobro/Pago y elija la Cuenta de Tesorería que recibe o desembolsa los fondos.',
+        accionClave: 'Botón "⚡ Cancelación Al Contado (1 Paso)" -> Emitir Factura + Cobro/OP Contado.',
+        impactoContableODb:
+          'Registra la factura con saldo $0 (Pagado Total), descuenta/suma el stock, impacta el saldo de la cuenta de Tesorería y genera simultáneamente los 2 asientos en el Libro Diario (Factura + Recibo X / OP).'
+      },
+      {
+        numero: 2,
+        titulo: 'Registrar un Cobro Mixto o Pago Mixto Multi-Medio (Varios Medios en 1 Comprobante)',
+        descripcion:
+          'Al abrir "Agregar cobro" (Clientes) o "Agregar pago" (Proveedores), haga clic en "⚡ Cobro Mixto Multi-Medio (Combinar)" o "⚡ Pago Mixto Multi-Medio (Combinar)". Use "+ Agregar Medio" para combinar tantos tramos como necesite (ej. Efectivo + Transferencia Santander + Cheque de Terceros / Cheque Propio / Endoso de Cartera).',
+        accionClave: 'Selector "⚡ Cobro / Pago Mixto Multi-Medio" -> "+ Agregar Medio".',
+        impactoContableODb:
+          'Ejecuta registrarLoteMovimientosTesoreria impactando cada cuenta bancaria/caja por su tramo exacto, da de alta o endosa los cheques en erp_cheques y genera el asiento unificado en erp_asientos_contables.'
+      },
+      {
+        numero: 3,
+        titulo: 'Calcular y Registrar Retenciones Impositivas (IIBB, Ganancias RG 830, IVA, SUSS)',
+        descripcion:
+          'Dentro del modal de Cobro o de Orden de Pago, diríjase a la sección "🏛️ Retenciones Impositivas". Puede ingresar los montos manualmente o pulsar los botones rápidos "Calc. IIBB 3% s/Neto" y "Calc. Ganancias RG 830 (2%)" e indicar el N° de Certificado.',
+        accionClave: 'Botones "Calc. IIBB 3% s/Neto" y "Calc. Ganancias 2%".',
+        impactoContableODb:
+          'Imputa las retenciones en la cuenta 2.1.02 Cargas Fiscales y Retenciones y actualiza retencionIIBB / retencionIva en el comprobante para su liquidación en 11 - Zonda Cloud (ARCA).'
+      },
+      {
+        numero: 4,
+        titulo: 'Disparar una Compra de Reposición en 1 Clic ante Alerta de Stock Crítico',
+        descripcion:
+          'Cuando un artículo queda con Stock Disponible <= Stock Mínimo, aparece una barra ámbar de "⚠️ Alerta de Stock Crítico" en 06 - Inventario (y junto al ítem al facturar en 02 - Clientes). Haga clic en "⚡ Reponer en Proveedores".',
+        accionClave: 'Botón "⚡ Reponer [Código] en Proveedores".',
+        impactoContableODb:
+          'Navega automáticamente a 03 - Proveedores y abre el modal de Factura de Compra con el artículo, costo y cantidad sugerida de reposición pre-cargados.'
+      }
+    ],
+    reglasDeNegocioYValidaciones: [
+      'En un Cobro o Pago Mixto, el Total Cancelado en Cuenta Corriente es exactamente igual a la suma de todos los tramos de Tesorería más las Retenciones Fiscales.',
+      'Cada venta con artículos físicos registra automáticamente el asiento de Costo de Mercaderías Vendidas (Debe 5.1 Costo de Ventas / Haber 1.1.03 Bienes de Cambio) y cada compra de artículos activa la cuenta 1.1.03 Bienes de Cambio.'
+    ],
+    preguntasFrecuentes: [
+      {
+        pregunta: '¿Puedo combinar un Cheque de Terceros en Cartera (endoso) + Efectivo + Transferencia en una misma Orden de Pago?',
+        respuesta:
+          'Sí. Activando "⚡ Pago Mixto Multi-Medio (Combinar)" en 03 - Proveedores puede agregar un tramo en Efectivo (CTA-01), otro en Transferencia (CTA-02/CTA-04) y otro seleccionando el Cheque en Cartera a endosar o un Cheque Propio Diferido (CTA-05).'
+      }
+    ]
   }
 ];
+
 
 

@@ -16,31 +16,30 @@
   * Gráficos dinámicos interactivos: "Ingresos vs. Gastos" y "Evolución de Cajas y Bancos" con segmentación mensual, trimestral y anual.
   * Guía rápida de operaciones y auditoría diaria paso a paso.
 
-* **Clientes (Facturación, Ventas y Cobranzas):**
-  * Emisión y gestión de comprobantes electrónicos con autorización directa de **AFIP** (Facturas A, B, C, M, Notas de Débito y Crédito, Presupuestos y Remitos).
-  * Panel maestro-detalle con buscador en tiempo real de cuentas corrientes de clientes.
-  * Registro de cobranzas multimoneda y pasarela de cobro digital.
+* **Clientes (Facturación, Ventas, Descuento de Stock y Cobros Mixtos):**
+  * Emisión y gestión de comprobantes electrónicos con autorización directa de **ARCA (ex-AFIP)** (Facturas A, B, C, M, Notas de Débito y Crédito) con código QR oficial RG 4892.
+  * **Modalidad Dual de Venta:** en **Cuenta Corriente (Queda Pendiente)** o **⚡ Cancelación Al Contado en 1 Paso** (emite Factura + Recibo X simultáneamente dejando Saldo $0).
+  * **Descuento Automático de Stock y CMV:** al incluir productos del inventario en la venta, descuenta unidades físicas del depósito y registra automáticamente el asiento de Costo de Mercaderías Vendidas (`5.1 Costo de Ventas` a `1.1.03 Bienes de Cambio`).
+  * **⚡ Cobro Mixto Multi-Medio (`Recibo X`):** permite combinar múltiples medios en un mismo cobro (`Efectivo en Caja Central` + `Transferencia Santander/Galicia` + `Cheque / E-Cheq de Terceros` + `Tarjeta Posnet / Mercado Pago`) impactando cada cuenta bancaria/caja por separado.
+  * **Retenciones Fiscales Sufridas:** cálculo automático de `IIBB (3%)`, `Ganancias (2%)`, `IVA` y `SUSS` con número de certificado e imputación en `2.1.02 Cargas Fiscales`.
 
-* **Proveedores (Compras, Gastos y Pagos):**
-  * Registro de comprobantes de compras e imputación automática por cuenta de gasto.
-  * Cálculo y retenciones impositivas (IVA, Ganancias, Ingresos Brutos, SUSS).
-  * Generación y liquidación de órdenes de pago con cheques, transferencias o efectivo.
-  * Seguimiento de saldos y vencimientos en cuentas corrientes de proveedores.
+* **Proveedores (Compras con Ingreso de Stock, Órdenes de Pago Mixtas y Retenciones ARCA):**
+  * Registro de comprobantes de compras con escáner OCR IA por foto/cámara e imputación automática a cuentas de gasto o activación de `1.1.03 Bienes de Cambio (Inventario)`.
+  * **Modalidad Dual de Compra:** **Cuenta Corriente** o **⚡ Cancelación Al Contado en 1 Paso** (Factura + Stock + Orden de Pago simultánea).
+  * **⚡ Orden de Pago Mixta Multi-Medio y Plan de Cheques:** permite combinar `Efectivo` + `Transferencia Bancaria` + `Cheque Propio Diferido` + `Endoso de Cheque en Cartera` + `Tarjeta Corporativa` en una misma Orden de Pago, o dividir en cuotas con múltiples cheques diferidos.
+  * **Retenciones Practicadas Conectadas a Zonda Cloud (ARCA):** cálculo en 1 clic de `IIBB (3%)`, `Ganancias RG 830 (2%)`, `IVA` y `SUSS`, sincronizadas con las liquidaciones impositivas.
 
-* **Tesorería (Cajas, Bancos y Valores):**
-  * Administración de múltiples entidades financieras (Cajas físicas en pesos/dólares, cuentas corrientes bancarias como Banco Santander, Banco Galicia, tarjetas corporativas).
-  * **Gestión de Cheques:** Cartera de cheques recibidos, seguimiento de cheques diferidos propios, endosos, depósitos y canjes.
-  * Conciliación bancaria contra extractos de cuentas y registro de transferencias internas.
+* **Tesorería (Cajas, Bancos y Cartera de Cheques):**
+  * Administración de múltiples entidades financieras (`CTA-01 CAJA en $`, `CTA-02 Banco Santander`, `CTA-03 Tarjeta de crédito`, `CTA-04 Banco Galicia`, `CTA-05 Cheques emitidos no debitados`) con trazabilidad por tramo `[Tramo X/N]`.
+  * **Gestión Integral de Cheques:** Cartera de cheques de terceros recibidos (con trazabilidad a cliente y factura), endoso a proveedores en 1 clic y seguimiento de cheques propios diferidos.
 
-* **Contabilidad General y Libros Legales:**
-  * Plan de Cuentas contable jerárquico multinivel personalizable.
-  * Generación automática de asientos contables a partir de comprobantes de ventas, compras y tesorería.
-  * Balance de Sumas y Saldos, Libro Diario y Libro Mayor interactivo con trazabilidad hasta el comprobante de origen.
-  * Balance matemático estricto: Debe = Haber.
+* **Contabilidad General, Libros Legales y Balance Oficial RT 54 FACPCE (22 Hojas `.xlsx`):**
+  * Plan de Cuentas contable jerárquico multinivel y Libro Diario General con partida doble estricta (`Debe = Haber`).
+  * **Exportador de Balance Oficial RT 54 (`.xlsx` - 22 Hojas Tal Cual):** clona e inyecta en vivo los saldos del ERP en las 22 pestañas del modelo profesional de Estados Contables RT 54 (`CONTROLES`, `CARATULA`, `ESP`, `ER`, `EEPN`, `EFE`, `NOTAS`, `ANEXO VIII CMV`, `ANEXO IX Gastos Art. 64`, `BS USO`, `INV TRANS`, `CREDITOS`, `PASIVOS`, `CAJA Y BANCOS`, `FCI`).
 
-* **Inventario y Stock:**
-  * Catálogo de productos y servicios con control de stock y depósitos.
-  * Cálculo de costos de reposición y margen bruto sobre precios netos.
+* **Inventario y Stock con Alertas de Stock Crítico y Reposición en 1 Clic:**
+  * Catálogo multidepósito con trazabilidad obligatoria de Proveedor y Factura en cada ingreso.
+  * **⚠️ Alerta Automática de Stock Crítico / Negativo:** banner superior e indicador al facturar cuando `Disponible <= Stock Mínimo`, con botón **`⚡ Reponer en Proveedores`** que abre `03 - Proveedores` con la compra de reposición pre-cargada.
 
 * **Zonda Data Hub & Conector de Migración:**
   * Ingestión y mapeo de esquemas desde sistemas ERP legados hacia modelos tipados en TypeScript.

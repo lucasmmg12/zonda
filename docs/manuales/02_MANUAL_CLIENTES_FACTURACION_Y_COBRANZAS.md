@@ -53,19 +53,17 @@ Gestiona el ciclo completo de ingresos (**Order-to-Cash**): padrón de clientes,
 
 ---
 
-### 2.4. Cómo registrar un Recibo de Cobranza Manual (Efectivo, Transferencia o Cheque)
-1. Presione el botón **`Registrar Cobro`** (o el ícono de cobro junto al cliente/comprobante).
-2. Seleccione el **Cliente**, el **Importe a Cobrar** y el **Medio de Cobro**:
-   - *Transferencia Bancaria*
-   - *Efectivo en Caja*
-   - *Cheque de Terceros / eCheq* (habilita los campos **Banco Emisor** y **Número de Cheque**)
-   - *Mercado Pago*
-3. Seleccione la **Cuenta de Destino** en Tesorería y confirme.
-   - **Impacto Automático:**
-     - Descuenta el saldo del cliente en `erp_clientes`.
-     - Marca el comprobante como `Pagada` en `erp_comprobantes_venta`.
-     - Incrementa el saldo disponible en `erp_cuentas_bancarias` (o ingresa el cheque en `erp_cheques` con estado `En Cartera`).
-     - Registra el asiento contable (*Caja y Bancos / Valores a Depositar* a *Deudores por Ventas*).
+### 2.4. Cómo registrar un Recibo de Cobranza (Medio Único, Cobro Mixto Multi-Medio y Retenciones)
+1. Presione el botón **`Agregar cobro`** (o el ícono de cobro junto al cliente/comprobante).
+2. Seleccione el **Cliente** y la **Factura Adeudada a Imputar**.
+3. Elija la **Modalidad de Medios de Cobro**:
+   - **Medio Único (Simple):** Seleccione un único medio (*Transferencia Santander/Galicia*, *Efectivo en Caja Central*, *Cheque / E-Cheq de Terceros* o *Tarjeta Posnet / Mercado Pago*).
+   - **⚡ Cobro Mixto Multi-Medio (Combinar):** Pulse **`+ Agregar Medio de Cobro`** para combinar varios tramos en un mismo Recibo X (por ejemplo: parte en *Efectivo en Caja Central* + parte en *Transferencia Bancaria Santander* + parte en *Cheque de Terceros a Depositar*). Cada tramo impacta en su cuenta de Tesorería (`CTA-01` a `CTA-04`) de forma independiente con etiqueta `[Tramo X/N]`.
+4. **🏛️ Retenciones Impositivas Sufridas (Certificados ARCA / IIBB):**
+   - Si el cliente retuvo impuestos al pagar, utilice los botones rápidos **`Calc. IIBB 3% s/Neto`** o **`Calc. Ganancias 2%`** (o ingrese manualmente `Ret. IIBB`, `Ret. Ganancias`, `Ret. IVA`, `Ret. SUSS` y el `N° Certificado`).
+   - Las retenciones se imputan automáticamente en la cuenta **`2.1.02 Cargas Fiscales, Retenciones Sufridas`** y cancelan saldo de la factura del cliente.
+5. **⚡ Cancelación Al Contado en 1 Solo Paso (al Facturar):**
+   - También puede elegir **`⚡ Cancelación Al Contado (1 Paso)`** directamente dentro del modal **`Agregar factura`** para emitir la Factura y el Recibo X simultáneamente en un solo paso (`Pagado Total`, `Saldo $0`).
 
 ---
 

@@ -28,32 +28,39 @@ Cada módulo del sistema cuenta con su propio manual detallado paso a paso tanto
 
 ---
 
-## Resumen Rápido de Circuito Operativo Integrado
+## Resumen Rápido de Circuito Operativo Integrado (Trazabilidad 360°)
 
 ```
-[1. CLIENTES / VENTAS]
+[1. CLIENTES / VENTAS + DESCUENTO DE STOCK + CMV AUTOMÁTICO]
    └── Emite Factura A/B ──► Solicita CAE a ARCA (arca-wsfe)
                          ──► Guarda en erp_comprobantes_venta
-                         ──► Suma saldo en erp_clientes
-                         ──► Genera Asiento (Deudores a Ventas + IVA DF) en erp_asientos_contables
+                         ──► Descuenta unidades de erp_inventario + registra salida en Kárdex
+                         ──► Genera Asiento Venta + Asiento CMV (Debe 5.1 Costo Ventas / Haber 1.1.03 Bienes de Cambio)
+                         ──► Modalidad Dual:
+                               ├─ Cuenta Corriente: Queda Pendiente en erp_clientes
+                               └─ ⚡ Cancelación Al Contado (1 Paso): Emite Recibo X simultáneamente (Saldo $0)
 
-[2. COBRANZAS / WEBHOOK MERCADO PAGO]
-   └── Cliente Paga QR/Link ─► Webhook (mercadopago-webhook) recibe notificación IPN
-                            ─► Registra auditoría en erp_webhooks_log
-                            ─► Acredita saldo en Tesorería (erp_cuentas_bancarias)
-                            ─► Baja saldo del cliente (erp_clientes) y marca Factura "Pagada"
-                            ─► Genera Asiento (Caja/Banco a Deudores por Ventas)
+[2. COBRANZAS SIMPLES, COBROS MIXTOS MULTI-MEDIO Y RETENCIONES SUFRIDAS]
+   └── Recibo X (Clientes) ─► Permite Medio Único o ⚡ Cobro Mixto Multi-Medio (Efectivo + Transferencia + Cheque + Posnet)
+                           ─► Calculadora de Retenciones Sufridas (IIBB 3%, Ganancias 2%, IVA, SUSS + N° Certificado)
+                           ─► Impacta cada tramo en su Cuenta de Tesorería (CTA-01 a CTA-04) y Cheques en erp_cheques
+                           ─► Genera Asiento (Caja/Bancos + 2.1.02 Retenciones Sufridas a 1.1.02 Créditos por Ventas)
 
-[3. PROVEEDORES / COMPRAS Y PAGOS]
-   └── Carga Factura Compra ─► Guarda en erp_comprobantes_compra + suma deuda en erp_proveedores
-                            ─► Genera Asiento (Gastos + IVA CF a Proveedores)
-   └── Emite Orden de Pago  ─► Descuenta de erp_cuentas_bancarias + baja deuda en erp_proveedores
-                            ─► Genera Asiento (Proveedores a Caja/Banco)
+[3. PROVEEDORES / COMPRAS (+ STOCK) + ÓRDENES DE PAGO MIXTAS Y RETENCIONES ARCA]
+   └── Carga Factura Compra ─► Guarda en erp_comprobantes_compra + suma unidades en erp_inventario (activa 1.1.03)
+                            ─► Modalidad Dual: Cuenta Corriente o ⚡ Cancelación Al Contado (Factura + OP en 1 Paso)
+   └── Emite Orden de Pago  ─► Soporta Medio Único, Cuotas con Cheques o ⚡ Pago Mixto Multi-Medio
+                            ─► Calculadora de Retenciones Practicadas (IIBB 3%, Ganancias RG 830 2%, IVA, SUSS)
+                            ─► Sincroniza retenciones con 11 - Zonda Cloud (ARCA) y 2.1.02 Cargas Fiscales
 
-[4. SUELDOS Y CARGAS SOCIALES]
-   └── Liquida Período AAAAMM ► Guarda en erp_liquidaciones
-                              ► Genera Asiento (Sueldos y Cargas Sociales a Sueldos/Cargas a Pagar)
-                              ► Exporta TXT posicional RG 3781 para Libro Sueldos Digital ARCA (F.931)
+[4. ALERTAS DE STOCK CRÍTICO Y REPOSICIÓN RÁPIDA EN 1 CLIC]
+   └── Stock Disponible <= Stock Mínimo ─► Dispara banner "⚠️ Alerta de Stock Crítico" en Inventario y al Facturar
+                                        ─► Botón "⚡ Reponer en Proveedores" pre-carga la Factura de Compra e Ingreso
+
+[5. ZONDA CLOUD (ARCA) & MOTOR DE BALANCE OFICIAL RT 54 FACPCE (22 HOJAS .XLSX)]
+   └── Consola Multitenant ─► Aislamiento estricto por CUIT (tenant_id) + delegación autorizada al Estudio Contable
+                           ─► Exporta el Balance Oficial RT 54 en Excel (.xlsx con las 22 hojas vinculadas tal cual)
+                           ─► Descarga PDF Único PUB (RG 4626) + Ganancias F.713 Web (RG 5908)
 ```
 
 ---

@@ -28,12 +28,12 @@ Administra el catálogo de productos, materiales de obra e insumos clínicos, co
 
 ---
 
-### 2.2. Cómo realizar un Ajuste de Stock (Entrada por Remito o Salida por Consumo)
-1. En la tabla de artículos, localice el ítem que desea ajustar y presione el botón **`Ajustar Stock`** (o desde la barra superior del módulo).
-2. Seleccione el **Tipo de Ajuste**:
-   - **Ingreso (+):** Recepción de mercadería por remito de proveedor, devolución o recuento físico positivo.
-   - **Egreso (-):** Salida de materiales hacia obra/servicio, consumo interno o merma.
-3. Ingrese la **Cantidad de Unidades** y el **Motivo / Comprobante de Referencia** (ej. *Remito R-0001-00012900*).
-4. Confirme el movimiento.
-   - **Impacto Automático:** Recalcula instantáneamente el `Stock Físico` y el `Stock Disponible` en `public.erp_inventario` y actualiza la valuación patrimonial del stock.
+### 2.2. Cómo realizar un Ingreso por Factura de Proveedor, Salida de Stock o Reposición Rápida por Alerta de Stock Crítico
+1. **Ingreso Obligatorio con Factura y Proveedor (`+ Ingreso por Factura`):**
+   - Todo ingreso de mercadería exige seleccionar un **Proveedor** y su **Factura de Compra** (o cargarla desde `03 - Proveedores`). Suma las unidades al disponible, actualiza el costo de reposición y activa la cuenta `1.1.03 Bienes de Cambio (Inventario)`.
+2. **Descuento Automático en Ventas y Asiento de CMV:**
+   - Al emitir una factura en `02 - Clientes` con artículos de stock, el sistema descuenta automáticamente las unidades y genera el asiento de **Costo de Mercaderías Vendidas** (`Debe 5.1 Costo de Ventas` a `Haber 1.1.03 Bienes de Cambio`).
+3. **⚠️ Alerta Automática de Stock Crítico / Negativo y Reposición en 1 Clic:**
+   - Cuando el `Stock Disponible` de cualquier artículo es menor o igual a su `Stock Mínimo`, Zonda ERP despliega automáticamente el panel superior **`⚠️ Alerta de Stock Crítico`** (tanto en `06 - Inventario` como al facturar en `02 - Clientes`).
+   - Haciendo clic en **`⚡ Reponer [Código] en Proveedores`**, el sistema abre `03 - Proveedores` con el artículo, costo y cantidad sugerida pre-cargados en el modal de Factura de Compra.
 

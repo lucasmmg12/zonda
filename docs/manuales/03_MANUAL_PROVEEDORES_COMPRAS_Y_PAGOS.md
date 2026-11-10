@@ -38,13 +38,15 @@ Administra el ciclo completo de compras y cuentas por pagar (**Procure-to-Pay**)
 
 ---
 
-### 2.3. Cómo emitir una Orden de Pago a Proveedor
-1. En el módulo **Proveedores**, presione **`Emitir Orden de Pago`** (o el botón **`Pagar`** junto al proveedor o factura pendiente).
-2. Verifique el **Proveedor**, ingrese el **Monto a Pagar** y seleccione la **Cuenta Bancaria o Caja** desde donde saldrán los fondos.
-3. Confirme la Orden de Pago.
-   - **Impacto Automático:**
-     - Reduce el saldo adeudado al proveedor en `erp_proveedores`.
-     - Actualiza el estado de las facturas de compra a `Pagada` en `erp_comprobantes_compra`.
-     - Descuenta el saldo disponible de la cuenta seleccionada en `erp_cuentas_bancarias`.
-     - Genera el asiento contable (*2.1.01 Proveedores Locales* en el Debe contra *1.1.01 Caja y Bancos* en el Haber).
+### 2.3. Cómo emitir una Orden de Pago a Proveedor (Medio Único, Cuotas con Cheques, Pago Mixto Multi-Medio y Retenciones ARCA)
+1. En el módulo **Proveedores**, presione **`Agregar pago`** (o el botón de pago junto al proveedor o factura pendiente).
+2. Verifique el **Proveedor Beneficiario** y la **Factura Adeudada a Imputar**.
+3. Elija la **Modalidad de Medios de Pago**:
+   - **Medio Único / Plan de Cheques:** Pague con un único medio o divida la factura en `2, 3, 4 o 6 Cheques Propios Diferidos` / `Endoso de Cheques en Cartera`.
+   - **⚡ Pago Mixto Multi-Medio (Combinar):** Pulse **`+ Agregar Medio de Pago`** para combinar en una misma Orden de Pago múltiples tramos (`Efectivo en Caja Central` + `Transferencia Bancaria Santander/Galicia` + `Cheque Propio Diferido` + `Endoso de Cheque de Terceros en Cartera` + `Tarjeta Corporativa`). Cada tramo descuenta exactamente de su cuenta de Tesorería (`CTA-01` a `CTA-05`).
+4. **🏛️ Retenciones Impositivas Practicadas al Proveedor (Conectado a `11 - Zonda Cloud ARCA`):**
+   - Utilice los botones rápidos **`Calc. IIBB 3% s/Neto`** y **`Calc. Ganancias RG 830 (2%)`** (o complete `Ret. IIBB`, `Ret. Ganancias`, `Ret. IVA`, `Ret. SUSS` y `N° Certificado`).
+   - Las retenciones descuentan del desembolso bancario, se imputan en **`2.1.02 Cargas Fiscales, Retenciones Practicadas a Proveedor`** y se sincronizan en `erp_comprobantes_compra` para las liquidaciones de **`11 - Zonda Cloud (ARCA)`**.
+5. **⚡ Cancelación Al Contado en 1 Solo Paso (al Cargar Factura):**
+   - Al cargar una factura de compra puede activar **`⚡ Cancelación Al Contado (1 Paso)`** para registrar la factura, ingresar el stock y emitir la Orden de Pago en una sola operación (`Pagado Total`, `Saldo $0`).
 
