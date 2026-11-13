@@ -29,6 +29,7 @@ import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils'
 import { printAfipElectronicInvoice } from '../../utils/afipQrInvoicePrint';
 import { sendInvoiceViaWhatsApp } from '../../utils/whatsappSender';
 import { CalendarioVencimientosModal } from '../modals/CalendarioVencimientosModal';
+import { NotaCreditoDebitoModal } from '../modals/NotaCreditoDebitoModal';
 import {
   analizarYNormalizarArchivoConIa,
   type ResultadoAnalisisArchivoIa,
@@ -59,6 +60,7 @@ export const ClientesModule: React.FC = () => {
 
   // Pestañas de detalle del cliente (Panel derecho)
   const [tabDetalle, setTabDetalle] = useState<'adeudadas' | 'comprobantes' | 'cuenta' | 'general' | 'otra'>('adeudadas');
+  const [showNcNdModal, setShowNcNdModal] = useState(false);
 
   // Escuchar selección directa desde el Buscador Global del Header
   useEffect(() => {
@@ -1631,6 +1633,15 @@ export const ClientesModule: React.FC = () => {
                 >
                   <DollarSign className="w-3.5 h-3.5" />
                   <span>Agregar cobro</span>
+                </button>
+
+                <button
+                  onClick={() => setShowNcNdModal(true)}
+                  disabled={!clienteActivo}
+                  className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 font-mono text-xs font-bold border border-amber-300 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>NC / ND</span>
                 </button>
 
                 <button
@@ -3253,6 +3264,17 @@ export const ClientesModule: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {showNcNdModal && clienteActivo && (
+        <NotaCreditoDebitoModal
+          isOpen={showNcNdModal}
+          onClose={() => setShowNcNdModal(false)}
+          modo="cliente"
+          entidadId={clienteActivo.id}
+          entidadNombre={clienteActivo.razonSocial}
+          facturasAdeudadas={clienteActivo.facturasAdeudadas}
+        />
       )}
     </div>
   );

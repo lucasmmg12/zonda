@@ -25,6 +25,7 @@ import {
 import { useErp, flattenCuentasContables } from '../../context/ErpContext';
 import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
 import { CalendarioVencimientosModal } from '../modals/CalendarioVencimientosModal';
+import { NotaCreditoDebitoModal } from '../modals/NotaCreditoDebitoModal';
 import {
   extraerDatosFacturaDesdeFoto,
   imageFileToBase64,
@@ -62,6 +63,7 @@ export const ProveedoresModule: React.FC = () => {
 
   // Pestañas de detalle del proveedor (Panel derecho)
   const [tabDetalle, setTabDetalle] = useState<'adeudadas' | 'comprobantes' | 'cuenta' | 'general' | 'otra'>('adeudadas');
+  const [showNcNdModal, setShowNcNdModal] = useState(false);
 
   // Escuchar selección directa desde el Buscador Global del Header
   useEffect(() => {
@@ -1740,6 +1742,15 @@ export const ProveedoresModule: React.FC = () => {
               </button>
 
               <button
+                onClick={() => setShowNcNdModal(true)}
+                disabled={!proveedorActivo}
+                className="px-3.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-900 font-mono text-xs font-bold border border-sky-300 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              >
+                <FileText className="w-3.5 h-3.5 text-sky-800" />
+                <span>NC / ND</span>
+              </button>
+
+              <button
                 onClick={() => setShowNuevoProveedorModal(true)}
                 className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
               >
@@ -3198,6 +3209,17 @@ export const ProveedoresModule: React.FC = () => {
         initialProveedorId={proveedorSeleccionadoId || undefined}
         defaultContext="proveedores"
       />
+
+      {showNcNdModal && proveedorActivo && (
+        <NotaCreditoDebitoModal
+          isOpen={showNcNdModal}
+          onClose={() => setShowNcNdModal(false)}
+          modo="proveedor"
+          entidadId={proveedorActivo.id}
+          entidadNombre={proveedorActivo.razonSocial}
+          facturasAdeudadas={proveedorActivo.facturasAdeudadas}
+        />
+      )}
     </div>
   );
 };

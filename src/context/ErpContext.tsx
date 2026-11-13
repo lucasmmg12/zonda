@@ -180,6 +180,15 @@ interface ErpContextValue {
     lineasMediosCobro?: LineaMedioPagoMixto[];
     retencionesSufridas?: DesgloseRetencionesFiscales;
   }) => Promise<void>;
+  emitirNotaCreditoDebitoCliente: (params: {
+    clienteId: string;
+    tipo: 'Nota de Crédito A' | 'Nota de Crédito B' | 'Nota de Débito';
+    facturaAsociadaId?: string;
+    netoGravado: number;
+    iva21?: number;
+    descripcion: string;
+    reingresarStockItems?: { articuloId: string; cantidad: number }[];
+  }) => Promise<void>;
 
   // Acciones Proveedores y Compras
   crearProveedor: (nuevo: Omit<Proveedor, 'id' | 'facturasAdeudadas' | 'movimientos' | 'saldo'>) => Promise<Proveedor>;
@@ -242,6 +251,14 @@ interface ErpContextValue {
   }) => Promise<CuentaBancaria>;
   editarCuentaBancaria: (id: string, cambios: Partial<CuentaBancaria>) => Promise<void>;
   conciliarCuentaBancaria: (id: string) => Promise<void>;
+  conciliarMovimientosCuenta: (cuentaId: string, movimientoIds: string[]) => Promise<void>;
+  emitirNotaCreditoDebitoProveedor: (params: {
+    proveedorId: string;
+    tipo: 'Nota de Crédito A' | 'Nota de Crédito B' | 'Nota de Débito';
+    facturaAsociadaId?: string;
+    netoGravado: number;
+    descripcion: string;
+  }) => Promise<void>;
   depositarCheque: (chequeId: string, cuentaDestinoId?: string) => Promise<void>;
   registrarMovimientoTesoreria: (params: {
     cuentaId: string;
@@ -3636,7 +3653,338 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const conciliarCuentaBancaria = async (id: string) => {
     const cuenta = cuentasBancarias.find((c) => c.id === id);
     if (!cuenta) return;
-    await editarCuentaBancaria(id, { saldoConciliado: cuenta.saldoActual });
+    const hoy = new Date().toISOString().split('T')[0];
+    const movsConc = (cuenta.movimientos || []).map((m) => ({
+      ...m,
+      conciliado: true,
+      conciliadoFecha: m.conciliadoFecha || hoy
+    }));
+    await editarCuentaBancaria(id, { saldoConciliado: cuenta.saldoActual, movimientos: movsConc });
+  };
+
+  const conciliarMovimientosCuenta = async (cuentaId: string, movimientoIds: string[]) => {
+    const cuenta = cuentasBancarias.find((c) => c.id === cuentaId);
+    if (!cuenta) return;
+    const hoy = new Date().toISOString().split('T')[0];
+    const idSet = new Set(movimientoIds);
+    const movsActualizados = (cuenta.movimientos || []).map((m) =>
+      idSet.has(m.id) ? { ...m, conciliado: true, conciliadoFecha: hoy } : m
+    );
+    const saldoConciliado = Number(
+      movsActualizados
+        .filter((m) => m.conciliado)
+        .reduce((acc, m) => acc + (m.ingresos || 0) - (m.egresos || 0), 0)
+        .toFixed(2)
+    );
+    await editarCuentaBancaria(cuentaId, {
+      movimientos: movsActualizados,
+      saldoConciliado
+    });
+  };
+
+  const emitirNotaCreditoDebitoCliente = async (params: {
+    clienteId: string;
+    tipo: 'Nota de Crédito A' | 'Nota de Crédito B' | 'Nota de Débito';
+    facturaAsociadaId?: string;
+    netoGravado: number;
+    iva21?: number;
+    descripcion: string;
+    reingresarStockItems?: { articuloId: string; cantidad: number }[];
+  }) => {
+    const cliente = clientes.find((c) => c.id === params.clienteId);
+    if (!cliente) return;
+
+    const esNc = params.tipo.startsWith('Nota de Crédito');
+    const hoy = new Date().toISOString().split('T')[0];
+    const ptoVta = '0001';
+    const nextNum = String(415 + facturasVenta.length).padStart(8, '0');
+    const nroComprobante = `${ptoVta}-${nextNum}`;
+    const neto = Number(params.netoGravado.toFixed(2));
+    const iva21 = params.iva21 !== undefined ? Number(params.iva21.toFixed(2)) : Number((neto * 0.21).toFixed(2));
+    const total = Number((neto + iva21).toFixed(2));
+
+    const facAsociada = params.facturaAsociadaId
+      ? cliente.facturasAdeudadas.find((f) => f.id === params.facturaAsociadaId)
+      : undefined;
+
+    // Reingresar stock si es Nota de Crédito con devolución de mercadería
+    if (esNc && params.reingresarStockItems && params.reingresarStockItems.length > 0) {
+      for (const item of params.reingresarStockItems) {
+        if (item.articuloId && item.cantidad > 0) {
+          await registrarMovimientoStock({
+            articuloId: item.articuloId,
+            tipoDoc: 'NC',
+            cantidad: item.cantidad,
+            descripcion: `Devolución s/ ${params.tipo} ${nroComprobante}`
+          });
+        }
+      }
+    }
+
+    let nuevoSaldoCliente = cliente.saldo;
+    let nuevasAdeudadas = [...cliente.facturasAdeudadas];
+
+    if (esNc) {
+      nuevoSaldoCliente = Number(Math.max(0, cliente.saldo - total).toFixed(2));
+      if (facAsociada) {
+        nuevasAdeudadas = nuevasAdeudadas
+          .map((f) => {
+            if (f.id !== facAsociada.id) return f;
+            const aplicado = Math.min(f.saldo, total);
+            const saldoRestante = Number((f.saldo - aplicado).toFixed(2));
+            return {
+              ...f,
+              cobrado: Number((f.cobrado + aplicado).toFixed(2)),
+              saldo: saldoRestante
+            };
+          })
+          .filter((f) => f.saldo > 0.01);
+      }
+    } else {
+      nuevoSaldoCliente = Number((cliente.saldo + total).toFixed(2));
+      nuevasAdeudadas = [
+        {
+          id: `ND-ADE-${Date.now()}`,
+          nroComprobante,
+          tipo: params.tipo,
+          fechaEmision: hoy,
+          fechaPago: hoy,
+          descripcion: params.descripcion || `Nota de Débito s/ ${facAsociada?.nroComprobante || 'Cta Cte'}`,
+          valorMe: 0,
+          total,
+          cobrado: 0,
+          saldo: total,
+          saldoAcumulado: nuevoSaldoCliente,
+          comprobanteAsociadoId: facAsociada?.id,
+          comprobanteAsociadoNro: facAsociada?.nroComprobante
+        },
+        ...nuevasAdeudadas
+      ];
+    }
+
+    const clienteActualizado: Cliente = {
+      ...cliente,
+      saldo: nuevoSaldoCliente,
+      facturasAdeudadas: nuevasAdeudadas,
+      movimientos: [
+        ...cliente.movimientos,
+        {
+          id: `MOV-NCND-${Date.now()}`,
+          fecha: hoy,
+          comprobante: `${params.tipo} ${nroComprobante}`,
+          concepto: `${params.descripcion}${facAsociada ? ` (Asoc. ${facAsociada.nroComprobante})` : ''}`,
+          debe: esNc ? 0 : total,
+          haber: esNc ? total : 0,
+          saldo: nuevoSaldoCliente
+        }
+      ]
+    };
+
+    const nuevoCompVenta: ComprobanteVenta = {
+      id: `ZON-NCND-${Date.now()}`,
+      tipo: params.tipo,
+      puntoVenta: ptoVta,
+      numero: nextNum,
+      fechaEmision: hoy,
+      fechaVencimiento: hoy,
+      clienteNombre: cliente.razonSocial,
+      clienteCuit: cliente.cuit,
+      condicionIva: cliente.condicionIva,
+      netoGravado: neto,
+      iva21,
+      iva105: 0,
+      total,
+      estado: 'Aprobado AFIP',
+      cae: `744${Math.floor(10000000000 + Math.random() * 89999999999)}`,
+      comprobanteAsociadoId: facAsociada?.id,
+      comprobanteAsociadoNro: facAsociada?.nroComprobante
+    };
+
+    setClientes((prev) => prev.map((c) => (c.id === cliente.id ? clienteActualizado : c)));
+    setFacturasVenta((prev) => [nuevoCompVenta, ...prev]);
+
+    const asNro = asientosContables.length + 1;
+    const asientoNcNd: AsientoContable = {
+      numero: asNro,
+      fecha: hoy,
+      concepto: `${params.tipo} ${nroComprobante} - ${cliente.razonSocial}`,
+      tipoOrigen: 'Ventas',
+      totalDebe: total,
+      totalHaber: total,
+      renglones: esNc
+        ? [
+            { cuentaCodigo: '411101', cuentaNombre: '411101 - Ventas (Reversión NC)', debe: neto, haber: 0 },
+            { cuentaCodigo: '214101', cuentaNombre: '214101 - IVA Débito Fiscal (Reversión NC)', debe: iva21, haber: 0 },
+            { cuentaCodigo: '113100', cuentaNombre: '113100 - Deudores Por Ventas', debe: 0, haber: total }
+          ]
+        : [
+            { cuentaCodigo: '113100', cuentaNombre: '113100 - Deudores Por Ventas', debe: total, haber: 0 },
+            { cuentaCodigo: '411101', cuentaNombre: '411101 - Ventas / Intereses ND', debe: 0, haber: neto },
+            { cuentaCodigo: '214101', cuentaNombre: '214101 - IVA Débito Fiscal', debe: 0, haber: iva21 }
+          ]
+    };
+
+    setAsientosContables((prev) => [asientoNcNd, ...prev]);
+    await supabase.from('erp_clientes').upsert({
+      id: clienteActualizado.id,
+      nombre: clienteActualizado.nombre,
+      razon_social: clienteActualizado.razonSocial,
+      cuit: clienteActualizado.cuit,
+      condicion_iva: clienteActualizado.condicionIva,
+      domicilio: clienteActualizado.domicilio,
+      telefono: clienteActualizado.telefono,
+      email: clienteActualizado.email,
+      saldo: clienteActualizado.saldo,
+      activo: clienteActualizado.activo,
+      lista_precios: clienteActualizado.listaPrecios,
+      limite_credito: clienteActualizado.limiteCredito,
+      vendedor: clienteActualizado.vendedor,
+      facturas_adeudadas: clienteActualizado.facturasAdeudadas,
+      movimientos: clienteActualizado.movimientos,
+      updated_at: new Date().toISOString()
+    });
+    setLastSync(new Date().toLocaleTimeString('es-AR'));
+  };
+
+  const emitirNotaCreditoDebitoProveedor = async (params: {
+    proveedorId: string;
+    tipo: 'Nota de Crédito A' | 'Nota de Crédito B' | 'Nota de Débito';
+    facturaAsociadaId?: string;
+    netoGravado: number;
+    descripcion: string;
+  }) => {
+    const proveedor = proveedores.find((p) => p.id === params.proveedorId);
+    if (!proveedor) return;
+
+    const esNc = params.tipo.startsWith('Nota de Crédito');
+    const hoy = new Date().toISOString().split('T')[0];
+    const nroFact = `0001-000${Math.floor(10000 + Math.random() * 89999)}`;
+    const neto = Number(params.netoGravado.toFixed(2));
+    const iva = Number((neto * 0.21).toFixed(2));
+    const total = Number((neto + iva).toFixed(2));
+
+    const facAsociada = params.facturaAsociadaId
+      ? proveedor.facturasAdeudadas.find((f) => f.id === params.facturaAsociadaId)
+      : undefined;
+
+    let nuevoSaldoProv = proveedor.saldo;
+    let nuevasAdeudadas = [...proveedor.facturasAdeudadas];
+
+    if (esNc) {
+      nuevoSaldoProv = Number(Math.max(0, proveedor.saldo - total).toFixed(2));
+      if (facAsociada) {
+        nuevasAdeudadas = nuevasAdeudadas
+          .map((f) => {
+            if (f.id !== facAsociada.id) return f;
+            const aplicado = Math.min(f.saldo, total);
+            return {
+              ...f,
+              pagado: Number((f.pagado + aplicado).toFixed(2)),
+              saldo: Number((f.saldo - aplicado).toFixed(2))
+            };
+          })
+          .filter((f) => f.saldo > 0.01);
+      }
+    } else {
+      nuevoSaldoProv = Number((proveedor.saldo + total).toFixed(2));
+      nuevasAdeudadas = [
+        {
+          id: `FP-ND-${Date.now()}`,
+          nroComprobante: nroFact,
+          tipo: params.tipo,
+          fechaEmision: hoy,
+          fechaPago: hoy,
+          descripcion: params.descripcion || 'Nota de Débito Proveedor',
+          valorMe: 0,
+          total,
+          pagado: 0,
+          saldo: total,
+          saldoAcumulado: nuevoSaldoProv
+        },
+        ...nuevasAdeudadas
+      ];
+    }
+
+    const provActualizado: Proveedor = {
+      ...proveedor,
+      saldo: nuevoSaldoProv,
+      facturasAdeudadas: nuevasAdeudadas,
+      movimientos: [
+        ...proveedor.movimientos,
+        {
+          id: `MOV-P-NCND-${Date.now()}`,
+          fecha: hoy,
+          comprobante: `${params.tipo} ${nroFact}`,
+          concepto: `${params.descripcion}${facAsociada ? ` (Asoc. ${facAsociada.nroComprobante})` : ''}`,
+          debe: esNc ? total : 0,
+          haber: esNc ? 0 : total,
+          saldo: nuevoSaldoProv
+        }
+      ]
+    };
+
+    const nuevaFc: ComprobanteCompra = {
+      id: `FC-NCND-${Date.now()}`,
+      tipo: params.tipo,
+      numero: nroFact,
+      proveedorNombre: proveedor.razonSocial,
+      proveedorCuit: proveedor.cuit,
+      fechaComprobante: hoy,
+      fechaImputacion: hoy,
+      cuentaGasto: proveedor.cuentaGastoHabitual || '511101 - Compras / Gastos',
+      netoGravado: neto,
+      iva,
+      retencionIva: 0,
+      retencionIIBB: 0,
+      total,
+      estadoPago: esNc ? 'Pagado Total' : 'Pendiente',
+      comprobanteAsociadoId: facAsociada?.id,
+      comprobanteAsociadoNro: facAsociada?.nroComprobante
+    };
+
+    setProveedores((prev) => prev.map((p) => (p.id === proveedor.id ? provActualizado : p)));
+    setFacturasCompra((prev) => [nuevaFc, ...prev]);
+
+    const asNro = asientosContables.length + 1;
+    const asientoProv: AsientoContable = {
+      numero: asNro,
+      fecha: hoy,
+      concepto: `${params.tipo} ${nroFact} - ${proveedor.razonSocial}`,
+      tipoOrigen: 'Compras',
+      totalDebe: total,
+      totalHaber: total,
+      renglones: esNc
+        ? [
+            { cuentaCodigo: '211100', cuentaNombre: '211100 - Proveedores en Cta Cte', debe: total, haber: 0 },
+            { cuentaCodigo: '511101', cuentaNombre: '511101 - Compras (Reversión NC)', debe: 0, haber: neto },
+            { cuentaCodigo: '114102', cuentaNombre: '114102 - IVA Crédito Fiscal (Reversión NC)', debe: 0, haber: iva }
+          ]
+        : [
+            { cuentaCodigo: '511101', cuentaNombre: '511101 - Gastos / Intereses ND', debe: neto, haber: 0 },
+            { cuentaCodigo: '114102', cuentaNombre: '114102 - IVA Crédito Fiscal', debe: iva, haber: 0 },
+            { cuentaCodigo: '211100', cuentaNombre: '211100 - Proveedores en Cta Cte', debe: 0, haber: total }
+          ]
+    };
+
+    setAsientosContables((prev) => [asientoProv, ...prev]);
+    await supabase.from('erp_proveedores').upsert({
+      id: provActualizado.id,
+      nombre: provActualizado.nombre,
+      razon_social: provActualizado.razonSocial,
+      cuit: provActualizado.cuit,
+      condicion_iva: provActualizado.condicionIva,
+      domicilio: provActualizado.domicilio,
+      telefono: provActualizado.telefono,
+      email: provActualizado.email,
+      saldo: provActualizado.saldo,
+      activo: provActualizado.activo,
+      cuenta_gasto_habitual: provActualizado.cuentaGastoHabitual,
+      condicion_pago: provActualizado.condicionPago,
+      facturas_adeudadas: provActualizado.facturasAdeudadas,
+      movimientos: provActualizado.movimientos,
+      updated_at: new Date().toISOString()
+    });
+    setLastSync(new Date().toLocaleTimeString('es-AR'));
   };
 
   const registrarMovimientoTesoreria = async (params: {
@@ -4361,13 +4709,16 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         liquidacionActual,
         crearCliente,
         emitirFacturaVenta,
+        emitirNotaCreditoDebitoCliente,
         registrarCobroCliente,
         crearProveedor,
         registrarFacturaCompra,
+        emitirNotaCreditoDebitoProveedor,
         registrarPagoProveedor,
         crearCuentaBancaria,
         editarCuentaBancaria,
         conciliarCuentaBancaria,
+        conciliarMovimientosCuenta,
         depositarCheque,
         registrarMovimientoTesoreria,
         actualizarCuentaContable,

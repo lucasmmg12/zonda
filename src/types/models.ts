@@ -15,6 +15,8 @@ export interface FacturaAdeudada {
   cobrado: number;
   saldo: number;
   saldoAcumulado: number;
+  comprobanteAsociadoId?: string;
+  comprobanteAsociadoNro?: string;
 }
 
 export interface CuentaClienteMovimiento {
@@ -124,11 +126,13 @@ export interface ComprobanteVenta {
   estado: EstadoComprobante;
   cae?: string;
   caeVencimiento?: string;
+  comprobanteAsociadoId?: string;
+  comprobanteAsociadoNro?: string;
 }
 
 export interface ComprobanteCompra {
   id: string;
-  tipo: 'Factura A' | 'Factura B' | 'Factura C' | 'Liquidación' | 'Nota de Débito';
+  tipo: 'Factura A' | 'Factura B' | 'Factura C' | 'Liquidación' | 'Nota de Débito' | 'Nota de Crédito A' | 'Nota de Crédito B';
   numero: string;
   proveedorNombre: string;
   proveedorCuit: string;
@@ -142,6 +146,8 @@ export interface ComprobanteCompra {
   total: number;
   estadoPago: 'Pendiente' | 'Pagado Parcial' | 'Pagado Total';
   medioPagoPactado?: string;
+  comprobanteAsociadoId?: string;
+  comprobanteAsociadoNro?: string;
 }
 
 export interface MovimientoTesoreria {
@@ -155,6 +161,8 @@ export interface MovimientoTesoreria {
   ingresos: number;
   egresos: number;
   saldo: number;
+  conciliado?: boolean;
+  conciliadoFecha?: string;
 }
 
 export interface CuentaBancaria {

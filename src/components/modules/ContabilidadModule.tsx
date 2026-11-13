@@ -26,6 +26,7 @@ import {
   downloadRT54OfficialExcel
 } from '../../utils/rt54BalanceMapper';
 import { CalendarioVencimientosModal } from '../modals/CalendarioVencimientosModal';
+import { PosicionImpositivaModal } from '../modals/PosicionImpositivaModal';
 
 function flattenCuentasContables(nodes: CuentaContable[]): CuentaContable[] {
   const result: CuentaContable[] = [];
@@ -131,6 +132,7 @@ export const ContabilidadModule: React.FC = () => {
   const [showNuevaCuentaModal, setShowNuevaCuentaModal] = useState(false);
   const [showCierresModal, setShowCierresModal] = useState(false);
   const [showReportesModal, setShowReportesModal] = useState(false);
+  const [showPosicionImpositivaModal, setShowPosicionImpositivaModal] = useState(false);
   const [showCalendarioModal, setShowCalendarioModal] = useState(false);
   const [showNuevoPlanModal, setShowNuevoPlanModal] = useState(false);
 
@@ -492,6 +494,14 @@ export const ContabilidadModule: React.FC = () => {
                 >
                   <BarChart3 className="w-3.5 h-3.5" />
                   <span>Reportes ▼</span>
+                </button>
+
+                <button
+                  onClick={() => setShowPosicionImpositivaModal(true)}
+                  className="px-3 py-1 bg-[#1b365d] hover:bg-[#142847] text-white font-mono text-xs font-bold flex items-center gap-1 transition-colors border border-[#1b365d] rounded-sm"
+                >
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span>Posición Impositiva</span>
                 </button>
               </div>
 
@@ -1269,6 +1279,11 @@ export const ContabilidadModule: React.FC = () => {
           </div>
         </div>
       )}
+
+      <PosicionImpositivaModal
+        isOpen={showPosicionImpositivaModal}
+        onClose={() => setShowPosicionImpositivaModal(false)}
+      />
     </div>
   );
 };
