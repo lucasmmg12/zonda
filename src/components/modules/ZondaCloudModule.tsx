@@ -537,116 +537,112 @@ export const ZondaCloudModule: React.FC = () => {
 
   return (
     <div className="space-y-4 font-sans text-slate-800">
-      {/* CABECERA EJECUTIVA ZONDA CLOUD & MULTI-TENANT */}
-      <div className="bg-white border border-slate-300 p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-[11px] font-mono font-bold text-[#047857] uppercase">
+      {/* CABECERA COMPACTA ZONDA CLOUD (MENOS ES MÁS) */}
+      <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-xs space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-[#0f172a] text-sky-300 flex items-center justify-center shrink-0">
               <Cloud className="w-4 h-4" />
-              <span>MÓDULO 11 // ZONDA CLOUD &amp; ARQUITECTURA MULTI-TENANT (NORMATIVA ARCA ARGENTINA)</span>
             </div>
-            <h2 className="text-lg font-extrabold text-slate-900 uppercase tracking-tight">
-              CONSOLA FISCAL DELEGADA MULTI-CUIT // COMPRAS, VENTAS Y LIQUIDACIÓN DE IMPUESTOS ARCA
-            </h2>
-            <p className="text-xs text-slate-600 max-w-3xl">
-              Cada empresa opera en su propio <strong>Tenant 100% aislado</strong> (sus usuarios, clientes, stock y bancos nunca se mezclan). Mediante la <strong>Autorización explícita del usuario de Zonda ERP</strong>, desde <strong>Zonda Cloud</strong> podés gestionar sus Compras y Ventas, cruzar con <em>Mis Comprobantes</em> de ARCA y liquidar IVA Digital (RG 4597), F.2002, SICORE/SIRE e Ingresos Brutos.
-            </p>
+            <div>
+              <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">
+                Zonda Cloud · Consola Fiscal Multi-CUIT
+              </h2>
+              <p className="text-[11px] text-slate-500">
+                {tenants.filter((t) => t.autorizacionZondaCloud.autorizado).length} de {tenants.length} empresas autorizadas
+              </p>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {authCloud.autorizado && (
+              <>
+                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs">
+                  <span className="text-slate-500 font-semibold">Período:</span>
+                  <input
+                    type="month"
+                    value={periodoFiscal}
+                    onChange={(e) => setPeriodoFiscal(e.target.value)}
+                    className="bg-transparent font-bold text-slate-800 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCfFlujo('COMPRA');
+                    setShowCargaFiscalModal(true);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-bold flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Cargar Comprobante</span>
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={() => setShowNuevoTenantModal(true)}
-              className="px-3.5 py-2 bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-mono font-bold uppercase flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ Alta Nueva Empresa (Tenant Aislado)</span>
+              <span>Nueva Empresa</span>
             </button>
           </div>
         </div>
 
-        {/* GRILLA SELECTORA DE USUARIOS / EMPRESAS EN ZONDA CLOUD */}
-        <div className="mt-4 pt-4 border-t border-slate-200">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-mono font-bold text-slate-700 uppercase">
-              Usuarios de Zonda ERP Registrados (Zonda Cloud solo gestiona a los usuarios que hayan aceptado):
-            </span>
-            <span className="text-[11px] font-mono text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 border border-emerald-200">
-              {tenants.filter((t) => t.autorizacionZondaCloud.autorizado).length} de {tenants.length} Usuarios Aceptaron
-            </span>
-          </div>
+        {/* Selector Compacto de Empresas (1 sola fila limpia) */}
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+          {tenants.map((t) => {
+            const isSelectedCloud = t.tenantId === tenantCloudActual.tenantId;
+            const isAuthorized = t.autorizacionZondaCloud.autorizado;
+            return (
+              <button
+                key={t.tenantId}
+                type="button"
+                onClick={() => setSelectedCloudTenantId(t.tenantId)}
+                className={`px-3 py-1.5 rounded-lg border text-xs transition-all flex items-center gap-2 ${
+                  isSelectedCloud
+                    ? 'bg-[#064e3b] text-white border-[#064e3b] font-bold shadow-xs'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-white'
+                }`}
+              >
+                {isAuthorized ? (
+                  <Unlock className={`w-3.5 h-3.5 ${isSelectedCloud ? 'text-emerald-300' : 'text-emerald-600'}`} />
+                ) : (
+                  <Lock className={`w-3.5 h-3.5 ${isSelectedCloud ? 'text-rose-300' : 'text-rose-500'}`} />
+                )}
+                <span className="truncate max-w-[200px]">{t.razonSocial}</span>
+                <span className={`text-[10px] font-mono ${isSelectedCloud ? 'text-emerald-200' : 'text-slate-400'}`}>
+                  {t.cuit}
+                </span>
+              </button>
+            );
+          })}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {tenants.map((t) => {
-              const isSelectedCloud = t.tenantId === tenantCloudActual.tenantId;
-              const isAuthorized = t.autorizacionZondaCloud.autorizado;
-
-              return (
-                <div
-                  key={t.tenantId}
-                  onClick={() => setSelectedCloudTenantId(t.tenantId)}
-                  className={`p-3.5 border cursor-pointer transition-all flex flex-col justify-between gap-2.5 ${
-                    isSelectedCloud
-                      ? 'bg-emerald-50/70 border-2 border-[#064e3b] shadow-sm'
-                      : 'bg-slate-50/70 border-slate-300 hover:bg-white'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-900 text-white">
-                        CUIT {t.cuit}
-                      </span>
-                      {isAuthorized ? (
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1">
-                          <Unlock className="w-3 h-3" />
-                          <span>USUARIO ACEPTÓ ✓</span>
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-rose-100 text-rose-900 border border-rose-300 flex items-center gap-1">
-                          <Lock className="w-3 h-3" />
-                          <span>SIN ACEPTAR DEL USUARIO</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="text-xs font-extrabold text-slate-900 uppercase truncate">
-                      {t.razonSocial}
-                    </h3>
-                    <p className="text-[11px] text-slate-500 truncate">{t.actividadPrincipalArca}</p>
-
-                    <div className="mt-2 pt-2 border-t border-slate-200/80 flex items-center justify-between text-[10px] font-mono text-slate-600">
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3 h-3 text-[#064e3b]" />
-                        Titular: {t.usuariosInternos[0]?.nombre || 'Usuario ERP'}
-                      </span>
-                      <span>{t.jurisdiccionPrincipal.split(' ')[0]}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 pt-1">
-                    {isAuthorized ? (
-                      <span className="text-[10px] font-mono font-bold text-[#064e3b] bg-white px-2 py-1 border border-emerald-300">
-                        ● Gestión Cloud Habilitada
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-mono font-bold text-rose-800 bg-rose-50 px-2 py-1 border border-rose-300">
-                        🔒 Bloqueado (Falta aceptación)
-                      </span>
-                    )}
-
-                    <span className="text-[10px] font-mono font-bold text-slate-500">
-                      {isSelectedCloud ? 'Seleccionado ▼' : 'Ver estado'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {authCloud.autorizado && (
+            <button
+              type="button"
+              onClick={() =>
+                actualizarAutorizacionZondaCloud(
+                  tenantCloudActual.tenantId,
+                  { autorizado: false },
+                  {
+                    actor: `Titular Zonda ERP (${tenantCloudActual.razonSocial})`,
+                    accion: 'REVOCACIÓN DE ACCESO ZONDA CLOUD',
+                    detalle: 'El usuario de Zonda ERP suspendió temporalmente el acceso delegado.'
+                  }
+                )
+              }
+              className="ml-auto text-[11px] font-semibold text-rose-600 hover:underline px-2 py-1"
+            >
+              Revocar acceso
+            </button>
+          )}
         </div>
       </div>
 
       {avisoOperacion && (
-        <div className="p-3 bg-emerald-50 border-2 border-emerald-400 text-[#042f22] text-xs font-mono font-bold flex items-center justify-between">
+        <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-lg text-[#042f22] text-xs font-semibold flex items-center justify-between">
           <span>{avisoOperacion}</span>
           <button onClick={() => setAvisoOperacion(null)} className="px-2 font-bold">
             ✕
@@ -656,143 +652,39 @@ export const ZondaCloudModule: React.FC = () => {
 
       {/* VERIFICACIÓN DE CONSENTIMIENTO DEL USUARIO DE ZONDA ERP */}
       {!authCloud.autorizado ? (
-        <div className="bg-white border-2 border-rose-300 p-8 text-center space-y-4">
-          <div className="w-12 h-12 mx-auto bg-rose-50 border border-rose-300 text-rose-700 flex items-center justify-center">
-            <Lock className="w-6 h-6" />
+        <div className="bg-white border border-rose-200 rounded-xl p-8 text-center space-y-3">
+          <div className="w-11 h-11 mx-auto rounded-full bg-rose-50 text-rose-600 flex items-center justify-center">
+            <Lock className="w-5 h-5" />
           </div>
-          <div className="text-[11px] font-mono font-bold text-rose-700 uppercase">
-            PROTECCIÓN MULTI-TENANT // ACCESO BLOQUEADO EN ZONDA CLOUD
-          </div>
-          <h3 className="text-base font-extrabold text-slate-900 uppercase">
-            El usuario de &ldquo;{tenantCloudActual.razonSocial}&rdquo; ({tenantCloudActual.cuit}) NO ha aceptado la vinculación con Zonda Cloud
+          <h3 className="text-sm font-extrabold text-slate-900">
+            {tenantCloudActual.razonSocial} ({tenantCloudActual.cuit}) aún no autorizó Zonda Cloud
           </h3>
-          <p className="text-xs text-slate-600 max-w-xl mx-auto leading-relaxed">
-            En la arquitectura Multi-Tenant de Zonda ERP, <strong>cada usuario ve únicamente lo suyo</strong> y <strong>Zonda Cloud solo puede gestionar a los usuarios que hayan aceptado</strong>. Para desbloquear este cliente, su titular (<strong>{tenantCloudActual.usuariosInternos[0]?.nombre || 'Usuario Titular'}</strong>) debe iniciar sesión con su propio usuario de Zonda ERP y presionar el botón <strong>&ldquo;Aceptar Zonda Cloud&rdquo;</strong> en la barra superior o en <em>09 - Configuración Fiscal</em>.
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            El titular debe habilitar <strong>&ldquo;Aceptar Zonda Cloud&rdquo;</strong> desde su sesión en Zonda Core para operar sus impuestos aquí.
           </p>
         </div>
       ) : (
         /* PANEL OPERATIVO ZONDA CLOUD PARA EL CLIENTE AUTORIZADO */
-        <div className="bg-white border border-slate-300 shadow-sm">
-          {/* Barra de Estado de Vinculación y Usuarios Aislados del Tenant */}
-          <div className="p-4 bg-[#042f22] text-white flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 bg-emerald-500 text-[#042f22] text-[10px] font-mono font-extrabold uppercase">
-                  CONEXIÓN AUTORIZADA POR USUARIO ERP
-                </span>
-                <span className="text-xs font-mono text-emerald-200">
-                  Token: <strong>{authCloud.tokenVinculacion}</strong> · Otorgado por: {authCloud.autorizadoPorUsuarioErp}
-                </span>
-              </div>
-              <h3 className="text-sm font-extrabold uppercase tracking-wide">
-                GESTIONANDO IMPUESTOS ARCA DE: {tenantCloudActual.razonSocial} (CUIT {tenantCloudActual.cuit})
-              </h3>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 bg-[#064e3b] border border-emerald-600 px-2.5 py-1 text-xs font-mono">
-                <span>Período Fiscal ARCA:</span>
-                <input
-                  type="month"
-                  value={periodoFiscal}
-                  onChange={(e) => setPeriodoFiscal(e.target.value)}
-                  className="bg-transparent font-bold text-emerald-200 focus:outline-none"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setCfFlujo('COMPRA');
-                  setShowCargaFiscalModal(true);
-                }}
-                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-[#042f22] text-xs font-mono font-extrabold uppercase flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Cargar Compra / Venta Fiscal</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  actualizarAutorizacionZondaCloud(
-                    tenantCloudActual.tenantId,
-                    { autorizado: false },
-                    {
-                      actor: `Titular Zonda ERP (${tenantCloudActual.razonSocial})`,
-                      accion: 'REVOCACIÓN DE ACCESO ZONDA CLOUD',
-                      detalle: 'El usuario de Zonda ERP suspendió temporalmente el acceso delegado.'
-                    }
-                  )
-                }
-                className="px-2.5 py-1.5 bg-rose-900/70 hover:bg-rose-800 text-rose-100 border border-rose-500/40 text-[11px] font-mono font-bold uppercase"
-                title="Revocar autorización del estudio contable"
-              >
-                Revocar Autorización
-              </button>
-            </div>
-          </div>
-
-          {/* Tira de Usuarios Aislados de este Tenant (Demostración Multi-Tenant) */}
-          <div className="px-4 py-2 bg-slate-100 border-b border-slate-300 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-bold text-slate-700 uppercase">
-                Usuarios Internos de este Tenant (No ven datos de otras empresas):
-              </span>
-              {tenantCloudActual.usuariosInternos.map((u) => (
-                <span
-                  key={u.id}
-                  className="px-2 py-0.5 bg-white border border-slate-300 text-slate-800 font-semibold"
-                >
-                  {u.nombre} <span className="text-emerald-700">[{u.rol}]</span>
-                </span>
-              ))}
-            </div>
-            <span className="text-slate-500">
-              Jurisdicción IIBB: <strong>{tenantCloudActual.jurisdiccionPrincipal}</strong>
-            </span>
-          </div>
-
-          {/* Sub-Navegación de Zonda Cloud */}
-          <div className="flex flex-wrap border-b border-slate-300 bg-slate-50 text-xs font-mono">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+          {/* Sub-Navegación en 1 sola fila limpia */}
+          <div className="flex overflow-x-auto border-b border-slate-200 bg-slate-50 text-xs">
             {[
-              {
-                id: 'liquidacion_f2002',
-                label: '1. Portal IVA Simple (F.2051 / F.2002) & Libro IVA Digital'
-              },
-              {
-                id: 'impuestos_integrales',
-                label: '2. Todos los Impuestos (IIBB CM03 / SICORE / F.931 / Ganancias F.713)'
-              },
-              {
-                id: 'balances_arca',
-                label: '3. Balances ARCA (PUB RG 4626 + Ganancias Web RG 5908 + RT 54)'
-              },
-              {
-                id: 'compras_arca',
-                label: `4. Compras y Crédito Fiscal (${snapTenant.facturasCompra.length})`
-              },
-              {
-                id: 'ventas_arca',
-                label: `5. Ventas y Débito Fiscal (${snapTenant.facturasVenta.length})`
-              },
-              {
-                id: 'mis_comprobantes',
-                label: `6. Cruce "Mis Comprobantes" ARCA (${pendientesSinIncorporar.length})`
-              },
-              {
-                id: 'bitacora',
-                label: `7. Bitácora Delegada (${authCloud.bitacoraCloud.length})`
-              }
+              { id: 'liquidacion_f2002', label: 'IVA F.2002' },
+              { id: 'impuestos_integrales', label: 'Impuestos' },
+              { id: 'balances_arca', label: 'Balances RT 54' },
+              { id: 'compras_arca', label: `Compras (${snapTenant.facturasCompra.length})` },
+              { id: 'ventas_arca', label: `Ventas (${snapTenant.facturasVenta.length})` },
+              { id: 'mis_comprobantes', label: `ARCA (${pendientesSinIncorporar.length})` },
+              { id: 'bitacora', label: `Bitácora (${authCloud.bitacoraCloud.length})` }
             ].map((t) => (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => setSubTabCloud(t.id as any)}
-                className={`px-4 py-2.5 font-bold border-r border-slate-200 transition-colors ${
+                className={`px-4 py-2.5 font-bold whitespace-nowrap border-b-2 transition-colors ${
                   subTabCloud === t.id
-                    ? 'bg-white text-[#064e3b] border-t-2 border-t-[#064e3b] -mb-[1px]'
-                    : 'text-slate-600 hover:bg-slate-100'
+                    ? 'bg-white text-[#064e3b] border-[#064e3b]'
+                    : 'text-slate-600 border-transparent hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 {t.label}

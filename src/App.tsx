@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Lock, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
-import { AccountingWatermarkBackground } from './components/layout/AccountingWatermarkBackground';
 import { DashboardModule } from './components/modules/DashboardModule';
 import { ClientesModule } from './components/modules/ClientesModule';
 import { ProveedoresModule } from './components/modules/ProveedoresModule';
@@ -52,19 +51,31 @@ function AppLayout() {
     return () => window.removeEventListener('zonda_usuarios_updated', syncOp);
   }, []);
 
-  // Aislamiento estricto por usuario: cada usuario de Zonda ERP ve únicamente su propia empresa (tenantId)
+  // Aislamiento estricto por usuario y separación absoluta Zonda Core vs Zonda Cloud
   useEffect(() => {
-    if (!operadorActual.esCuentaZondaCloud && operadorActual.tenantId && activeTenantId !== operadorActual.tenantId) {
+    if (operadorActual.esCuentaZondaCloud) {
+      if (activeModule !== 'zondacloud') {
+        setActiveModule('zondacloud');
+      }
+      return;
+    }
+
+    if (activeModule === 'zondacloud') {
+      setActiveModule('tablero');
+    }
+
+    if (operadorActual.tenantId && activeTenantId !== operadorActual.tenantId) {
       cambiarTenantActivo(operadorActual.tenantId);
     }
-  }, [operadorActual, activeTenantId, cambiarTenantActivo]);
+  }, [operadorActual, activeTenantId, activeModule, setActiveModule, cambiarTenantActivo]);
 
-  const tienePermisoModulo =
-    activeModule === 'usuarios' ||
-    activeModule === 'zondacloud' ||
-    operadorActual.rol === 'ADMINISTRADOR GENERAL' ||
-    operadorActual.rol === 'CONTADOR / AUDITORÍA' ||
-    operadorActual.modulosPermitidos.includes(activeModule);
+  const tienePermisoModulo = operadorActual.esCuentaZondaCloud
+    ? activeModule === 'zondacloud'
+    : activeModule !== 'zondacloud' &&
+    (activeModule === 'usuarios' ||
+      operadorActual.rol === 'ADMINISTRADOR GENERAL' ||
+      operadorActual.rol === 'CONTADOR / AUDITORÍA' ||
+      operadorActual.modulosPermitidos.includes(activeModule));
 
   const renderModule = () => {
     if (!tienePermisoModulo) {
@@ -104,6 +115,10 @@ function AppLayout() {
       );
     }
 
+    if (operadorActual.esCuentaZondaCloud) {
+      return <ZondaCloudModule />;
+    }
+
     switch (activeModule) {
       case 'tablero':
         return <DashboardModule />;
@@ -125,8 +140,6 @@ function AppLayout() {
         return <ConfiguracionModule />;
       case 'usuarios':
         return <UsuariosModule />;
-      case 'zondacloud':
-        return <ZondaCloudModule />;
       case 'ecommerce':
         return <EcommerceModule />;
       default:
@@ -135,10 +148,7 @@ function AppLayout() {
   };
 
   return (
-    <div className="relative flex h-screen w-screen overflow-hidden bg-[#f4fbf7] font-sans text-[#042f22]">
-      {/* Elementos gráficos contables y financieros casi transparentes en el fondo */}
-      <AccountingWatermarkBackground />
-
+    <div className="relative flex h-screen w-screen overflow-hidden bg-[#f8fafc] font-sans text-slate-900">
       {/* Barra lateral */}
       <Sidebar
         activeModule={activeModule}
@@ -152,9 +162,9 @@ function AppLayout() {
         {/* Cabecera superior */}
         <Header empresa={empresa} activeModule={activeModule} />
 
-        {/* Área de contenido scrollable con fondo transparente para lucir la filigrana contable */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent">
-          <div className="max-w-7xl mx-auto pb-10">
+        {/* Área de contenido full-width scrollable */}
+        <main className="flex-1 overflow-y-auto p-3 md:p-4 bg-transparent">
+          <div className="w-full pb-8">
             {renderModule()}
           </div>
         </main>

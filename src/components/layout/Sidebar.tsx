@@ -39,6 +39,13 @@ interface SidebarProps {
   onToggleCollapse: () => void;
 }
 
+interface MenuItemDef {
+  key: ModuleKey;
+  label: string;
+  icon: React.ElementType;
+  group: 'Operaciones' | 'Finanzas & Fiscal' | 'Sistema & Tienda';
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({
   activeModule,
   onSelectModule,
@@ -53,132 +60,134 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return () => window.removeEventListener('zonda_usuarios_updated', syncOperator);
   }, []);
 
-  const menuItems: { key: ModuleKey; label: string; icon: React.ElementType; code: string; badge?: string }[] = [
-    { key: 'tablero', label: 'Tablero de Control', icon: LayoutDashboard, code: '01' },
-    { key: 'clientes', label: 'Clientes y Ventas', icon: Users, code: '02', badge: 'AFIP' },
-    { key: 'proveedores', label: 'Proveedores y Compras', icon: ShoppingBag, code: '03' },
-    { key: 'tesoreria', label: 'Tesorería y Cheques', icon: Landmark, code: '04' },
-    { key: 'contabilidad', label: 'Contabilidad y Libros', icon: BookOpenCheck, code: '05' },
-    { key: 'inventario', label: 'Inventario y Stock', icon: Boxes, code: '06' },
-    { key: 'sueldos', label: 'Sueldos y Cargas', icon: BadgeDollarSign, code: '07', badge: 'LSD' },
-    { key: 'migracion', label: 'Centro de Migración', icon: ArrowRightLeft, code: '08', badge: 'HUB' },
-    { key: 'configuracion', label: 'Configuración Fiscal', icon: Settings, code: '09' },
-    { key: 'usuarios', label: 'Usuarios y Accesos', icon: ShieldCheck, code: '10', badge: 'RBAC' },
-    { key: 'zondacloud', label: 'Zonda Cloud (ARCA)', icon: Cloud, code: '11', badge: 'CLOUD' },
-    { key: 'ecommerce', label: 'Ecommerce (Tienda)', icon: Store, code: '12', badge: 'SHOP' }
+  const allItems: MenuItemDef[] = [
+    { key: 'tablero', label: 'Panel Ejecutivo', icon: LayoutDashboard, group: 'Operaciones' },
+    { key: 'clientes', label: 'Clientes y Ventas', icon: Users, group: 'Operaciones' },
+    { key: 'proveedores', label: 'Proveedores y Compras', icon: ShoppingBag, group: 'Operaciones' },
+    { key: 'inventario', label: 'Inventario y Stock', icon: Boxes, group: 'Operaciones' },
+    { key: 'tesoreria', label: 'Tesorería y Bancos', icon: Landmark, group: 'Finanzas & Fiscal' },
+    { key: 'contabilidad', label: 'Contabilidad y Libros', icon: BookOpenCheck, group: 'Finanzas & Fiscal' },
+    { key: 'sueldos', label: 'Sueldos y Cargas', icon: BadgeDollarSign, group: 'Finanzas & Fiscal' },
+    { key: 'zondacloud', label: 'Zonda Cloud (ARCA)', icon: Cloud, group: 'Finanzas & Fiscal' },
+    { key: 'ecommerce', label: 'Ecommerce (Tienda)', icon: Store, group: 'Sistema & Tienda' },
+    { key: 'migracion', label: 'Migración de Datos', icon: ArrowRightLeft, group: 'Sistema & Tienda' },
+    { key: 'configuracion', label: 'Configuración Fiscal', icon: Settings, group: 'Sistema & Tienda' },
+    { key: 'usuarios', label: 'Usuarios y Accesos', icon: ShieldCheck, group: 'Sistema & Tienda' }
   ];
+
+  const esModoZondaCloud = Boolean(operadorActual.esCuentaZondaCloud);
+  const visibleItems = esModoZondaCloud
+    ? allItems.filter((item) => item.key === 'zondacloud')
+    : allItems.filter((item) => item.key !== 'zondacloud');
+
+  const groups: MenuItemDef['group'][] = esModoZondaCloud
+    ? ['Finanzas & Fiscal']
+    : ['Operaciones', 'Finanzas & Fiscal', 'Sistema & Tienda'];
 
   return (
     <aside
-      className={`bg-white border-r border-slate-300 flex flex-col justify-between transition-all duration-200 z-20 select-none ${collapsed ? 'w-16' : 'w-64'
-        }`}
+      className={`bg-white border-r border-slate-200/80 flex flex-col justify-between transition-all duration-200 z-20 select-none ${
+        collapsed ? 'w-[70px]' : 'w-60'
+      }`}
     >
-      <div>
-        {/* Cabecera del Sidebar — Blanca y unificada con el Header con líneas en Verde Bosque */}
-        <div className="h-14 px-3.5 flex items-center justify-between border-b border-emerald-800/25 bg-white text-[#042f22]">
+      <div className="flex-1 overflow-y-auto">
+        {/* Cabecera Minimalista estilo Grow Labs Suite */}
+        <div className="h-14 px-4 flex items-center justify-between border-b border-slate-100">
           {!collapsed ? (
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="logo-circle h-8 w-8 shrink-0 bg-emerald-50/90 flex items-center justify-center overflow-hidden">
-                <img src="/logogrow.png?v=2" alt="Grow Labs" className="h-5 w-5 object-contain bg-transparent" />
+              <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
+                <img src="/logogrow.png?v=2" alt="Grow Labs" className="h-5 w-5 object-contain" />
               </div>
               <div className="truncate">
-                <h1 className="text-xs font-extrabold tracking-wider uppercase text-[#064e3b] leading-tight whitespace-nowrap">
-                  {activeModule === 'zondacloud' || operadorActual.esCuentaZondaCloud
-                    ? 'ZONDA CLOUD'
-                    : 'GROW // ERP'}
+                <h1 className="text-[13px] font-bold text-slate-900 leading-tight truncate">
+                  {esModoZondaCloud ? 'Zonda Cloud' : 'Zonda Core'}
                 </h1>
+                <span className="block text-[10px] text-slate-400 font-medium leading-tight">
+                  {esModoZondaCloud ? 'Estudio Contable' : 'Grow Labs Suite'}
+                </span>
               </div>
             </div>
           ) : (
-            <div className="logo-circle mx-auto h-8 w-8 bg-emerald-50/90 flex items-center justify-center overflow-hidden p-1">
-              <img src="/logogrow.png?v=2" alt="Grow Labs" className="h-5 w-5 object-contain bg-transparent" />
+            <div className="mx-auto w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center overflow-hidden">
+              <img src="/logogrow.png?v=2" alt="Grow Labs" className="h-5 w-5 object-contain" />
             </div>
           )}
 
           <button
             onClick={onToggleCollapse}
             title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
-            className="p-1 text-[#357a59] hover:text-[#064e3b] hover:bg-emerald-50 transition-colors hidden sm:block border border-emerald-700/25"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors hidden sm:block"
           >
-            {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
 
-        {/* Lista de Módulos con bordes rectos y acento en Verde Esmeralda Oscuro */}
-        <nav className="p-2 space-y-0.5">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeModule === item.key;
-            const tienePermiso =
-              item.key === 'usuarios' ||
-              item.key === 'zondacloud' ||
-              operadorActual.rol === 'ADMINISTRADOR GENERAL' ||
-              operadorActual.rol === 'CONTADOR / AUDITORÍA' ||
-              operadorActual.modulosPermitidos.includes(item.key);
+        {/* Navegación Agrupada Limpia */}
+        <nav className="p-3 space-y-4">
+          {groups.map((grp) => {
+            const grpItems = visibleItems.filter((i) => i.group === grp);
+            if (grpItems.length === 0) return null;
             return (
-              <button
-                key={item.key}
-                onClick={() => onSelectModule(item.key)}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-sans transition-all text-left border ${isActive
-                    ? 'bg-[#064e3b] text-white border-[#047857] border-l-4 border-l-emerald-400 font-bold shadow-sm'
-                    : tienePermiso
-                      ? 'text-[#064e3b] hover:text-[#042f22] hover:bg-emerald-50/70 border-transparent hover:border-emerald-200 font-semibold'
-                      : 'text-emerald-900/40 hover:bg-emerald-50/40 border-transparent font-medium'
-                  }`}
-                title={collapsed ? item.label : undefined}
-              >
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={`text-[10px] ${isActive ? 'text-emerald-300 font-bold' : 'text-emerald-700/70'}`}>
-                    {item.code}
-                  </span>
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : tienePermiso ? 'text-[#047857]' : 'text-emerald-800/40'}`} />
-                </div>
-
+              <div key={grp} className="space-y-0.5">
                 {!collapsed && (
-                  <div className="flex-1 flex items-center justify-between min-w-0">
-                    <span className="truncate uppercase tracking-tight text-[11px] font-semibold">{item.label}</span>
-                    {!tienePermiso ? (
-                      <Lock className="w-3 h-3 text-amber-700 shrink-0" />
-                    ) : (
-                      item.badge && (
-                        <span
-                          className={`text-[9px] px-1 py-0.2 font-sans font-bold uppercase ${isActive
-                              ? 'bg-[#047857] text-emerald-100 border border-emerald-400/50'
-                              : 'bg-emerald-50 text-[#064e3b] border border-emerald-200'
-                            }`}
-                        >
-                          [{item.badge}]
-                        </span>
-                      )
-                    )}
+                  <div className="px-3 pb-1 text-[10px] font-semibold text-slate-400 tracking-wide">
+                    {grp}
                   </div>
                 )}
-              </button>
+                {grpItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeModule === item.key;
+                  const tienePermiso =
+                    item.key === 'usuarios' ||
+                    (esModoZondaCloud && item.key === 'zondacloud') ||
+                    operadorActual.rol === 'ADMINISTRADOR GENERAL' ||
+                    operadorActual.rol === 'CONTADOR / AUDITORÍA' ||
+                    operadorActual.modulosPermitidos.includes(item.key);
+
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => onSelectModule(item.key)}
+                      title={collapsed ? item.label : undefined}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12.5px] transition-all text-left ${
+                        isActive
+                          ? 'bg-slate-100 text-slate-900 font-semibold'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                      }`}
+                    >
+                      <Icon
+                        className={`w-4 h-4 shrink-0 ${
+                          isActive ? 'text-teal-600' : 'text-slate-400'
+                        }`}
+                      />
+                      {!collapsed && (
+                        <span className="truncate flex-1">{item.label}</span>
+                      )}
+                      {!collapsed && !tienePermiso && (
+                        <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>
       </div>
 
-      {/* Espacio Inferior del Sidebar: Logo Grow Labs contenido en un círculo sin bordes */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-4">
-        {!collapsed ? (
-          <div className="logo-circle w-28 h-28 bg-emerald-50/75 flex items-center justify-center overflow-hidden p-4 transition-transform hover:scale-105">
-            <img
-              src="/logogrow.png?v=2"
-              alt="Grow Labs Ecosystem"
-              className="w-full h-full object-contain select-none bg-transparent"
-            />
-          </div>
-        ) : (
-          <div className="logo-circle w-10 h-10 bg-emerald-50/75 flex items-center justify-center overflow-hidden p-1.5">
-            <img
-              src="/logogrow.png?v=2"
-              alt="Grow Labs"
-              className="w-full h-full object-contain select-none bg-transparent"
-            />
-          </div>
-        )}
-      </div>
+      {/* Pie limpio con Logo Grow Labs */}
+      {!collapsed && (
+        <div className="p-4 border-t border-slate-100 flex flex-col items-center justify-center">
+          <img
+            src="/logogrow.png?v=2"
+            alt="Grow Labs"
+            className="h-12 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
+          />
+          <span className="text-[10px] font-semibold tracking-widest text-slate-400 mt-1 uppercase">
+            Grow Labs
+          </span>
+        </div>
+      )}
     </aside>
   );
 };

@@ -21,7 +21,7 @@ export const DashboardModule: React.FC = () => {
     setActiveModule
   } = useErp();
 
-  const [mostrarGuia, setMostrarGuia] = useState(true);
+  const [mostrarGuia, setMostrarGuia] = useState(false);
 
   const totalVentas = facturasVenta.reduce((acc, f) => acc + f.total, 0);
   const totalCompras = facturasCompra.reduce((acc, f) => acc + f.total, 0);
@@ -78,37 +78,45 @@ export const DashboardModule: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Banner Superior Estilo Consola de Ingeniería en Verde Bosque */}
-      <div className="relative overflow-hidden bg-white border border-emerald-800/30 p-4 border-l-4 border-l-[#064e3b] flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Filigrana Contable Interna del Banner */}
-        <svg
-          className="pointer-events-none absolute right-24 top-0 h-full w-64 text-[#064e3b] opacity-[0.06]"
-          viewBox="0 0 240 80"
-          fill="none"
-        >
-          <path d="M0 65 L40 45 L85 52 L135 20 L185 30 L235 8" stroke="currentColor" strokeWidth="2.5" />
-          <line x1="0" y1="40" x2="240" y2="40" stroke="currentColor" strokeDasharray="3 3" />
-        </svg>
-
-        <div className="relative z-10">
-          <h2 className="text-lg font-bold text-[#042f22] tracking-tight uppercase">
-            CONSOLA DE CONTROL CONTABLE Y AUDITORÍA FINANCIERA
+    <div className="space-y-5">
+      {/* Hero Banner Estilo Grow Labs Suite */}
+      <div className="rounded-2xl bg-gradient-to-r from-[#0f172a] via-[#0f293a] to-[#0f4c45] p-6 text-white shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-teal-200 text-[11px] font-semibold">
+            ● Centro de Control Financiero · Zonda Core
+          </span>
+          <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">
+            Panel Ejecutivo de Gestión
           </h2>
+          <p className="text-xs text-slate-300 max-w-xl">
+            Supervisá facturación ARCA, compras, liquidez bancaria, stock y contabilidad en tiempo real.
+          </p>
         </div>
 
-        <div className="relative z-10 flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setActiveModule('clientes')}
+            className="px-4 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-bold transition-colors"
+          >
+            + Nueva Venta
+          </button>
+          <button
+            onClick={handleDescargarReporteAuditoria}
+            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/15 text-xs font-semibold transition-colors"
+          >
+            Exportar CSV
+          </button>
           <button
             onClick={() => setMostrarGuia(!mostrarGuia)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white text-[11px] font-bold uppercase transition-colors border border-[#047857] shadow-sm"
+            className="px-4 py-2 rounded-xl bg-white text-slate-900 hover:bg-slate-100 text-xs font-bold transition-colors flex items-center gap-1.5"
           >
-            <Compass className="w-3.5 h-3.5 text-emerald-300" />
-            <span>{mostrarGuia ? '[ - ] OCULTAR GUÍA' : '[ + ] VER INSTRUCCIONES'}</span>
+            <Compass className="w-3.5 h-3.5 text-teal-600" />
+            <span>{mostrarGuia ? 'Ocultar Guía' : 'Protocolo Diario'}</span>
           </button>
         </div>
       </div>
 
-      {/* Guía Operativa en Verde Bosque Profundo con Elementos Gráficos Transparentes (Sin Negro) */}
+      {/* Guía Operativa Opcional */}
       {mostrarGuia && (
         <div className="relative overflow-hidden bg-gradient-to-r from-[#064e3b] via-[#065f46] to-[#064e3b] border border-[#047857] p-4 text-white space-y-3 shadow-sm">
           {/* Gráfico transparente contable detrás del protocolo */}
@@ -221,118 +229,104 @@ export const DashboardModule: React.FC = () => {
         </div>
       )}
 
-      {/* Tarjetas KPIs Superiores con Filigrana Contable Transparente */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Tarjetas KPIs Limpias Estilo Grow Labs Suite */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI: Ventas */}
         <div
           onClick={() => setActiveModule('clientes')}
-          className="relative overflow-hidden bg-white border border-emerald-800/30 border-t-4 border-t-[#047857] p-4 cursor-pointer hover:border-[#047857] transition-colors"
+          className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-teal-300 cursor-pointer transition-all flex flex-col justify-between gap-3"
         >
-          <svg className="pointer-events-none absolute -right-3 -bottom-3 w-28 h-24 text-[#064e3b] opacity-[0.06]" viewBox="0 0 120 100" fill="none">
-            <rect x="15" y="55" width="14" height="40" fill="currentColor" />
-            <rect x="38" y="40" width="14" height="55" fill="currentColor" />
-            <rect x="61" y="25" width="14" height="70" fill="currentColor" />
-            <rect x="84" y="10" width="14" height="85" fill="currentColor" />
-          </svg>
-          <div className="relative z-10 flex items-center justify-end text-[10px] text-[#357a59] uppercase">
-            <span className="text-[#047857] font-bold">FACTURADO AFIP ({facturasVenta.length})</span>
-          </div>
-          <div className="relative z-10 mt-2">
-            <span className="text-xs text-[#1f5e41] font-medium">VENTAS TOTALES:</span>
-            <p className="text-2xl font-bold text-[#042f22] tracking-tight">
-              ${totalVentas.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-            </p>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#047857] font-semibold">
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>SINCRONIZADO CON CLIENTES</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500">Ventas Facturadas</span>
+            <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+              <FileText className="w-4 h-4" />
             </div>
+          </div>
+          <p className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            ${totalVentas.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+          </p>
+          <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100">
+            <span className="text-slate-400">{facturasVenta.length} comprobantes</span>
+            <span className="text-teal-600 font-semibold flex items-center gap-0.5">
+              <ArrowUpRight className="w-3 h-3" /> AFIP / ARCA
+            </span>
           </div>
         </div>
 
         {/* KPI: Compras */}
         <div
           onClick={() => setActiveModule('proveedores')}
-          className="relative overflow-hidden bg-white border border-emerald-800/30 border-t-4 border-t-[#065f46] p-4 cursor-pointer hover:border-[#047857] transition-colors"
+          className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-teal-300 cursor-pointer transition-all flex flex-col justify-between gap-3"
         >
-          <svg className="pointer-events-none absolute -right-2 -bottom-2 w-28 h-24 text-[#064e3b] opacity-[0.06]" viewBox="0 0 120 100" fill="none">
-            <circle cx="70" cy="55" r="36" stroke="currentColor" strokeWidth="6" strokeDasharray="45 15" />
-            <path d="M70 55 L95 30" stroke="currentColor" strokeWidth="4" />
-          </svg>
-          <div className="relative z-10 flex items-center justify-end text-[10px] text-[#357a59] uppercase">
-            <span className="text-[#065f46] font-bold">EGRESOS & GASTOS ({facturasCompra.length})</span>
-          </div>
-          <div className="relative z-10 mt-2">
-            <span className="text-xs text-[#1f5e41] font-medium">COMPRAS REGISTRADAS:</span>
-            <p className="text-2xl font-bold text-[#042f22] tracking-tight">
-              ${totalCompras.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-            </p>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#1f5e41] font-semibold">
-              <span>IMPUTACIÓN: 100% C. COSTO</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500">Compras Registradas</span>
+            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+              <BookOpenCheck className="w-4 h-4" />
             </div>
+          </div>
+          <p className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            ${totalCompras.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+          </p>
+          <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100">
+            <span className="text-slate-400">{facturasCompra.length} comprobantes</span>
+            <span className="text-slate-600 font-semibold">Imputado 100%</span>
           </div>
         </div>
 
         {/* KPI: Liquidez en Bancos */}
         <div
           onClick={() => setActiveModule('tesoreria')}
-          className="relative overflow-hidden bg-white border border-emerald-800/30 border-t-4 border-t-[#064e3b] p-4 cursor-pointer hover:border-[#047857] transition-colors"
+          className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-teal-300 cursor-pointer transition-all flex flex-col justify-between gap-3"
         >
-          <svg className="pointer-events-none absolute -right-2 -bottom-2 w-28 h-24 text-[#064e3b] opacity-[0.06]" viewBox="0 0 120 100" fill="none">
-            <path d="M10 75 Q 35 35, 60 55 T 110 20" stroke="currentColor" strokeWidth="5" fill="none" />
-            <line x1="10" y1="85" x2="110" y2="85" stroke="currentColor" strokeWidth="3" />
-          </svg>
-          <div className="relative z-10 flex items-center justify-end text-[10px] text-[#357a59] uppercase">
-            <span className="text-[#064e3b] font-bold">DISPONIBILIDAD BANCARIA</span>
-          </div>
-          <div className="relative z-10 mt-2">
-            <span className="text-xs text-[#1f5e41] font-medium">SALDO CONSOLIDADO:</span>
-            <p className="text-2xl font-bold text-[#042f22] tracking-tight">
-              ${totalLiquidez.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-            </p>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#047857] font-semibold">
-              <span>{cuentasBancarias.length} ENTIDADES ACTIVAS</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500">Disponibilidad Bancaria</span>
+            <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+              <Landmark className="w-4 h-4" />
             </div>
+          </div>
+          <p className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            ${totalLiquidez.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+          </p>
+          <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100">
+            <span className="text-slate-400">{cuentasBancarias.length} cuentas activas</span>
+            <span className="text-sky-600 font-semibold">Tesorería</span>
           </div>
         </div>
 
         {/* KPI: Cheques en Cartera */}
         <div
           onClick={() => setActiveModule('tesoreria')}
-          className="relative overflow-hidden bg-white border border-emerald-800/30 border-t-4 border-t-emerald-500 p-4 cursor-pointer hover:border-[#047857] transition-colors"
+          className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-teal-300 cursor-pointer transition-all flex flex-col justify-between gap-3"
         >
-          <svg className="pointer-events-none absolute -right-2 -bottom-2 w-28 h-24 text-[#064e3b] opacity-[0.06]" viewBox="0 0 120 100" fill="none">
-            <line x1="20" y1="30" x2="105" y2="30" stroke="currentColor" strokeWidth="5" />
-            <line x1="62" y1="30" x2="62" y2="90" stroke="currentColor" strokeWidth="5" />
-          </svg>
-          <div className="relative z-10 flex items-center justify-end text-[10px] text-[#357a59] uppercase">
-            <span className="text-[#047857] font-bold">VALORES EN CUSTODIA</span>
-          </div>
-          <div className="relative z-10 mt-2">
-            <span className="text-xs text-[#1f5e41] font-medium">CARTERA DE CHEQUES:</span>
-            <p className="text-2xl font-bold text-[#042f22] tracking-tight">
-              ${chequesEnCartera.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-            </p>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#065f46] font-semibold">
-              <span>{cheques.filter((c) => c.estado === 'En Cartera').length} CHEQUES EN CARTERA</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500">Cartera de Cheques</span>
+            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Clock className="w-4 h-4" />
             </div>
+          </div>
+          <p className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            ${chequesEnCartera.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+          </p>
+          <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100">
+            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold">
+              {cheques.filter((c) => c.estado === 'En Cartera').length} en custodia
+            </span>
+            <span className="text-slate-400">Valores</span>
           </div>
         </div>
       </div>
 
       {/* Gráfico y Balances */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        {/* Gráfico Estilo Osciloscopio Financiero */}
-        <div className="lg:col-span-2 bg-white border border-slate-300 p-5">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
             <div>
-              <div className="font-mono text-[10px] text-zonda-700 font-bold uppercase">
-                [ANÁLISIS TEMPORAL EN VIVO]
-              </div>
-              <h3 className="text-sm font-bold text-slate-900 font-mono uppercase">
-                FLUJO OPERATIVO // INGRESOS VS. EGRESOS (MILLONES ARS)
+              <h3 className="text-sm font-bold text-slate-900">
+                Flujo Operativo — Ingresos vs. Egresos
               </h3>
+              <p className="text-[11px] text-slate-400">Evolución mensual en millones ARS</p>
             </div>
-            <div className="flex items-center gap-4 text-xs font-mono">
+            <div className="flex items-center gap-4 text-xs">
               <div className="flex items-center gap-1.5">
                 <span className="w-3 h-3 bg-zonda-700"></span>
                 <span className="font-bold text-slate-800">INGRESOS</span>
@@ -344,7 +338,7 @@ export const DashboardModule: React.FC = () => {
             </div>
           </div>
 
-          <div className="h-64 flex items-end justify-between gap-3 pt-6 pb-2 px-2 border-b border-slate-300 bg-slate-50/50">
+          <div className="h-64 flex items-end justify-between gap-3 pt-6 pb-2 px-3 rounded-xl bg-slate-50/80 border border-slate-100">
             {mesesFinancieros.map((item, idx) => {
               const maxScale = Math.max(30, item.ingresos * 1.15, item.gastos * 1.15);
               return (
@@ -352,86 +346,95 @@ export const DashboardModule: React.FC = () => {
                   <div className="w-full flex items-end justify-center gap-1.5 h-48">
                     {/* Barra Ingresos */}
                     <div
-                      className="w-1/2 bg-zonda-700 hover:bg-slate-900 transition-all relative group"
+                      className="w-1/2 rounded-t-md bg-teal-600 hover:bg-teal-700 transition-all relative group"
                       style={{ height: `${Math.min(100, (item.ingresos / maxScale) * 100)}%` }}
                     >
-                      <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white font-mono text-[10px] py-0.5 px-1.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-slate-700">
+                      <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-semibold rounded-md py-0.5 px-1.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                         ${item.ingresos}M
                       </span>
                     </div>
                     {/* Barra Gastos */}
                     <div
-                      className="w-1/2 bg-slate-300 hover:bg-slate-500 transition-all relative group"
+                      className="w-1/2 rounded-t-md bg-slate-300 hover:bg-slate-400 transition-all relative group"
                       style={{ height: `${Math.min(100, (item.gastos / maxScale) * 100)}%` }}
                     >
-                      <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white font-mono text-[10px] py-0.5 px-1.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-slate-700">
+                      <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-semibold rounded-md py-0.5 px-1.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                         ${item.gastos}M
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-mono font-bold text-slate-700">{item.mes}</span>
+                  <span className="text-[11px] font-medium text-slate-500">{item.mes}</span>
                 </div>
               );
             })}
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-500">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
             <span>
-              FACTURACIÓN OCTUBRE: <strong className="text-slate-900">${(totalVentas / 1000000).toFixed(2)}M ARS</strong>
+              Facturación Octubre: <strong className="text-slate-900">${(totalVentas / 1000000).toFixed(2)}M ARS</strong>
             </span>
             <div className="flex items-center gap-4">
               <button
                 onClick={handleImprimirResumen}
-                className="text-slate-700 font-bold hover:underline cursor-pointer uppercase"
+                className="text-slate-600 font-semibold hover:text-slate-900 cursor-pointer"
               >
-                IMPRIMIR PDF →
+                Imprimir PDF →
               </button>
               <button
                 onClick={handleDescargarReporteAuditoria}
-                className="text-zonda-700 font-bold hover:underline cursor-pointer uppercase"
+                className="text-teal-600 font-semibold hover:text-teal-700 cursor-pointer"
               >
-                DESCARGAR EXCEL AUDITORÍA →
+                Descargar Excel →
               </button>
             </div>
           </div>
         </div>
 
         {/* Panel Lateral de Cuentas */}
-        <div className="bg-white border border-slate-300 p-5 flex flex-col justify-between">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
-              <h3 className="text-xs font-bold text-slate-900 font-mono uppercase">
-                [SALDOS // CAJAS Y BANCOS]
-              </h3>
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Cajas y Bancos</h3>
+                <p className="text-[11px] text-slate-400">Saldos conciliados en tiempo real</p>
+              </div>
+              <button
+                onClick={() => setActiveModule('tesoreria')}
+                className="text-[11px] font-semibold text-teal-600 hover:text-teal-700"
+              >
+                Ver todo ↗
+              </button>
             </div>
 
-            <div className="space-y-2 max-h-[260px] overflow-y-auto">
+            <div className="space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
               {cuentasBancarias.map((cuenta) => (
                 <div
                   key={cuenta.id}
                   onClick={() => setActiveModule('tesoreria')}
-                  className="p-3 bg-slate-50 border border-slate-200 hover:border-slate-400 transition-colors cursor-pointer"
+                  className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/70 hover:border-teal-300 hover:bg-white transition-all cursor-pointer"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono font-bold text-slate-900">{cuenta.nombre}</span>
-                    <span className="text-[9px] font-mono px-1 py-0.2 bg-slate-200 text-slate-800 font-bold">
+                    <span className="text-xs font-semibold text-slate-800">{cuenta.nombre}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-200/80 text-slate-600 font-semibold">
                       {cuenta.moneda}
                     </span>
                   </div>
-                  <div className="mt-2 flex items-baseline justify-between font-mono">
+                  <div className="mt-1.5 flex items-baseline justify-between">
                     <span className="text-sm font-bold text-slate-900">
                       ${cuenta.saldoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </span>
-                    <span className="text-[10px] text-emerald-700 font-bold">CONCILIADO</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-semibold">
+                      Conciliado
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between font-mono">
-            <span className="text-xs text-slate-500 uppercase font-semibold">TOTAL DISPONIBLE:</span>
-            <span className="text-sm font-bold text-slate-900">
+          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-xs text-slate-500 font-medium">Total Disponible</span>
+            <span className="text-sm font-extrabold text-slate-900">
               ${totalLiquidez.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
             </span>
           </div>

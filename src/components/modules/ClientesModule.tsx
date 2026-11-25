@@ -23,13 +23,14 @@ import {
   Boxes,
   Plus
 } from 'lucide-react';
-import { TipoComprobante } from '../../types/models';
+import { TipoComprobante, type FacturaAdeudada } from '../../types/models';
 import { useErp } from '../../context/ErpContext';
 import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
 import { printAfipElectronicInvoice } from '../../utils/afipQrInvoicePrint';
 import { sendInvoiceViaWhatsApp } from '../../utils/whatsappSender';
 import { CalendarioVencimientosModal } from '../modals/CalendarioVencimientosModal';
 import { NotaCreditoDebitoModal } from '../modals/NotaCreditoDebitoModal';
+import { DetalleComprobanteModal } from '../modals/DetalleComprobanteModal';
 import {
   analizarYNormalizarArchivoConIa,
   type ResultadoAnalisisArchivoIa,
@@ -61,6 +62,7 @@ export const ClientesModule: React.FC = () => {
   // Pestañas de detalle del cliente (Panel derecho)
   const [tabDetalle, setTabDetalle] = useState<'adeudadas' | 'comprobantes' | 'cuenta' | 'general' | 'otra'>('adeudadas');
   const [showNcNdModal, setShowNcNdModal] = useState(false);
+  const [facturaDetalle, setFacturaDetalle] = useState<FacturaAdeudada | null>(null);
 
   // Escuchar selección directa desde el Buscador Global del Header
   useEffect(() => {
@@ -1207,7 +1209,12 @@ export const ClientesModule: React.FC = () => {
                       <tbody className="divide-y divide-slate-200">
                         {clienteActivo && clienteActivo.facturasAdeudadas.length > 0 ? (
                           clienteActivo.facturasAdeudadas.map((f) => (
-                            <tr key={f.id} className="hover:bg-slate-50">
+                            <tr
+                              key={f.id}
+                              onClick={() => setFacturaDetalle(f)}
+                              title="Clic para ver el detalle completo de la factura, stock y asiento contable"
+                              className="hover:bg-emerald-50/60 cursor-pointer transition-colors"
+                            >
                               <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-900">
                                 {f.nroComprobante}
                               </td>
@@ -1231,7 +1238,7 @@ export const ClientesModule: React.FC = () => {
                               <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-slate-900">
                                 ${f.saldoAcumulado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                               </td>
-                              <td className="py-2 px-3 text-center">
+                              <td className="py-2 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-center justify-center gap-1">
                                   <button
                                     type="button"
@@ -1410,7 +1417,7 @@ export const ClientesModule: React.FC = () => {
                                     </span>
                                   )}
                                 </td>
-                                <td className="py-2 px-3 text-center">
+                                <td className="py-2 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                                   <div className="flex items-center justify-center gap-1">
                                     {adeudadaMatch && adeudadaMatch.saldo > 0 && (
                                       <button
@@ -3274,6 +3281,49 @@ export const ClientesModule: React.FC = () => {
           entidadId={clienteActivo.id}
           entidadNombre={clienteActivo.razonSocial}
           facturasAdeudadas={clienteActivo.facturasAdeudadas}
+        />
+      )}
+
+      {facturaDetalle && clienteActivo && (
+        <DetalleComprobanteModal
+          isOpen={!!facturaDetalle}
+          onClose={() => setFacturaDetalle(null)}
+          modo="cliente"
+          factura={facturaDetalle}
+          cliente={clienteActivo}
+          onCobrarOPagar={() => {
+            setFacturaCobroId(facturaDetalle.id);
+            setMontoCobro(facturaDetalle.saldo);
+            setShowCobroModal(true);
+          }}
+          onEmitirNcNd={() => setShowNcNdModal(true)}
+          onImprimirPdf={() =>
+            printAfipElectronicInvoice({
+              nroComprobante: facturaDetalle.nroComprobante,
+              tipo: facturaDetalle.tipo,
+              fechaEmision: facturaDetalle.fechaEmision,
+              fechaVencimiento: facturaDetalle.fechaPago,
+              clienteNombre: clienteActivo.razonSocial,
+              clienteCuit: clienteActivo.cuit,
+              clienteCondicionIva: clienteActivo.condicionIva,
+              clienteDomicilio: clienteActivo.domicilio,
+              descripcion: facturaDetalle.descripcion,
+              total: facturaDetalle.total,
+              empresa
+            })
+          }
+          onEnviarWhatsApp={() =>
+            sendInvoiceViaWhatsApp({
+              telefonoCliente: clienteActivo.telefono,
+              clienteNombre: clienteActivo.razonSocial,
+              tipoComprobante: facturaDetalle.tipo,
+              nroComprobante: facturaDetalle.nroComprobante,
+              importeTotal: facturaDetalle.saldo > 0 ? facturaDetalle.saldo : facturaDetalle.total,
+              vencimientoPago: facturaDetalle.fechaPago,
+              linkMercadoPago: `https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=ZONDA-${facturaDetalle.nroComprobante}`,
+              empresaNombre: empresa.razonSocial
+            })
+          }
         />
       )}
     </div>

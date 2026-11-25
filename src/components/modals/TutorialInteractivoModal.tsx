@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Zap,
   Maximize2,
-  Minimize2,
   CheckCircle2,
   Layers,
   Package,
@@ -16,9 +15,6 @@ import {
   CreditCard,
   Landmark,
   Cloud,
-  Sparkles,
-  BookOpen,
-  Eye,
   FileMinus2,
   Calculator,
   FileSpreadsheet,
@@ -1239,96 +1235,66 @@ export const TutorialInteractivoModal: React.FC<TutorialInteractivoModalProps> =
   }
 
   return createPortal(
-    <div className="fixed inset-0 bg-[#042f22]/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-2 sm:p-4 font-sans">
-      <div className="bg-white border-2 border-[#064e3b] rounded-lg max-w-6xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-xs">
-        {/* Cabecera Institucional del Tutorial */}
-        <div className="bg-[#064e3b] text-white px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 border-b border-emerald-900 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 shrink-0">
-              <GraduationCap className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-sm tracking-wide uppercase">
-                  Tutorial Interactivo de Inicio — Zonda ERP & Zonda Cloud
-                </span>
-                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-400 text-[#042f22] font-extrabold text-[10px] rounded uppercase">
-                  <Sparkles className="w-3 h-3" /> Recorrido Visual Guiado
-                </span>
-              </div>
-              <p className="text-[11px] text-emerald-200">
-                Aprendé en {TUTORIAL_STEPS.length} tutoriales visuales interactivos cómo hacer cada operación: facturas, stock, conciliación, impuestos y tu tienda Ecommerce
-              </p>
-            </div>
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-[9999] flex items-center justify-center p-3 font-sans">
+      <div className="bg-white border border-slate-200 rounded-xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-xs">
+        {/* Cabecera Minimalista (1 sola línea) */}
+        <div className="bg-[#064e3b] text-white px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-emerald-300 shrink-0" />
+            <span className="font-bold text-sm tracking-tight">Guía Visual Interactiva</span>
+            <span className="text-[11px] text-emerald-200 font-mono">
+              ({currentStep.stepNumber}/{TUTORIAL_STEPS.length})
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="relative hidden md:block">
+            <div className="relative hidden sm:block">
               <Search className="w-3.5 h-3.5 text-emerald-300 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="¿Cómo hago para...? (ej. factura, banco, variantes)"
-                className="pl-8 pr-3 py-1 bg-[#042f22] text-white placeholder-emerald-300/70 border border-emerald-700 rounded-lg text-[11px] w-72 focus:outline-none focus:border-emerald-400"
+                placeholder="Buscar tema (ej. factura, banco, variantes)..."
+                className="pl-8 pr-3 py-1 bg-[#042f22] text-white placeholder-emerald-300/70 border border-emerald-700 rounded-lg text-[11px] w-60 focus:outline-none focus:border-emerald-400"
               />
             </div>
-            <span className="px-2.5 py-1 bg-[#042f22] text-emerald-300 border border-emerald-700 font-mono font-bold text-[11px] rounded">
-              Paso {currentStep.stepNumber} de {TUTORIAL_STEPS.length}
-            </span>
             <button
               type="button"
               onClick={onClose}
-              title="Cerrar Tutorial (Esc)"
-              className="p-1.5 text-emerald-200 hover:text-white hover:bg-emerald-800/60 rounded transition-colors"
+              title="Cerrar (Esc)"
+              className="p-1 text-emerald-200 hover:text-white hover:bg-emerald-800 rounded-lg transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Barra de Progreso de los 12 Tutoriales (Clickeable + Filtrable) */}
-        <div className="bg-[#f4fbf7] border-b border-emerald-800/20 px-4 py-2.5 overflow-x-auto shrink-0">
+        {/* Selector Compacto de Tutoriales */}
+        <div className="bg-slate-50 border-b border-slate-200 px-3 py-2 overflow-x-auto shrink-0">
           <div className="flex items-center gap-1.5 min-w-max">
             {TUTORIAL_STEPS.map((st, idx) => {
               if (searchQuery.trim()) {
                 const q = searchQuery.toLowerCase();
                 const match =
                   st.title.toLowerCase().includes(q) ||
-                  st.subtitle.toLowerCase().includes(q) ||
                   st.moduleLabel.toLowerCase().includes(q) ||
                   st.summary.toLowerCase().includes(q);
                 if (!match) return null;
               }
-              const Icon = st.icon;
               const isCurrent = idx === currentStepIdx;
-              const isCompleted = idx < currentStepIdx;
               return (
                 <button
                   key={st.id}
                   type="button"
                   onClick={() => handleIrAPaso(idx)}
-                  className={`px-3 py-1.5 rounded-lg border text-left transition-all flex items-center gap-2 ${
+                  className={`px-2.5 py-1 rounded-full text-[11px] transition-all flex items-center gap-1.5 ${
                     isCurrent
-                      ? 'bg-[#064e3b] text-white border-[#064e3b] shadow-sm font-bold'
-                      : isCompleted
-                      ? 'bg-emerald-50 text-[#042f22] border-emerald-400/60 hover:bg-emerald-100 font-semibold'
-                      : 'bg-white text-slate-600 border-emerald-800/20 hover:bg-emerald-50/50'
+                      ? 'bg-[#064e3b] text-white font-bold shadow-xs'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                   }`}
                 >
-                  <span
-                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-extrabold shrink-0 ${
-                      isCurrent
-                        ? 'bg-emerald-400 text-[#042f22]'
-                        : isCompleted
-                        ? 'bg-[#064e3b] text-white'
-                        : 'bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    {isCompleted ? '✓' : st.stepNumber}
-                  </span>
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span className="text-[11px] whitespace-nowrap">
+                  <span className="font-mono text-[10px] opacity-80">{st.stepNumber}.</span>
+                  <span className="whitespace-nowrap">
                     {st.moduleLabel.split('·')[1]?.trim() || st.title}
                   </span>
                 </button>
@@ -1337,197 +1303,22 @@ export const TutorialInteractivoModal: React.FC<TutorialInteractivoModalProps> =
           </div>
         </div>
 
-        {/* Cuerpo Principal: Izquierda Explicación y Acción en Vivo | Derecha Visor de Imágenes con Callouts */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 bg-white">
-          {/* Columna Izquierda: Guía Paso a Paso (5 columnas) */}
-          <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="px-2.5 py-1 bg-emerald-100 text-[#064e3b] border border-emerald-300 font-bold text-[10px] uppercase rounded">
-                  Módulo: {currentStep.moduleLabel}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleProbarEnVivo}
-                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[11px] uppercase rounded-lg shadow-sm flex items-center gap-1.5 transition-colors"
-                >
-                  <Zap className="w-3.5 h-3.5" />
-                  <span>Ir a esta pantalla y probar en vivo</span>
-                </button>
-              </div>
-
+        {/* Cuerpo Limpio: 4 cols pasos cortos | 8 cols captura protagonista */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 bg-white items-start">
+          {/* Izquierda: Solo Título + 3 Pasos Acordeón + Botón Probar */}
+          <div className="lg:col-span-4 flex flex-col justify-between space-y-4">
+            <div className="space-y-3">
               <div>
-                <h2 className="text-base sm:text-lg font-extrabold text-[#042f22] leading-snug flex items-center gap-2">
-                  <StepIcon className="w-5 h-5 text-[#064e3b] shrink-0" />
-                  <span>
-                    Paso {currentStep.stepNumber}: {currentStep.title}
-                  </span>
+                <h2 className="text-base font-extrabold text-slate-900 leading-snug flex items-center gap-2">
+                  <StepIcon className="w-4 h-4 text-[#064e3b] shrink-0" />
+                  <span>{currentStep.title}</span>
                 </h2>
-                <p className="text-xs font-semibold text-[#047857] mt-0.5">
-                  {currentStep.subtitle}
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Tocá un número para verlo señalado en la pantalla:
                 </p>
               </div>
 
-              <p className="text-xs text-slate-700 leading-relaxed bg-[#f4fbf7] p-3 rounded-lg border border-emerald-800/20">
-                {currentStep.summary}
-              </p>
-
-              {/* Puntos clave numerados */}
-              <div className="space-y-2.5">
-                <div className="text-[11px] font-extrabold text-[#042f22] uppercase tracking-wider flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5 text-[#064e3b]" />
-                  <span>Puntos Clave en la Imagen:</span>
-                </div>
-                {currentStep.highlights.map((item, idx) => {
-                  const pinNum = String(idx + 1);
-                  const isHighlighted = activeCalloutNum === pinNum;
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => {
-                        setShowCallouts(true);
-                        setActiveCalloutNum(pinNum);
-                      }}
-                      className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                        isHighlighted
-                          ? 'bg-amber-50/80 border-amber-500 shadow-sm ring-1 ring-amber-400'
-                          : 'bg-white border-emerald-800/25 shadow-2xs hover:border-[#064e3b]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="font-extrabold text-[#042f22] text-xs">{item.title}</span>
-                        <span className="px-1.5 py-0.5 bg-emerald-50 text-[#064e3b] border border-emerald-300 text-[9px] font-bold uppercase rounded shrink-0">
-                          {item.tag}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-600 leading-relaxed">{item.detail}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Caja de Impacto Contable y Trazabilidad */}
-            <div className="p-3 bg-emerald-950 text-emerald-100 rounded-lg border border-emerald-700 space-y-1">
-              <div className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Trazabilidad e Impacto Contable Automático</span>
-              </div>
-              <p className="text-[11px] text-emerald-100/90 leading-relaxed">
-                {currentStep.accountingImpact}
-              </p>
-            </div>
-          </div>
-
-          {/* Columna Derecha: Visor Interactivo de Capturas Reales del Sistema (7 columnas) */}
-          <div className="lg:col-span-7 flex flex-col space-y-3">
-            {/* Selector de Captura (Vista A / Vista B) + Controles de Callouts y Zoom */}
-            <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-100 p-2 rounded-lg border border-slate-200">
-              <div className="flex items-center gap-1.5">
-                {currentStep.images.map((img, sIdx) => (
-                  <button
-                    key={img.src}
-                    type="button"
-                    onClick={() => setActiveSlideIdx(sIdx)}
-                    className={`px-3 py-1 rounded text-[11px] font-bold transition-all flex items-center gap-1.5 ${
-                      activeSlideIdx === sIdx
-                        ? 'bg-[#064e3b] text-white shadow-2xs'
-                        : 'bg-white text-[#042f22] border border-slate-300 hover:bg-emerald-50'
-                    }`}
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>{img.badge}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCallouts(!showCallouts)}
-                  className={`px-2.5 py-1 rounded text-[10px] font-bold border transition-colors ${
-                    showCallouts
-                      ? 'bg-amber-100 text-amber-900 border-amber-400'
-                      : 'bg-white text-slate-600 border-slate-300'
-                  }`}
-                >
-                  {showCallouts ? 'Ocultar Indicadores ①②③' : 'Mostrar Indicadores ①②③'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLightboxOpen(true)}
-                  className="px-2.5 py-1 bg-white hover:bg-slate-50 text-[#042f22] border border-slate-300 rounded text-[10px] font-bold flex items-center gap-1"
-                  title="Ampliar imagen a pantalla completa"
-                >
-                  <Maximize2 className="w-3 h-3 text-[#064e3b]" />
-                  <span>Ampliar Imagen</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Contenedor de la Imagen con Callouts Interactivos */}
-            <div className="relative rounded-lg border-2 border-emerald-900/30 bg-slate-900 overflow-hidden shadow-lg group flex-1 min-h-[300px] flex items-center justify-center">
-              <img
-                src={currentSlide.src}
-                alt={currentSlide.caption}
-                onClick={() => setLightboxOpen(true)}
-                className="w-full h-auto max-h-[440px] object-contain cursor-zoom-in transition-transform duration-200"
-              />
-
-              {/* Badges de Callouts Interactivos sobre la imagen (clic para señalar con foco) */}
-              {showCallouts &&
-                currentSlide.callouts.map((c) => {
-                  const isFocused = activeCalloutNum === c.num;
-                  return (
-                    <div
-                      key={c.num}
-                      style={{ top: c.top, left: c.left }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveCalloutNum(c.num);
-                      }}
-                      className={`absolute -translate-x-1/2 -translate-y-1/2 group/pin ${
-                        isFocused ? 'z-30' : 'z-20'
-                      }`}
-                    >
-                      <div
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border-2 border-white shadow-xl font-extrabold text-[11px] cursor-pointer transition-all ${
-                          isFocused
-                            ? 'bg-amber-400 text-[#042f22] scale-110 ring-4 ring-amber-300/70'
-                            : 'bg-amber-400/90 text-[#042f22] hover:scale-105'
-                        }`}
-                      >
-                        <span className="w-4 h-4 rounded-full bg-[#042f22] text-amber-300 flex items-center justify-center text-[10px]">
-                          {c.num}
-                        </span>
-                        <span className="whitespace-nowrap hidden sm:inline">{c.label}</span>
-                      </div>
-                      <div
-                        className={`${
-                          isFocused ? 'block' : 'hidden group-hover/pin:block'
-                        } absolute left-1/2 -translate-x-1/2 mt-1.5 w-60 p-2.5 bg-[#042f22] text-white text-[10px] rounded-lg shadow-2xl border border-amber-400 z-40 pointer-events-none`}
-                      >
-                        <div className="font-bold text-amber-300 mb-0.5">
-                          👉 Paso {c.num}: {c.label}
-                        </div>
-                        <div className="leading-snug">{c.desc}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-
-            {/* Epígrafe de la captura + Tarjetas resumen clickeables de los Callouts */}
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-bold text-[#042f22]">
-                  📸 {currentSlide.caption}
-                </span>
-                <span className="text-[10px] text-slate-500 shrink-0">
-                  Hacé clic en un punto ①②③ para señalarlo en la captura
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="space-y-2">
                 {currentSlide.callouts.map((c) => {
                   const isFocused = activeCalloutNum === c.num;
                   return (
@@ -1538,42 +1329,140 @@ export const TutorialInteractivoModal: React.FC<TutorialInteractivoModalProps> =
                         setShowCallouts(true);
                         setActiveCalloutNum(c.num);
                       }}
-                      className={`p-2 rounded border text-left flex items-start gap-2 transition-all ${
+                      className={`w-full text-left p-3 rounded-xl border transition-all ${
                         isFocused
-                          ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-400'
-                          : 'bg-white border-emerald-800/20 hover:border-[#064e3b]'
+                          ? 'bg-amber-50 border-amber-400 shadow-xs'
+                          : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                       }`}
                     >
-                      <span className="w-5 h-5 rounded-full bg-amber-400 text-[#042f22] font-extrabold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                        {c.num}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="font-bold text-[#042f22] text-[11px] truncate">{c.label}</div>
-                        <div className="text-[10px] text-slate-600 leading-tight">{c.desc}</div>
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`w-6 h-6 rounded-full flex items-center justify-center font-extrabold text-xs shrink-0 ${
+                            isFocused
+                              ? 'bg-amber-400 text-slate-900'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {c.num}
+                        </span>
+                        <span className="font-bold text-slate-900 text-xs">{c.label}</span>
                       </div>
+                      {isFocused && (
+                        <p className="text-[11px] text-slate-700 mt-2 pl-8 leading-relaxed">
+                          {c.desc}
+                        </p>
+                      )}
                     </button>
                   );
                 })}
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={handleProbarEnVivo}
+              className="w-full py-2.5 px-4 bg-[#064e3b] hover:bg-[#047857] text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-colors"
+            >
+              <Zap className="w-4 h-4 text-amber-300" />
+              <span>Ir a esta pantalla y probar</span>
+            </button>
+          </div>
+
+          {/* Derecha: Captura Grande y Despejada con Pines Circulares Limpios */}
+          <div className="lg:col-span-8 flex flex-col space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                {currentStep.images.length > 1 &&
+                  currentStep.images.map((img, sIdx) => (
+                    <button
+                      key={img.src}
+                      type="button"
+                      onClick={() => setActiveSlideIdx(sIdx)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                        activeSlideIdx === sIdx
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {img.badge}
+                    </button>
+                  ))}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowCallouts(!showCallouts)}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200"
+                >
+                  {showCallouts ? 'Ocultar puntos' : 'Mostrar puntos'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 flex items-center gap-1"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>Ampliar</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Imagen protagonista sin ruido */}
+            <div className="relative rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-sm flex items-center justify-center">
+              <img
+                src={currentSlide.src}
+                alt={currentSlide.caption}
+                onClick={() => setLightboxOpen(true)}
+                className="w-full h-auto max-h-[500px] object-contain cursor-zoom-in"
+              />
+
+              {/* Pines circulares limpios: solo el activo muestra etiqueta corta */}
+              {showCallouts &&
+                currentSlide.callouts.map((c) => {
+                  const isFocused = activeCalloutNum === c.num;
+                  return (
+                    <button
+                      key={c.num}
+                      type="button"
+                      style={{ top: c.top, left: c.left }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveCalloutNum(c.num);
+                      }}
+                      className={`absolute -translate-x-1/2 -translate-y-1/2 transition-all flex items-center gap-1.5 rounded-full border-2 border-white shadow-lg ${
+                        isFocused
+                          ? 'z-30 bg-amber-400 text-slate-950 px-2.5 py-1 scale-110 ring-4 ring-amber-400/50 font-extrabold text-[11px]'
+                          : 'z-20 w-7 h-7 justify-center bg-[#064e3b] text-white hover:scale-110 font-extrabold text-xs'
+                      }`}
+                    >
+                      <span
+                        className={
+                          isFocused
+                            ? 'w-4 h-4 rounded-full bg-slate-950 text-amber-300 flex items-center justify-center text-[10px]'
+                            : ''
+                        }
+                      >
+                        {c.num}
+                      </span>
+                      {isFocused && <span className="whitespace-nowrap">{c.label}</span>}
+                    </button>
+                  );
+                })}
+            </div>
           </div>
         </div>
 
-        {/* Pie del Modal: Checkbox de No volver a mostrar + Navegación Anterior / Siguiente */}
-        <div className="bg-[#f4fbf7] border-t border-emerald-800/25 px-5 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-[#042f22] font-medium">
+        {/* Pie Minimalista */}
+        <div className="bg-slate-50 border-t border-slate-200 px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
+          <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] text-slate-600">
             <input
               type="checkbox"
               checked={dontShowOnLogin}
               onChange={(e) => handleToggleDontShow(e.target.checked)}
-              className="w-4 h-4 accent-[#064e3b] rounded cursor-pointer"
+              className="w-3.5 h-3.5 accent-[#064e3b] rounded"
             />
-            <span>
-              No volver a abrir automáticamente al iniciar sesión{' '}
-              <span className="text-slate-500 text-[11px]">
-                (Siempre disponible en el botón <strong>"🎓 Tutorial"</strong> de la barra superior)
-              </span>
-            </span>
+            <span>No abrir automáticamente al iniciar</span>
           </label>
 
           <div className="flex items-center gap-2">
@@ -1581,38 +1470,28 @@ export const TutorialInteractivoModal: React.FC<TutorialInteractivoModalProps> =
               type="button"
               disabled={currentStepIdx === 0}
               onClick={() => handleIrAPaso(currentStepIdx - 1)}
-              className="px-3.5 py-2 bg-white hover:bg-emerald-50 text-[#042f22] border border-emerald-800/30 font-bold rounded-lg disabled:opacity-40 flex items-center gap-1.5 transition-colors"
+              className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold rounded-lg disabled:opacity-40 flex items-center gap-1"
             >
-              <ChevronLeft className="w-4 h-4" />
-              <span>Paso Anterior</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleProbarEnVivo}
-              className="px-3.5 py-2 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-400 font-bold rounded-lg flex items-center gap-1.5 transition-colors"
-            >
-              <Minimize2 className="w-3.5 h-3.5" />
-              <span>Modo Guía Flotante</span>
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Anterior</span>
             </button>
 
             {currentStepIdx < TUTORIAL_STEPS.length - 1 ? (
               <button
                 type="button"
                 onClick={() => handleIrAPaso(currentStepIdx + 1)}
-                className="px-4 py-2 bg-[#064e3b] hover:bg-[#047857] text-white font-bold rounded-lg flex items-center gap-1.5 transition-colors shadow-sm"
+                className="px-4 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold rounded-lg flex items-center gap-1"
               >
-                <span>Siguiente Paso ({currentStepIdx + 2}/{TUTORIAL_STEPS.length})</span>
-                <ChevronRight className="w-4 h-4" />
+                <span>Siguiente</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg flex items-center gap-1.5 transition-colors shadow-sm"
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg"
               >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>¡Comenzar a Operar Zonda ERP!</span>
+                Listo
               </button>
             )}
           </div>

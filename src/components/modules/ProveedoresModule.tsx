@@ -26,6 +26,8 @@ import { useErp, flattenCuentasContables } from '../../context/ErpContext';
 import { exportToExcelCsv, printFinancialReport } from '../../utils/exportUtils';
 import { CalendarioVencimientosModal } from '../modals/CalendarioVencimientosModal';
 import { NotaCreditoDebitoModal } from '../modals/NotaCreditoDebitoModal';
+import { DetalleComprobanteModal } from '../modals/DetalleComprobanteModal';
+import type { FacturaAdeudadaProveedor } from '../../types/models';
 import {
   extraerDatosFacturaDesdeFoto,
   imageFileToBase64,
@@ -64,6 +66,7 @@ export const ProveedoresModule: React.FC = () => {
   // Pestañas de detalle del proveedor (Panel derecho)
   const [tabDetalle, setTabDetalle] = useState<'adeudadas' | 'comprobantes' | 'cuenta' | 'general' | 'otra'>('adeudadas');
   const [showNcNdModal, setShowNcNdModal] = useState(false);
+  const [facturaDetalle, setFacturaDetalle] = useState<FacturaAdeudadaProveedor | null>(null);
 
   // Escuchar selección directa desde el Buscador Global del Header
   useEffect(() => {
@@ -1168,10 +1171,9 @@ export const ProveedoresModule: React.FC = () => {
                           proveedorActivo.facturasAdeudadas.map((f) => (
                             <tr
                               key={f.id}
-                              onDoubleClick={() => {
-                                if (f.saldo > 0) abrirModalPagoConMedio(f.saldo, f.medioPagoPactado, f.id);
-                              }}
-                              className="hover:bg-slate-50 cursor-pointer"
+                              onClick={() => setFacturaDetalle(f)}
+                              title="Clic para ver el detalle completo de la factura, stock y asiento contable"
+                              className="hover:bg-emerald-50/60 cursor-pointer transition-colors"
                             >
                               <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-900">
                                 {f.nroComprobante}
@@ -3218,6 +3220,22 @@ export const ProveedoresModule: React.FC = () => {
           entidadId={proveedorActivo.id}
           entidadNombre={proveedorActivo.razonSocial}
           facturasAdeudadas={proveedorActivo.facturasAdeudadas}
+        />
+      )}
+
+      {facturaDetalle && proveedorActivo && (
+        <DetalleComprobanteModal
+          isOpen={!!facturaDetalle}
+          onClose={() => setFacturaDetalle(null)}
+          modo="proveedor"
+          factura={facturaDetalle}
+          proveedor={proveedorActivo}
+          onCobrarOPagar={() => {
+            if (facturaDetalle.saldo > 0) {
+              abrirModalPagoConMedio(facturaDetalle.saldo, facturaDetalle.medioPagoPactado, facturaDetalle.id);
+            }
+          }}
+          onEmitirNcNd={() => setShowNcNdModal(true)}
         />
       )}
     </div>

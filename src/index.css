@@ -6,97 +6,72 @@
   font-family: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #042f22;
-  background-color: #f4fbf7;
+  color: #0f172a;
+  background-color: #f8fafc;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Tipografía Limpia y Clínica + Grilla Arquitectónica en Verde Oscuro Sutil */
+/* Estética Limpia y Moderna — Grow Labs Suite */
 body {
   margin: 0;
   font-family: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   font-variant-numeric: tabular-nums;
-  color: #042f22;
+  color: #0f172a;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #f4fbf7;
-  background-image: 
-    linear-gradient(to right, rgba(6, 78, 59, 0.065) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(6, 78, 59, 0.065) 1px, transparent 1px);
-  background-size: 28px 28px;
-}
-
-/* Permitir que las tarjetas blancas dejen traslucir sutilmente los elementos gráficos contables de fondo */
-.bg-white {
-  background-color: rgba(255, 255, 255, 0.88) !important;
-  backdrop-filter: blur(1px);
+  background-color: #f8fafc;
 }
 
 h1, h2, h3, h4 {
   font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
 }
 
-/* Números tabulares perfectamente alineados en tablas, montos y CUITs sin usar fuente tipo consola */
 table, td, th, input, select, button, .font-mono {
   font-family: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.005em;
 }
 
-/* Mantener monoespaciado real únicamente en bloques de código técnico y archivos posicionales AFIP (.TXT) */
 pre, code {
   font-family: 'JetBrains Mono', 'Consolas', monospace !important;
   font-variant-numeric: tabular-nums;
 }
 
-/* Forzar esquinas rectas salvo en contenedores circulares de logo (.logo-circle) */
-*:not(.logo-circle), *::before, *::after {
-  border-radius: 0px !important;
+/* Bordes suaves por defecto en tarjetas, botones y campos que no declaren otro radio */
+@layer base {
+  button, input, select, textarea {
+    border-radius: 0.625rem;
+  }
 }
 
 .logo-circle {
-  border-radius: 9999px !important;
-  border: none !important;
+  border-radius: 9999px;
 }
 
-/* Scrollbars rectangulares tipo terminal de precisión */
+/* Scrollbars sutiles estilo Grow Labs Suite */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-left: 1px solid #e2e8f0;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #064e3b;
+  background: #cbd5e1;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #065f46;
+  background: #94a3b8;
 }
 
 ::selection {
-  background: #064e3b;
+  background: #0f766e;
   color: #ffffff;
-}
-
-/* Línea de escaneo o acento técnico */
-.technical-border {
-  border: 1px solid #cbd5e1;
-}
-
-.technical-tag {
-  font-family: 'Inter', 'Plus Jakarta Sans', sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
 }

@@ -476,36 +476,36 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
   };
 
   return (
-    <header className="h-14 bg-white border-b border-emerald-800/25 px-4 lg:px-6 flex items-center justify-between gap-3 sticky top-0 z-30">
-      {/* Izquierda: Módulo Activo y Selector Multi-Tenant de Empresas Aisladas */}
-      <div className="flex items-center gap-2 min-w-0 overflow-hidden relative">
-        <span className="px-2 py-1 bg-[#064e3b] text-white font-semibold text-[11px] tracking-wide uppercase whitespace-nowrap border border-[#047857] shrink-0">
-          {formatModuleLabel(activeModule)}
-        </span>
+    <header className="h-14 bg-white/95 backdrop-blur-xs border-b border-slate-200/80 px-4 lg:px-6 flex items-center justify-between gap-3 sticky top-0 z-30">
+      {/* Izquierda: Breadcrumb estilo Grow Labs Suite + Empresa Activa */}
+      <div className="flex items-center gap-2.5 min-w-0 overflow-hidden relative">
+        <div className="flex items-center gap-1.5 text-xs whitespace-nowrap shrink-0">
+          <span className="text-slate-400 font-medium">
+            {operadorActual.esCuentaZondaCloud ? 'Zonda Cloud' : 'Workspace'}
+          </span>
+          <span className="text-slate-300">›</span>
+          <span className="font-bold text-slate-900">
+            {formatModuleLabel(activeModule).replace(/^\d+\s*·\s*/, '')}
+          </span>
+        </div>
 
-        <div className="hidden lg:flex items-center gap-1.5 pl-2 border-l border-emerald-800/20 whitespace-nowrap min-w-0">
+        <div className="hidden lg:flex items-center gap-2 pl-2.5 border-l border-slate-200 whitespace-nowrap min-w-0">
           {operadorActual.esCuentaZondaCloud ? (
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-[#042f22] text-emerald-200 border border-emerald-700 text-[11px]">
-              <Cloud className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-              <span className="font-bold uppercase tracking-tight">
-                ZONDA CLOUD (ARCA)
-              </span>
-              <span className="text-[10px] px-1.5 py-0.2 bg-emerald-900 text-emerald-200 border border-emerald-600 font-mono font-bold">
-                {tenants.filter((t) => t.autorizacionZondaCloud.autorizado).length}/{tenants.length} Aceptaron
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-semibold">
+              <Cloud className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+              <span>
+                {tenants.filter((t) => t.autorizacionZondaCloud.autorizado).length}/{tenants.length} Empresas Autorizadas
               </span>
             </div>
           ) : (
             <>
               <div
-                title="Entorno Aislado Multi-Tenant: Tu usuario ve únicamente los datos de tu propia empresa"
-                className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50/70 border border-emerald-800/30 min-w-0"
+                title={`${empresa.razonSocial} · CUIT ${empresa.cuit}`}
+                className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100/90 text-slate-700 shrink-0"
               >
-                <Building2 className="w-3.5 h-3.5 text-[#064e3b] shrink-0" />
-                <span className="font-bold text-[#042f22] text-[11px] tracking-tight truncate max-w-[120px] xl:max-w-[165px]">
+                <Building2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                <span className="font-semibold text-slate-800 text-[11px] truncate max-w-[150px]">
                   {empresa.razonSocial}
-                </span>
-                <span className="text-[10px] px-1 py-0.2 bg-white text-[#064e3b] border border-emerald-700/25 font-mono font-bold shrink-0">
-                  {empresa.cuit}
                 </span>
               </div>
 
@@ -532,22 +532,22 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
                     }
                   );
                 }}
-                title="Aceptar o revocar que Zonda Cloud pueda gestionar tus Compras, Ventas, Impuestos y Balances ARCA"
-                className={`px-2 py-1 text-[10px] font-mono font-bold uppercase border flex items-center gap-1 transition-colors shrink-0 ${
+                title="Aceptar o revocar que Zonda Cloud gestione tus impuestos ARCA"
+                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 transition-colors shrink-0 ${
                   activeTenant?.autorizacionZondaCloud.autorizado
-                    ? 'bg-emerald-100/90 hover:bg-emerald-200 text-[#042f22] border-emerald-500'
-                    : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400'
+                    ? 'bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200/80'
+                    : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
                 }`}
               >
                 {activeTenant?.autorizacionZondaCloud.autorizado ? (
                   <>
-                    <Unlock className="w-3 h-3 text-[#064e3b]" />
-                    <span>Cloud: Aceptado ✓</span>
+                    <Unlock className="w-3 h-3 shrink-0" />
+                    <span>Cloud Activo</span>
                   </>
                 ) : (
                   <>
-                    <Lock className="w-3 h-3 text-amber-800" />
-                    <span>Aceptar Cloud</span>
+                    <Lock className="w-3 h-3 shrink-0" />
+                    <span>Activar Cloud</span>
                   </>
                 )}
               </button>
@@ -556,11 +556,11 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
         </div>
       </div>
 
-      {/* Derecha: Buscador Global 100% Funcional + Manuales + Alertas + Operador */}
+      {/* Derecha: Buscador Global Pill + Acciones Limpias + Operador */}
       <div className="flex items-center gap-2 shrink-0">
         {/* Buscador Global Omnicanal */}
         <div ref={searchContainerRef} className="relative">
-          <Search className="w-3.5 h-3.5 text-[#357a59] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             ref={searchInputRef}
             type="text"
@@ -571,8 +571,8 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
               setSearchFocused(true);
             }}
             onKeyDown={handleSearchKeyDown}
-            placeholder="Buscar CUIT, cliente, factura o ítem..."
-            className="h-8 pl-8 pr-7 text-xs bg-emerald-50/40 border border-emerald-800/25 focus:outline-none focus:border-[#064e3b] focus:bg-white w-36 sm:w-44 xl:w-48 2xl:w-64 transition-all placeholder:text-[#357a59]/75 font-medium text-[#042f22]"
+            placeholder="Buscar cliente o módulo..."
+            className="h-8 pl-8 pr-14 text-xs rounded-xl bg-slate-100/80 border border-slate-200/80 focus:outline-none focus:border-teal-500 focus:bg-white w-44 sm:w-52 xl:w-60 transition-all placeholder:text-slate-400 font-medium text-slate-800"
           />
           {globalQuery ? (
             <button
@@ -581,13 +581,13 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
                 setGlobalQuery('');
                 searchInputRef.current?.focus();
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-[#357a59] hover:text-[#042f22]"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
               title="Limpiar búsqueda"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           ) : (
-            <span className="hidden xl:inline-block absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#357a59]/70 border border-emerald-800/20 px-1 bg-white pointer-events-none">
+            <span className="hidden sm:inline-block absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400 border border-slate-200/90 rounded-md px-1.5 py-0.5 bg-white pointer-events-none">
               Ctrl+K
             </span>
           )}
@@ -678,49 +678,49 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           )}
         </div>
 
-        {/* Botón Dossier Comercial PDF (Problema -> Revelación -> Solución) */}
+        {/* Botón Dossier Comercial PDF */}
         <a
           href="/DOSSIER_COMERCIAL_ZONDA_ERP.pdf"
           download="DOSSIER_COMERCIAL_ZONDA_ERP.pdf"
           target="_blank"
           rel="noopener noreferrer"
-          title="Descargar Dossier Comercial persuasivo en PDF (Problema, Revelación y Solución de cada módulo)"
-          className="h-8 px-2.5 border border-emerald-700/40 bg-emerald-50 hover:bg-emerald-100 text-[#042f22] text-[11px] font-bold transition-all flex items-center gap-1.5 whitespace-nowrap"
+          title="Descargar Dossier Comercial en PDF"
+          className="h-8 px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap"
         >
-          <FileDown className="w-3.5 h-3.5 text-[#064e3b] shrink-0" />
-          <span className="hidden sm:inline">Dossier PDF</span>
+          <FileDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+          <span className="hidden xl:inline">Dossier</span>
         </a>
 
-        {/* Botón Monitor de Sincronización y Comunicaciones en Vivo */}
+        {/* Botón Monitor de Sincronización */}
         <button
           type="button"
           onClick={() => setModalSyncOpen(true)}
-          title="Abrir Monitor de Comunicaciones y Sincronización Omnicanal en Tiempo Real"
-          className="h-8 px-2.5 border border-emerald-500 bg-emerald-50 hover:bg-emerald-100 text-[#042f22] text-[11px] font-extrabold transition-all flex items-center gap-1.5 whitespace-nowrap"
+          title="Monitor de Comunicaciones y Sincronización en Vivo"
+          className="h-8 px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap"
         >
-          <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse shrink-0" />
-          <Radio className="w-3.5 h-3.5 text-[#064e3b] shrink-0" />
-          <span className="hidden md:inline">Sync 100%</span>
+          <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse shrink-0" />
+          <Radio className="w-3.5 h-3.5 text-teal-600 shrink-0 hidden" />
+          <span className="hidden md:inline">Sync</span>
         </button>
 
-        {/* Botón Tutorial Interactivo con Imágenes */}
+        {/* Botón Tutorial Interactivo */}
         <button
           type="button"
           onClick={() => setModalTutorialOpen(true)}
-          title="Abrir Tutorial Interactivo Paso a Paso con Imágenes y Guía en Vivo"
-          className="h-8 px-2.5 border border-amber-500 bg-amber-50 hover:bg-amber-100 text-[#042f22] text-[11px] font-extrabold transition-all flex items-center gap-1.5 whitespace-nowrap"
+          title="Abrir Tutorial Interactivo Paso a Paso"
+          className="h-8 px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap"
         >
-          <GraduationCap className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+          <GraduationCap className="w-3.5 h-3.5 text-teal-600 shrink-0" />
           <span>Tutorial</span>
         </button>
 
-        {/* Botón Manuales Compacto en 1 Línea */}
+        {/* Botón Manuales */}
         <button
           onClick={() => setModalManualesOpen(true)}
           title="Abrir Manuales Paso a Paso e Instrucciones"
-          className="h-8 px-3 border border-[#047857] bg-[#064e3b] hover:bg-[#047857] text-white text-[11px] font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap"
+          className="h-8 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap shadow-xs"
         >
-          <BookOpen className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+          <BookOpen className="w-3.5 h-3.5 text-teal-400 shrink-0" />
           <span>Manuales</span>
         </button>
 
@@ -729,10 +729,10 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           <button
             onClick={() => setShowNotif(!showNotif)}
             title="Notificaciones de Auditoría y Base de Datos"
-            className="h-8 w-8 flex items-center justify-center text-[#064e3b] hover:bg-emerald-50 border border-emerald-800/25 transition-colors relative"
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors relative"
           >
             <Bell className="w-3.5 h-3.5" />
-            <span className="w-1.5 h-1.5 bg-[#16a34a] absolute top-1.5 right-1.5"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-500 absolute top-1.5 right-1.5"></span>
           </button>
 
           {showNotif && (
