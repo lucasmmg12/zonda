@@ -47,7 +47,8 @@ export const TODOS_LOS_MODULOS: { key: ModuleKey; codigo: string; nombre: string
   { key: 'sueldos', codigo: '07', nombre: 'Sueldos y Cargas (LSD)', descripcion: 'Legajos, liquidación Ley 20.744, F.931 y Libro Sueldos Digital' },
   { key: 'migracion', codigo: '08', nombre: 'Centro de Migración', descripcion: 'Importación y validación Dry-Run de padrones y saldos' },
   { key: 'configuracion', codigo: '09', nombre: 'Configuración Fiscal', descripcion: 'Datos impositivos, puntos de venta, certificados ARCA y MP' },
-  { key: 'usuarios', codigo: '10', nombre: 'Usuarios y Accesos', descripcion: 'Alta/baja de usuarios, roles RBAC, PINs y auditoría de accesos' }
+  { key: 'usuarios', codigo: '10', nombre: 'Usuarios y Accesos', descripcion: 'Alta/baja de usuarios, roles RBAC, PINs y auditoría de accesos' },
+  { key: 'ecommerce', codigo: '12', nombre: 'Ecommerce (Tienda Online)', descripcion: 'Tienda estilo Tiendanube, variantes, Google Auth y pagos online' }
 ];
 
 export const PLANTILLAS_ROLES: Record<
@@ -59,7 +60,7 @@ export const PLANTILLAS_ROLES: Record<
   }
 > = {
   'ADMINISTRADOR GENERAL': {
-    modulos: ['tablero', 'clientes', 'proveedores', 'tesoreria', 'contabilidad', 'inventario', 'sueldos', 'migracion', 'configuracion', 'usuarios'],
+    modulos: ['tablero', 'clientes', 'proveedores', 'tesoreria', 'contabilidad', 'inventario', 'sueldos', 'migracion', 'configuracion', 'usuarios', 'ecommerce'],
     permisos: {
       emitirFacturasAfip: true,
       aprobarPagosTesoreria: true,

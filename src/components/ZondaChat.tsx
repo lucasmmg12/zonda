@@ -53,7 +53,8 @@ const MODULE_LABELS: Record<ModuleKey, string> = {
   migracion: '08 · Centro de Migración ERP (Dry-Run)',
   configuracion: '09 · Configuración Fiscal, ARCA y Mercado Pago',
   usuarios: '10 · Usuarios, Roles y Accesos (RBAC)',
-  zondacloud: '11 · Zonda Cloud (Liquidación Impositiva ARCA Delegada)'
+  zondacloud: '11 · Zonda Cloud (Liquidación Impositiva ARCA Delegada)',
+  ecommerce: '12 · Ecommerce (Tienda Online Multi-Tenant)'
 };
 
 const MODULE_QUICK_ACTIONS: Record<
@@ -125,6 +126,12 @@ const MODULE_QUICK_ACTIONS: Record<
     { icon: Download, label: 'Descargar Libro IVA RG 4597', prompt: 'Quiero descargar el Libro IVA Ventas y Compras para AFIP' },
     { icon: Building2, label: 'Estado Multi-Tenant', prompt: '¿Cómo está la empresa hoy? Dame el resumen ejecutivo completo.' },
     { icon: ShieldCheck, label: 'Auditoría ARCA', prompt: 'Auditá si todos los clientes y proveedores tienen CUIT válido cargado.' }
+  ],
+  ecommerce: [
+    { icon: ShoppingCart, label: 'Resumen Tienda Online', prompt: '¿Cómo está el stock disponible para publicar en mi tienda Ecommerce?' },
+    { icon: Boxes, label: 'Stock para variantes', prompt: '¿Qué artículos de inventario tienen stock igual o por debajo del mínimo?' },
+    { icon: Receipt, label: 'Facturación del mes', prompt: '¿Cuántas facturas de venta emitimos y cuál es el total facturado con CAE?' },
+    { icon: Banknote, label: 'Acreditaciones MP/Banco', prompt: '¿Cuál es mi posición actual en cada cuenta bancaria y caja?' }
   ]
 };
 
@@ -187,6 +194,11 @@ const MODULE_IDLE_PHRASES: Record<ModuleKey, string[]> = {
     '☁️ Auditando Compras y Ventas en Zonda Cloud ARCA...',
     '🧾 Calculando DDJJ IVA F.2002 y Prorrateo Art. 13...',
     '🔒 Aislamiento Multi-Tenant por CUIT activo'
+  ],
+  ecommerce: [
+    '🛍️ Sincronizando variantes y stock con tu Tienda Online...',
+    '🔐 Compradores protegidos con Google Auth...',
+    '💳 Checkout Mercado Pago y Transferencia listos'
   ]
 };
 
@@ -298,6 +310,16 @@ const MODULE_CAPABILITIES: Record<
       'Liquidar **IVA F.2002, Libro IVA Digital RG 4597 (.TXT), SICORE/SIRE e IIBB**'
     ],
     proTip: 'El titular de Zonda ERP puede otorgar o revocar el acceso delegado a Zonda Cloud en cualquier momento.'
+  },
+  ecommerce: {
+    where: '12 · Ecommerce (Tienda Online Multi-Tenant)',
+    capabilities: [
+      'Crear y personalizar tu **tienda online estilo Tiendanube** con link público `/?tienda=<slug>`',
+      'Gestionar **productos con variantes multi-atributo** (Talle, Color, Presentación) vinculados al Inventario',
+      'Cobrar directamente con **Mercado Pago, Transferencia y Efectivo** con registro obligatorio vía **Google Auth**',
+      'Sincronizar automáticamente cada pedido aprobado en **Clientes, Inventario, Facturación, Tesorería y Contabilidad**'
+    ],
+    proTip: 'Hacé clic en "Abrir mi Tienda en Vivo" para probar la experiencia de compra completa.'
   }
 };
 

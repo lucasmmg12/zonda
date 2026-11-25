@@ -21,6 +21,7 @@ import type {
   TipoComprobante,
   ConvenioColectivo
 } from '../types/models';
+import type { EcommercePedido } from '../types/ecommerce';
 import {
   mockClientes,
   mockProveedores,
@@ -189,6 +190,10 @@ interface ErpContextValue {
     descripcion: string;
     reingresarStockItems?: { articuloId: string; cantidad: number }[];
   }) => Promise<void>;
+  registrarPedidoEcommerceEnErp: (
+    pedido: EcommercePedido,
+    cuentaTesoreriaDestinoId?: string
+  ) => Promise<{ clienteId: string; facturaNro: string } | null>;
 
   // Acciones Proveedores y Compras
   crearProveedor: (nuevo: Omit<Proveedor, 'id' | 'facturasAdeudadas' | 'movimientos' | 'saldo'>) => Promise<Proveedor>;
@@ -2105,8 +2110,9 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       lineasMediosCobro?: LineaMedioPagoMixto[];
       retencionesSufridas?: DesgloseRetencionesFiscales;
     };
+    clienteOverride?: Cliente;
   }) => {
-    const cliente = clientes.find((c) => c.id === params.clienteId);
+    const cliente = params.clienteOverride || clientes.find((c) => c.id === params.clienteId);
     if (!cliente) return;
 
     const ptoVta = params.puntoVenta || '0001';
@@ -2187,7 +2193,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setInventario(nuevoInv);
 
       if (articulosModificados.length > 0) {
-        await supabase.from('erp_inventario').upsert(
+        void supabase.from('erp_inventario').upsert(
           articulosModificados.map((i) => ({
             id: i.id,
             codigo: i.codigo,
@@ -2207,7 +2213,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             movimientos: i.movimientos || [],
             updated_at: new Date().toISOString()
           }))
-        );
+        ).then(() => {}, () => {});
       }
     }
 
@@ -2317,7 +2323,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setClientes((prev) => prev.map((c) => (c.id === cliente.id ? clienteActualizado : c)));
     setFacturasVenta((prev) => [nuevoComprobanteVenta, ...prev]);
 
-    await Promise.all([
+    void Promise.all([
       supabase.from('erp_clientes').upsert({
         id: clienteActualizado.id,
         nombre: clienteActualizado.nombre,
@@ -2354,7 +2360,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cae: nuevoComprobanteVenta.cae,
         cae_vencimiento: nuevoComprobanteVenta.caeVencimiento
       })
-    ]);
+    ]).catch(() => {});
 
     // Generar asiento contable automático con desglose de impuestos + Costo de Mercadería Vendida (CMV) si hubo egreso de stock
     const nextAsientoNum =
@@ -3846,6 +3852,111 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLastSync(new Date().toLocaleTimeString('es-AR'));
   };
 
+  const registrarPedidoEcommerceEnErp = async (
+    pedido: EcommercePedido,
+    cuentaTesoreriaDestinoId?: string
+  ): Promise<{ clienteId: string; facturaNro: string } | null> => {
+    try {
+      // 1. Buscar o crear cliente en 02 - Clientes a partir de los datos de Google Auth
+      let cliente = clientes.find(
+        (c) =>
+          (c.email && c.email.toLowerCase() === pedido.compradorEmail.toLowerCase()) ||
+          (pedido.compradorDniCuit && c.cuit === pedido.compradorDniCuit)
+      );
+
+      if (!cliente) {
+        const nuevoCli: Cliente = {
+          id: `CLI-EC-${Date.now()}`,
+          nombre: pedido.compradorNombre,
+          razonSocial: pedido.compradorNombre,
+          cuit: pedido.compradorDniCuit || '99-99999999-9',
+          condicionIva: 'Consumidor Final',
+          domicilio: pedido.direccionEnvio || 'Compra Online Ecommerce',
+          telefono: pedido.compradorTelefono || '',
+          email: pedido.compradorEmail,
+          saldo: 0,
+          activo: true,
+          listaPrecios: 'Tienda Online',
+          limiteCredito: 500000,
+          vendedor: 'Ecommerce Zonda',
+          facturasAdeudadas: [],
+          movimientos: []
+        };
+        cliente = nuevoCli;
+        setClientes((prev) => [nuevoCli, ...prev]);
+        void supabase.from('erp_clientes').upsert({
+          id: nuevoCli.id,
+          nombre: nuevoCli.nombre,
+          razon_social: nuevoCli.razonSocial,
+          cuit: nuevoCli.cuit,
+          condicion_iva: nuevoCli.condicionIva,
+          domicilio: nuevoCli.domicilio,
+          telefono: nuevoCli.telefono,
+          email: nuevoCli.email,
+          saldo: 0,
+          activo: true,
+          lista_precios: nuevoCli.listaPrecios,
+          limite_credito: nuevoCli.limiteCredito,
+          vendedor: nuevoCli.vendedor,
+          facturas_adeudadas: [],
+          movimientos: [],
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      // 2. Calcular neto e IVA 21% + mapear ítems vinculados a Inventario ERP
+      const netoGravado = Number((pedido.total / 1.21).toFixed(2));
+      const iva21 = Number((pedido.total - netoGravado).toFixed(2));
+      const medioLabel =
+        pedido.metodoPago === 'mercadopago'
+          ? 'Mercado Pago (Ecommerce)'
+          : pedido.metodoPago === 'transferencia'
+          ? 'Transferencia Bancaria (Ecommerce)'
+          : 'Efectivo en Caja (Retiro Ecommerce)';
+
+      const itemsInventarioVenta = pedido.items
+        .filter((it) => Boolean(it.articuloInventarioId))
+        .map((it) => ({
+          articuloId: it.articuloInventarioId as string,
+          cantidad: it.cantidad,
+          precioUnitarioNeto: Number((it.precioUnitario / 1.21).toFixed(2))
+        }));
+
+      const nextNum = String(415 + facturasVenta.length).padStart(8, '0');
+      const facturaNro = `0001-${nextNum}`;
+
+      await emitirFacturaVenta({
+        clienteId: cliente.id,
+        clienteOverride: cliente,
+        tipo: 'Factura B',
+        puntoVenta: '0001',
+        numero: nextNum,
+        netoGravado,
+        iva21,
+        descripcion: `Venta Ecommerce Pedido ${pedido.numeroPedido} (${pedido.items
+          .map((i) => `${i.cantidad}x ${i.nombre}${i.varianteNombre ? ` [${i.varianteNombre}]` : ''}`)
+          .join(', ')})`,
+        medioCobroPactado: medioLabel,
+        itemsInventarioVenta,
+        cancelacionAlContado: {
+          activa: true,
+          lineasMediosCobro: [
+            {
+              medio: medioLabel,
+              cuentaBancariaId: cuentaTesoreriaDestinoId || cuentasBancarias[0]?.id || 'CTA-01',
+              importe: pedido.total
+            }
+          ]
+        }
+      });
+
+      return { clienteId: cliente.id, facturaNro };
+    } catch (err) {
+      console.error('Error sincronizando pedido ecommerce en ERP:', err);
+      return null;
+    }
+  };
+
   const emitirNotaCreditoDebitoProveedor = async (params: {
     proveedorId: string;
     tipo: 'Nota de Crédito A' | 'Nota de Crédito B' | 'Nota de Débito';
@@ -4710,6 +4821,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         crearCliente,
         emitirFacturaVenta,
         emitirNotaCreditoDebitoCliente,
+        registrarPedidoEcommerceEnErp,
         registrarCobroCliente,
         crearProveedor,
         registrarFacturaCompra,

@@ -14,6 +14,9 @@ import { ConfiguracionModule } from './components/modules/ConfiguracionModule';
 import { SueldosModule } from './components/modules/SueldosModule';
 import { UsuariosModule } from './components/modules/UsuariosModule';
 import { ZondaCloudModule } from './components/modules/ZondaCloudModule';
+import { EcommerceModule } from './components/modules/EcommerceModule';
+import { StorefrontApp } from './components/ecommerce/StorefrontApp';
+import { resolveTenantIdBySlug } from './services/ecommerceService';
 import { ZondaChat } from './components/ZondaChat';
 import { ErpProvider, useErp } from './context/ErpContext';
 import {
@@ -26,6 +29,21 @@ function AppLayout() {
   const { activeModule, setActiveModule, empresa, activeTenantId, cambiarTenantActivo } = useErp();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [operadorActual, setOperadorActual] = useState<OperadorProfile>(getActiveOperator());
+
+  const tiendaSlug = new URLSearchParams(window.location.search).get('tienda');
+
+  useEffect(() => {
+    if (tiendaSlug) {
+      const resolvedTenant = resolveTenantIdBySlug(tiendaSlug);
+      if (resolvedTenant && resolvedTenant !== activeTenantId) {
+        cambiarTenantActivo(resolvedTenant);
+      }
+    }
+  }, [tiendaSlug, activeTenantId, cambiarTenantActivo]);
+
+  if (tiendaSlug) {
+    return <StorefrontApp tenantId={activeTenantId} empresaNombre={empresa.razonSocial} />;
+  }
 
   useEffect(() => {
     const syncOp = () => setOperadorActual(getActiveOperator());
@@ -109,6 +127,8 @@ function AppLayout() {
         return <UsuariosModule />;
       case 'zondacloud':
         return <ZondaCloudModule />;
+      case 'ecommerce':
+        return <EcommerceModule />;
       default:
         return <DashboardModule />;
     }

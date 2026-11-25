@@ -18,7 +18,12 @@ import {
   Cloud,
   Sparkles,
   BookOpen,
-  Eye
+  Eye,
+  FileMinus2,
+  Calculator,
+  FileSpreadsheet,
+  Store,
+  Search
 } from 'lucide-react';
 import { useErp } from '../../context/ErpContext';
 import type { ModuleKey } from '../layout/Sidebar';
@@ -637,6 +642,405 @@ export const TUTORIAL_STEPS: TutorialStepData[] = [
         ]
       }
     ]
+  },
+  {
+    stepNumber: 8,
+    id: 'step-notas-credito-debito',
+    title: 'Cómo Emitir Notas de Crédito y Débito (NC / ND)',
+    subtitle: 'Anulá saldos de facturas, reversá IVA y reingresá mercadería devuelta al stock',
+    moduleKey: 'clientes',
+    moduleLabel: '02 · Notas de Crédito / Débito',
+    icon: FileMinus2,
+    summary:
+      'Cuando necesitás anular parcialmente o totalmente una factura, aplicar una bonificación o cobrar intereses, usá el botón "NC / ND" desde Clientes o Proveedores. Zonda ERP descuenta el saldo de la factura original, reversa el IVA y opcionalmente devuelve la mercadería al Inventario.',
+    highlights: [
+      {
+        title: '① Elegí el Tipo de Comprobante y la Factura Asociada',
+        detail:
+          'Seleccioná Nota de Crédito A/B o Nota de Débito y vinculala a una factura impaga para que el saldo adeudado se actualice automáticamente.',
+        tag: 'Cuenta Corriente'
+      },
+      {
+        title: '② Ingresá el Neto Gravado (Cálculo automático de IVA 21%)',
+        detail:
+          'El sistema calcula el IVA y el total en tiempo real. Si elegís una factura asociada, podés precargar su saldo exacto.',
+        tag: 'ARCA / IVA'
+      },
+      {
+        title: '③ Tildá "Reingresar mercadería devuelta al Inventario"',
+        detail:
+          'Si el cliente devolvió productos físicos, activá esta casilla para sumar nuevamente las unidades al depósito con trazabilidad en el Kardex.',
+        tag: 'Stock Automático'
+      }
+    ],
+    accountingImpact:
+      'Genera el asiento contable de reversión (Ventas e IVA Débito al Debe vs. Deudores por Ventas al Haber) y actualiza la Posición Impositiva Mensual.',
+    images: [
+      {
+        src: '/tutorial/step_08_clientes_nc_nd.png',
+        caption: 'Cómo cargar una Nota de Crédito / Débito vinculada a una factura impaga desde Clientes',
+        badge: 'Vista A · Modal NC / ND',
+        callouts: [
+          {
+            num: '1',
+            label: 'Tipo NC/ND y Factura Asociada',
+            desc: 'Elegí Nota de Crédito A/B o Débito y vinculá la factura que querés ajustar.',
+            top: '34%',
+            left: '50%'
+          },
+          {
+            num: '2',
+            label: 'Neto, IVA 21% y Total en Vivo',
+            desc: 'Ingresá el neto gravado; el sistema calcula IVA 21% y el total automáticamente.',
+            top: '44%',
+            left: '50%'
+          },
+          {
+            num: '3',
+            label: 'Reingreso de Stock + Confirmar',
+            desc: 'Tildá para devolver stock al depósito y pulsá Confirmar Nota de Crédito.',
+            top: '62%',
+            left: '52%'
+          }
+        ]
+      }
+    ]
+  },
+  {
+    stepNumber: 9,
+    id: 'step-posicion-impositiva',
+    title: 'Cómo Calcular la Posición Impositiva Mensual (IVA F.2002)',
+    subtitle: 'Liquidación mensual automática de Débito, Crédito Fiscal, Retenciones y Percepciones',
+    moduleKey: 'contabilidad',
+    moduleLabel: '05 · Posición Impositiva',
+    icon: Calculator,
+    summary:
+      'Desde Contabilidad pulsá el botón "Posición Impositiva" para conocer en segundos cuánto IVA tenés a pagar o a favor en cualquier mes, contemplando Facturas, Notas de Crédito y todas las retenciones/percepciones sufridas.',
+    highlights: [
+      {
+        title: '① Seleccioná el Período Fiscal (Mes y Año)',
+        detail:
+          'Cambiá el selector de período para recalcular al instante todos los comprobantes de venta y compra imputados en ese mes.',
+        tag: 'Período Mensual'
+      },
+      {
+        title: '② Compará Débito Fiscal vs. Crédito Fiscal (Neto de NC)',
+        detail:
+          'Visualizá el total de ventas netas, compras netas y el IVA discriminado, descontando automáticamente las Notas de Crédito emitidas y recibidas.',
+        tag: 'IVA Neto'
+      },
+      {
+        title: '③ Saldo Técnico, Libre Disponibilidad y Exportar CSV',
+        detail:
+          'Descuenta Retenciones/Percepciones de IVA sufridas para mostrar el Saldo a Pagar (F.2002) o Saldo a Favor, listo para descargar en CSV.',
+        tag: 'Exportación ARCA'
+      }
+    ],
+    accountingImpact:
+      'Se nutre en tiempo real de Comprobantes de Venta, Compras y Asientos de Retenciones sin cargas duplicadas.',
+    images: [
+      {
+        src: '/tutorial/step_09_posicion_impositiva.png',
+        caption: 'Consola de Posición Impositiva Mensual en Contabilidad (IVA Débito, Crédito y Retenciones)',
+        badge: 'Vista A · Posición Mensual',
+        callouts: [
+          {
+            num: '1',
+            label: 'Selector de Período Fiscal',
+            desc: 'Elegí cualquier mes (YYYY-MM) para auditar ventas y compras del período.',
+            top: '30%',
+            left: '42%'
+          },
+          {
+            num: '2',
+            label: 'Débito vs. Crédito Fiscal',
+            desc: 'Totales gravados e IVA neteado automáticamente de Notas de Crédito.',
+            top: '41%',
+            left: '50%'
+          },
+          {
+            num: '3',
+            label: 'Saldo Final y Exportar CSV',
+            desc: 'Saldo a Pagar o Libre Disponibilidad + descarga inmediata en CSV.',
+            top: '64%',
+            left: '56%'
+          }
+        ]
+      }
+    ]
+  },
+  {
+    stepNumber: 10,
+    id: 'step-conciliacion-csv',
+    title: 'Cómo Hacer Conciliación Bancaria por Extracto CSV',
+    subtitle: 'Subí tu extracto del Homebanking y cruzá movimientos automáticamente',
+    moduleKey: 'tesoreria',
+    moduleLabel: '04 · Conciliación Bancaria CSV',
+    icon: FileSpreadsheet,
+    summary:
+      'En Tesorería, hacé clic en "Conciliar" sobre cualquier banco o caja para importar el archivo CSV de tu homebanking. El motor detecta coincidencias exactas por importe y fecha (±3 días) y actualiza el Saldo Conciliado.',
+    highlights: [
+      {
+        title: '① Subí el CSV del Banco o Usá el Simulador Homebanking',
+        detail:
+          'Admite archivos CSV argentinos (fechas DD/MM/YYYY y decimales con coma) de Galicia, Santander, Nación, Macro y otros.',
+        tag: 'Importador CSV'
+      },
+      {
+        title: '② Revisá las Coincidencias Exactas Sugeridas',
+        detail:
+          'A la izquierda ves el extracto del banco y a la derecha tus movimientos en Zonda ERP con las coincidencias ya marcadas ("Match Exacta").',
+        tag: 'Matching Automático'
+      },
+      {
+        title: '③ Confirmá la Conciliación',
+        detail:
+          'Al confirmar, los movimientos quedan marcados como conciliados y se actualiza el Saldo Conciliado oficial de la cuenta.',
+        tag: 'Auditoría Bancaria'
+      }
+    ],
+    accountingImpact:
+      'Mantiene auditado el Saldo Contable frente al Saldo Conciliado real en cada cuenta bancaria de Tesorería.',
+    images: [
+      {
+        src: '/tutorial/step_10_conciliacion_csv.png',
+        caption: 'Conciliación Bancaria por Extracto CSV con detección automática de coincidencias en Tesorería',
+        badge: 'Vista A · Cruce CSV',
+        callouts: [
+          {
+            num: '1',
+            label: 'Subir Extracto CSV / Simulador',
+            desc: 'Cargá el CSV descargado de tu homebanking para iniciar el cruce.',
+            top: '29%',
+            left: '34%'
+          },
+          {
+            num: '2',
+            label: 'Match Exacta Automático',
+            desc: 'Cruza importe exacto y fecha (±3 días) tildando las coincidencias en azul.',
+            top: '45%',
+            left: '52%'
+          },
+          {
+            num: '3',
+            label: 'Confirmar Conciliación',
+            desc: 'Guarda los movimientos conciliados y actualiza el Saldo Conciliado.',
+            top: '78%',
+            left: '73%'
+          }
+        ]
+      }
+    ]
+  },
+  {
+    stepNumber: 11,
+    id: 'step-ecommerce-admin-variantes',
+    title: 'Cómo Crear tu Tienda Ecommerce y Productos con Variantes',
+    subtitle: 'Armá tu tienda online estilo Tiendanube con variantes Talle × Color vinculadas al Stock',
+    moduleKey: 'ecommerce',
+    moduleLabel: '12 · Ecommerce (Admin y Variantes)',
+    icon: Store,
+    summary:
+      'Desde el módulo 12 · Ecommerce cada empresa administra su propia tienda online. Podés personalizar colores y logo, importar productos del inventario y generar matrices de variantes (ej. Talle × Color) con SKU y stock propio.',
+    highlights: [
+      {
+        title: '① Copiá el Link Público o Abrí tu Tienda en Vivo',
+        detail:
+          'Cada empresa tiene su URL pública aislada (/?tienda=tu-empresa) lista para compartir por WhatsApp o Instagram, más una Vista Previa en vivo.',
+        tag: 'Multi-Tenant Shop'
+      },
+      {
+        title: '② Configurá Pestañas Estilo Tiendanube',
+        detail:
+          'Organizá Pedidos, Productos y Variantes, Diseño de Tienda, Medios de Pago (Mercado Pago / Transferencia) y Cupones desde un solo lugar.',
+        tag: 'Panel Tiendanube'
+      },
+      {
+        title: '③ Generá Matrices de Variantes (Talle, Color, Presentación)',
+        detail:
+          'Agregá atributos separados por coma y pulsá "+ Generar": el sistema crea todas las combinaciones con SKU, precio y stock individual.',
+        tag: 'Variantes + Stock'
+      }
+    ],
+    accountingImpact:
+      'Al vincular un producto de la tienda a un artículo de 06 · Inventario, cada venta online descuenta stock real y genera CMV.',
+    images: [
+      {
+        src: '/tutorial/step_11_ecommerce_admin.png',
+        caption: 'Panel Administrador 12 · Ecommerce con accesos a link público, pestañas y KPIs de tienda',
+        badge: 'Vista A · Panel Admin',
+        callouts: [
+          {
+            num: '1',
+            label: 'Copiar Link / Abrir Tienda',
+            desc: 'Compartí tu URL pública /?tienda=<slug> o probá la tienda en vivo.',
+            top: '18%',
+            left: '36%'
+          },
+          {
+            num: '2',
+            label: 'Menú Estilo Tiendanube',
+            desc: 'Cambiá entre Pedidos, Productos y Variantes, Diseño, Pagos y Cupones.',
+            top: '26%',
+            left: '48%'
+          },
+          {
+            num: '3',
+            label: 'KPIs Online en Tiempo Real',
+            desc: 'Ventas aprobadas, pedidos recibidos, productos y compradores Google.',
+            top: '35%',
+            left: '50%'
+          }
+        ]
+      },
+      {
+        src: '/tutorial/step_11b_ecommerce_variantes.png',
+        caption: 'Generador de Matriz de Variantes multi-atributo (Talle × Color) vinculado al Inventario ERP',
+        badge: 'Vista B · Variantes',
+        callouts: [
+          {
+            num: '1',
+            label: 'Vincular a Inventario ERP',
+            desc: 'Conectá el producto online con tu depósito real para descontar stock.',
+            top: '41%',
+            left: '66%'
+          },
+          {
+            num: '2',
+            label: 'Atributos + Botón Generar',
+            desc: 'Escribí Talle / Color y valores separados por coma para crear la matriz.',
+            top: '51%',
+            left: '69%'
+          },
+          {
+            num: '3',
+            label: 'SKU, Precio y Stock por Variante',
+            desc: 'Editá el stock y precio exacto de cada combinación antes de guardar.',
+            top: '63%',
+            left: '48%'
+          }
+        ]
+      }
+    ]
+  },
+  {
+    stepNumber: 12,
+    id: 'step-ecommerce-compra-google-erp',
+    title: 'Cómo Compran tus Clientes (Google Auth + Pago Directo) y Sync ERP',
+    subtitle: 'Experiencia de compra pública con Google Auth obligatorio, pagos online y facturación automática',
+    moduleKey: 'ecommerce',
+    moduleLabel: '12 · Storefront y Pedidos ERP',
+    icon: ShoppingCart,
+    summary:
+      'Tus clientes navegan tu tienda pública sin ver el ERP, eligen variantes, ingresan obligatoriamente con su cuenta de Google y pagan con Mercado Pago, Transferencia o Efectivo. Cada pago aprobado impacta automáticamente en Clientes, Stock, Facturación, Tesorería y Libro Diario.',
+    highlights: [
+      {
+        title: '① Storefront Público Aislado con Selector de Variantes',
+        detail:
+          'El comprador filtra por categoría, elige la variante (ej. L / Blanco) con stock disponible en vivo y agrega al carrito deslizable.',
+        tag: 'Tienda Pública'
+      },
+      {
+        title: '② Checkout con Google Auth, Cupones y Pagos Directos',
+        detail:
+          'Al finalizar compra se exige Google Auth, se pueden aplicar cupones (% OFF) y pagar con Mercado Pago o Transferencia Bancaria (con descuento extra).',
+        tag: 'Google Auth + Pagos'
+      },
+      {
+        title: '③ Aprobación y Facturación Automática en el ERP',
+        detail:
+          'Los pagos por Mercado Pago se facturan al instante; las transferencias se aprueban en 1 clic desde Pedidos generando cliente, factura y asiento contable.',
+        tag: 'Sync 100% ERP'
+      }
+    ],
+    accountingImpact:
+      'Crea el cliente en 02 · Clientes, emite Factura B + Recibo X, descuenta stock en 06 · Inventario y genera el asiento de Venta + CMV en 05 · Contabilidad.',
+    images: [
+      {
+        src: '/tutorial/step_12_ecommerce_storefront.png',
+        caption: 'Tienda Pública (/?tienda=<slug>) con banner, categorías, buscador y productos con variantes',
+        badge: 'Vista A · Storefront',
+        callouts: [
+          {
+            num: '1',
+            label: 'Google Auth y Carrito',
+            desc: 'Ingreso del comprador con Google y carrito en tiempo real.',
+            top: '11%',
+            left: '79%'
+          },
+          {
+            num: '2',
+            label: 'Filtros por Categoría y Ofertas',
+            desc: 'Navegación rápida por rubros y solo ofertas activas.',
+            top: '53%',
+            left: '34%'
+          },
+          {
+            num: '3',
+            label: 'Botón Elegir Variante',
+            desc: 'Abre el selector interactivo de Talle/Color con stock real.',
+            top: '92%',
+            left: '24%'
+          }
+        ]
+      },
+      {
+        src: '/tutorial/step_12b_ecommerce_checkout_google.png',
+        caption: 'Checkout con Google Auth verificado, aplicación de cupones y medios de pago directos',
+        badge: 'Vista B · Checkout',
+        callouts: [
+          {
+            num: '1',
+            label: 'Entrega (Retiro o Envío)',
+            desc: 'Elegí retiro en sucursal gratis o envío a domicilio/correo.',
+            top: '21%',
+            left: '36%'
+          },
+          {
+            num: '2',
+            label: 'Medios de Pago Directos',
+            desc: 'Mercado Pago (tarjetas/cuotas), Transferencia con % OFF o Efectivo.',
+            top: '48%',
+            left: '36%'
+          },
+          {
+            num: '3',
+            label: 'Cupón + Total y Confirmar',
+            desc: 'Descuento acumulado de cupón + transferencia calculado al instante.',
+            top: '28%',
+            left: '66%'
+          }
+        ]
+      },
+      {
+        src: '/tutorial/step_12c_ecommerce_pedidos_erp.png',
+        caption: 'Bandeja de Pedidos en 12 · Ecommerce mostrando pedido aprobado y facturado en Zonda ERP',
+        badge: 'Vista C · Sync ERP',
+        callouts: [
+          {
+            num: '1',
+            label: 'Comprador Google Verificado',
+            desc: 'Nombre, email de Google y DNI/CUIT sincronizados con 02 · Clientes.',
+            top: '44%',
+            left: '32%'
+          },
+          {
+            num: '2',
+            label: 'Variante Vendida y Estado Pago',
+            desc: 'Detalle exacto de variante (L / Blanco) y medio de pago aprobado.',
+            top: '44%',
+            left: '58%'
+          },
+          {
+            num: '3',
+            label: 'Comprobante Emitido en ERP',
+            desc: 'Badge "✓ Facturado" confirmando factura, stock y asiento contable.',
+            top: '44%',
+            left: '93%'
+          }
+        ]
+      }
+    ]
   }
 ];
 
@@ -657,6 +1061,8 @@ export const TutorialInteractivoModal: React.FC<TutorialInteractivoModalProps> =
   const [currentStepIdx, setCurrentStepIdx] = useState<number>(initialStepIndex);
   const [activeSlideIdx, setActiveSlideIdx] = useState<number>(0);
   const [showCallouts, setShowCallouts] = useState<boolean>(true);
+  const [activeCalloutNum, setActiveCalloutNum] = useState<string | null>('1');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [lightboxOpen, setLightboxOpen] = useState<boolean>(false);
   const [minimizedGuideMode, setMinimizedGuideMode] = useState<boolean>(false);
   const [dontShowOnLogin, setDontShowOnLogin] = useState<boolean>(() => {
@@ -670,8 +1076,13 @@ export const TutorialInteractivoModal: React.FC<TutorialInteractivoModalProps> =
   useEffect(() => {
     if (isOpen) {
       setActiveSlideIdx(0);
+      setActiveCalloutNum('1');
     }
   }, [currentStepIdx, isOpen]);
+
+  useEffect(() => {
+    setActiveCalloutNum('1');
+  }, [activeSlideIdx]);
 
   // Navegación con flechas del teclado cuando el modal está expandido
   useEffect(() => {
@@ -846,12 +1257,22 @@ export const TutorialInteractivoModal: React.FC<TutorialInteractivoModalProps> =
                 </span>
               </div>
               <p className="text-[11px] text-emerald-200">
-                Aprendé en 7 pasos visuales cómo operar Inventario, Compras, Ventas, Pagos Mixtos, Retenciones y el Balance Oficial RT 54
+                Aprendé en {TUTORIAL_STEPS.length} tutoriales visuales interactivos cómo hacer cada operación: facturas, stock, conciliación, impuestos y tu tienda Ecommerce
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            <div className="relative hidden md:block">
+              <Search className="w-3.5 h-3.5 text-emerald-300 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="¿Cómo hago para...? (ej. factura, banco, variantes)"
+                className="pl-8 pr-3 py-1 bg-[#042f22] text-white placeholder-emerald-300/70 border border-emerald-700 rounded-lg text-[11px] w-72 focus:outline-none focus:border-emerald-400"
+              />
+            </div>
             <span className="px-2.5 py-1 bg-[#042f22] text-emerald-300 border border-emerald-700 font-mono font-bold text-[11px] rounded">
               Paso {currentStep.stepNumber} de {TUTORIAL_STEPS.length}
             </span>
@@ -866,10 +1287,19 @@ export const TutorialInteractivoModal: React.FC<TutorialInteractivoModalProps> =
           </div>
         </div>
 
-        {/* Barra de Progreso de los 7 Pasos (Clickeable) */}
+        {/* Barra de Progreso de los 12 Tutoriales (Clickeable + Filtrable) */}
         <div className="bg-[#f4fbf7] border-b border-emerald-800/20 px-4 py-2.5 overflow-x-auto shrink-0">
           <div className="flex items-center gap-1.5 min-w-max">
             {TUTORIAL_STEPS.map((st, idx) => {
+              if (searchQuery.trim()) {
+                const q = searchQuery.toLowerCase();
+                const match =
+                  st.title.toLowerCase().includes(q) ||
+                  st.subtitle.toLowerCase().includes(q) ||
+                  st.moduleLabel.toLowerCase().includes(q) ||
+                  st.summary.toLowerCase().includes(q);
+                if (!match) return null;
+              }
               const Icon = st.icon;
               const isCurrent = idx === currentStepIdx;
               const isCompleted = idx < currentStepIdx;
@@ -948,20 +1378,32 @@ export const TutorialInteractivoModal: React.FC<TutorialInteractivoModalProps> =
                   <BookOpen className="w-3.5 h-3.5 text-[#064e3b]" />
                   <span>Puntos Clave en la Imagen:</span>
                 </div>
-                {currentStep.highlights.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 bg-white border border-emerald-800/25 rounded-lg shadow-2xs hover:border-[#064e3b] transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="font-extrabold text-[#042f22] text-xs">{item.title}</span>
-                      <span className="px-1.5 py-0.5 bg-emerald-50 text-[#064e3b] border border-emerald-300 text-[9px] font-bold uppercase rounded shrink-0">
-                        {item.tag}
-                      </span>
+                {currentStep.highlights.map((item, idx) => {
+                  const pinNum = String(idx + 1);
+                  const isHighlighted = activeCalloutNum === pinNum;
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        setShowCallouts(true);
+                        setActiveCalloutNum(pinNum);
+                      }}
+                      className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                        isHighlighted
+                          ? 'bg-amber-50/80 border-amber-500 shadow-sm ring-1 ring-amber-400'
+                          : 'bg-white border-emerald-800/25 shadow-2xs hover:border-[#064e3b]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="font-extrabold text-[#042f22] text-xs">{item.title}</span>
+                        <span className="px-1.5 py-0.5 bg-emerald-50 text-[#064e3b] border border-emerald-300 text-[9px] font-bold uppercase rounded shrink-0">
+                          {item.tag}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">{item.detail}</p>
                     </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">{item.detail}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -1032,55 +1474,86 @@ export const TutorialInteractivoModal: React.FC<TutorialInteractivoModalProps> =
                 className="w-full h-auto max-h-[440px] object-contain cursor-zoom-in transition-transform duration-200"
               />
 
-              {/* Badges de Callouts sobre la imagen */}
+              {/* Badges de Callouts Interactivos sobre la imagen (clic para señalar con foco) */}
               {showCallouts &&
-                currentSlide.callouts.map((c) => (
-                  <div
-                    key={c.num}
-                    style={{ top: c.top, left: c.left }}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 z-20 group/pin"
-                  >
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-400 text-[#042f22] border-2 border-white shadow-xl font-extrabold text-[11px] cursor-pointer hover:scale-105 transition-transform">
-                      <span className="w-4 h-4 rounded-full bg-[#042f22] text-amber-300 flex items-center justify-center text-[10px]">
-                        {c.num}
-                      </span>
-                      <span className="whitespace-nowrap hidden sm:inline">{c.label}</span>
-                    </div>
-                    <div className="hidden group-hover/pin:block absolute left-1/2 -translate-x-1/2 mt-1.5 w-56 p-2 bg-[#042f22] text-white text-[10px] rounded shadow-2xl border border-emerald-500 z-30 pointer-events-none">
-                      <div className="font-bold text-amber-300 mb-0.5">
-                        Punto {c.num}: {c.label}
+                currentSlide.callouts.map((c) => {
+                  const isFocused = activeCalloutNum === c.num;
+                  return (
+                    <div
+                      key={c.num}
+                      style={{ top: c.top, left: c.left }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveCalloutNum(c.num);
+                      }}
+                      className={`absolute -translate-x-1/2 -translate-y-1/2 group/pin ${
+                        isFocused ? 'z-30' : 'z-20'
+                      }`}
+                    >
+                      <div
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border-2 border-white shadow-xl font-extrabold text-[11px] cursor-pointer transition-all ${
+                          isFocused
+                            ? 'bg-amber-400 text-[#042f22] scale-110 ring-4 ring-amber-300/70'
+                            : 'bg-amber-400/90 text-[#042f22] hover:scale-105'
+                        }`}
+                      >
+                        <span className="w-4 h-4 rounded-full bg-[#042f22] text-amber-300 flex items-center justify-center text-[10px]">
+                          {c.num}
+                        </span>
+                        <span className="whitespace-nowrap hidden sm:inline">{c.label}</span>
                       </div>
-                      <div>{c.desc}</div>
+                      <div
+                        className={`${
+                          isFocused ? 'block' : 'hidden group-hover/pin:block'
+                        } absolute left-1/2 -translate-x-1/2 mt-1.5 w-60 p-2.5 bg-[#042f22] text-white text-[10px] rounded-lg shadow-2xl border border-amber-400 z-40 pointer-events-none`}
+                      >
+                        <div className="font-bold text-amber-300 mb-0.5">
+                          👉 Paso {c.num}: {c.label}
+                        </div>
+                        <div className="leading-snug">{c.desc}</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
 
-            {/* Epígrafe de la captura + Tarjetas resumen de los Callouts */}
+            {/* Epígrafe de la captura + Tarjetas resumen clickeables de los Callouts */}
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-bold text-[#042f22]">
                   📸 {currentSlide.caption}
                 </span>
                 <span className="text-[10px] text-slate-500 shrink-0">
-                  Clic en la imagen para ampliar
+                  Hacé clic en un punto ①②③ para señalarlo en la captura
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {currentSlide.callouts.map((c) => (
-                  <div
-                    key={c.num}
-                    className="p-2 bg-white rounded border border-emerald-800/20 flex items-start gap-2"
-                  >
-                    <span className="w-5 h-5 rounded-full bg-amber-400 text-[#042f22] font-extrabold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                      {c.num}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="font-bold text-[#042f22] text-[11px] truncate">{c.label}</div>
-                      <div className="text-[10px] text-slate-600 leading-tight">{c.desc}</div>
-                    </div>
-                  </div>
-                ))}
+                {currentSlide.callouts.map((c) => {
+                  const isFocused = activeCalloutNum === c.num;
+                  return (
+                    <button
+                      key={c.num}
+                      type="button"
+                      onClick={() => {
+                        setShowCallouts(true);
+                        setActiveCalloutNum(c.num);
+                      }}
+                      className={`p-2 rounded border text-left flex items-start gap-2 transition-all ${
+                        isFocused
+                          ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-400'
+                          : 'bg-white border-emerald-800/20 hover:border-[#064e3b]'
+                      }`}
+                    >
+                      <span className="w-5 h-5 rounded-full bg-amber-400 text-[#042f22] font-extrabold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                        {c.num}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="font-bold text-[#042f22] text-[11px] truncate">{c.label}</div>
+                        <div className="text-[10px] text-slate-600 leading-tight">{c.desc}</div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

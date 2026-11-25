@@ -448,7 +448,8 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
       migracion: '08 · Centro de Migración',
       configuracion: '09 · Configuración Fiscal',
       usuarios: '10 · Usuarios y Accesos',
-      zondacloud: '11 · Zonda Cloud (ARCA)'
+      zondacloud: '11 · Zonda Cloud (ARCA)',
+      ecommerce: '12 · Ecommerce (Tienda)'
     };
     return map[mod] || mod.toUpperCase();
   };

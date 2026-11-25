@@ -13,7 +13,8 @@ import {
   ShieldCheck,
   Lock,
   BadgeDollarSign,
-  Cloud
+  Cloud,
+  Store
 } from 'lucide-react';
 import { getActiveOperator, OperadorProfile } from '../../services/usuariosRbacService';
 
@@ -28,7 +29,8 @@ export type ModuleKey =
   | 'migracion'
   | 'configuracion'
   | 'usuarios'
-  | 'zondacloud';
+  | 'zondacloud'
+  | 'ecommerce';
 
 interface SidebarProps {
   activeModule: ModuleKey;
@@ -62,7 +64,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { key: 'migracion', label: 'Centro de Migración', icon: ArrowRightLeft, code: '08', badge: 'HUB' },
     { key: 'configuracion', label: 'Configuración Fiscal', icon: Settings, code: '09' },
     { key: 'usuarios', label: 'Usuarios y Accesos', icon: ShieldCheck, code: '10', badge: 'RBAC' },
-    { key: 'zondacloud', label: 'Zonda Cloud (ARCA)', icon: Cloud, code: '11', badge: 'CLOUD' }
+    { key: 'zondacloud', label: 'Zonda Cloud (ARCA)', icon: Cloud, code: '11', badge: 'CLOUD' },
+    { key: 'ecommerce', label: 'Ecommerce (Tienda)', icon: Store, code: '12', badge: 'SHOP' }
   ];
 
   return (
