@@ -380,9 +380,15 @@ export async function sincronizarUsuariosDesdeSupabase(): Promise<OperadorProfil
       const remotos: OperadorProfile[] = (data.afip_config as any).usuarios.map(normalizeUsuario);
       const tieneMultiTenant = remotos.some((r) => r.tenantId || r.esCuentaZondaCloud);
       if (remotos.length > 0 && tieneMultiTenant) {
-        localStorage.setItem(STORAGE_USUARIOS_KEY, JSON.stringify(remotos));
+        // Preservar cuentas autogestionadas SaaS locales (USR-SAAS-*) que aún no estén en el registro remoto
+        const localesActuales = getUsuariosList();
+        const localesSaasNuevos = localesActuales.filter(
+          (loc) => loc.id.startsWith('USR-SAAS-') && !remotos.some((rem) => rem.id === loc.id)
+        );
+        const fusionados = [...remotos, ...localesSaasNuevos];
+        localStorage.setItem(STORAGE_USUARIOS_KEY, JSON.stringify(fusionados));
         window.dispatchEvent(new Event('zonda_usuarios_updated'));
-        return remotos;
+        return fusionados;
       } else {
         // Actualizar registro remoto al esquema Multi-Tenant (usuarios aislados por empresa + Zonda Cloud)
         localStorage.setItem(STORAGE_USUARIOS_KEY, JSON.stringify(OPERADORES_INICIALES));

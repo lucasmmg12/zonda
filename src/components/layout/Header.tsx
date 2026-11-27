@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Bell, Search, X, BookOpen, ArrowRight, FileDown, Cloud, Building2, Lock, Unlock, UserCheck, GraduationCap, Radio } from 'lucide-react';
+import { Bell, Search, X, BookOpen, ArrowRight, FileDown, Cloud, Building2, Lock, Unlock, UserCheck, GraduationCap, Radio, ChevronDown, CreditCard, LogOut, Globe, HelpCircle } from 'lucide-react';
 import { EmpresaConfig } from '../../types/models';
 import { ManualesCentroAyudaModal } from '../modals/ManualesCentroAyudaModal';
 import { RoleAuthModal, getActiveOperator, OperadorProfile } from '../modals/RoleAuthModal';
-import { TutorialInteractivoModal, LOGIN_TUTORIAL_STORAGE_KEY } from '../modals/TutorialInteractivoModal';
+import { TutorialInteractivoModal } from '../modals/TutorialInteractivoModal';
 import { SyncComunicacionesModal } from '../modals/SyncComunicacionesModal';
 import { getUsuariosList } from '../../services/usuariosRbacService';
 import { useErp, flattenCuentasContables } from '../../context/ErpContext';
@@ -12,6 +12,11 @@ import type { ModuleKey } from './Sidebar';
 interface HeaderProps {
   empresa: EmpresaConfig;
   activeModule: string;
+  etiquetaSuscripcion?: string;
+  esTrialVencido?: boolean;
+  onOpenSuscripcion?: () => void;
+  onIrWebPublica?: () => void;
+  onCerrarSesion?: () => void;
 }
 
 export interface GlobalSearchResultItem {
@@ -36,7 +41,15 @@ export interface GlobalSearchResultItem {
   queryHint?: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
+export const Header: React.FC<HeaderProps> = ({
+  empresa,
+  activeModule,
+  etiquetaSuscripcion,
+  esTrialVencido = false,
+  onOpenSuscripcion,
+  onIrWebPublica,
+  onCerrarSesion
+}) => {
   const {
     lastSync,
     setActiveModule,
@@ -59,13 +72,9 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
   const [modalManualesOpen, setModalManualesOpen] = useState(false);
   const [modalRolesOpen, setModalRolesOpen] = useState(false);
   const [modalSyncOpen, setModalSyncOpen] = useState(false);
-  const [modalTutorialOpen, setModalTutorialOpen] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(LOGIN_TUTORIAL_STORAGE_KEY) !== 'true';
-    } catch {
-      return true;
-    }
-  });
+  const [modalTutorialOpen, setModalTutorialOpen] = useState<boolean>(false);
+  const [menuAyudaOpen, setMenuAyudaOpen] = useState(false);
+  const [menuUsuarioOpen, setMenuUsuarioOpen] = useState(false);
   const [operadorActual, setOperadorActual] = useState<OperadorProfile>(getActiveOperator());
 
   const mapModuleToManualId = (mod: string): string => {
@@ -501,7 +510,7 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
             <>
               <div
                 title={`${empresa.razonSocial} · CUIT ${empresa.cuit}`}
-                className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100/90 text-slate-700 shrink-0"
+                className="hidden min-[1680px]:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100/90 text-slate-700 shrink-0"
               >
                 <Building2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
                 <span className="font-semibold text-slate-800 text-[11px] truncate max-w-[150px]">
@@ -678,57 +687,111 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           )}
         </div>
 
-        {/* Botón Dossier Comercial PDF */}
-        <a
-          href="/DOSSIER_COMERCIAL_ZONDA_ERP.pdf"
-          download="DOSSIER_COMERCIAL_ZONDA_ERP.pdf"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Descargar Dossier Comercial en PDF"
-          className="h-8 px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap"
-        >
-          <FileDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-          <span className="hidden xl:inline">Dossier</span>
-        </a>
+        {/* Píldora limpia de Prueba Gratuita 30 Días / Suscripción $20.000 */}
+        {onOpenSuscripcion && (
+          <button
+            type="button"
+            onClick={onOpenSuscripcion}
+            title="Ver estado de tus 30 días gratis y suscripción Mercado Pago ($20.000/mes)"
+            className={`hidden md:flex h-8 px-3 rounded-xl text-[11px] font-semibold items-center gap-1.5 transition-colors whitespace-nowrap ${
+              esTrialVencido
+                ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                : 'bg-[#eff3fd] hover:bg-[#dfe8fc] text-[#3563e9] border border-[#3563e9]/20'
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5 shrink-0" />
+            <span>{etiquetaSuscripcion || 'Prueba Gratis · 30 días'}</span>
+          </button>
+        )}
 
-        {/* Botón Monitor de Sincronización */}
-        <button
-          type="button"
-          onClick={() => setModalSyncOpen(true)}
-          title="Monitor de Comunicaciones y Sincronización en Vivo"
-          className="h-8 px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap"
-        >
-          <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse shrink-0" />
-          <Radio className="w-3.5 h-3.5 text-teal-600 shrink-0 hidden" />
-          <span className="hidden md:inline">Sync</span>
-        </button>
+        {/* Menú desplegable único de Ayuda y Recursos ("Menos es Más") */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              setMenuAyudaOpen(!menuAyudaOpen);
+              setMenuUsuarioOpen(false);
+              setShowNotif(false);
+            }}
+            className="h-8 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
+            <span className="hidden sm:inline">Ayuda</span>
+            <ChevronDown className="w-3 h-3 text-slate-400" />
+          </button>
 
-        {/* Botón Tutorial Interactivo */}
-        <button
-          type="button"
-          onClick={() => setModalTutorialOpen(true)}
-          title="Abrir Tutorial Interactivo Paso a Paso"
-          className="h-8 px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap"
-        >
-          <GraduationCap className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-          <span>Tutorial</span>
-        </button>
-
-        {/* Botón Manuales */}
-        <button
-          onClick={() => setModalManualesOpen(true)}
-          title="Abrir Manuales Paso a Paso e Instrucciones"
-          className="h-8 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap shadow-xs"
-        >
-          <BookOpen className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-          <span>Manuales</span>
-        </button>
+          {menuAyudaOpen && (
+            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl z-50 p-1.5 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAyudaOpen(false);
+                  setModalTutorialOpen(true);
+                }}
+                className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 font-medium text-left"
+              >
+                <GraduationCap className="w-4 h-4 text-[#3563e9]" />
+                <span>Tutorial interactivo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAyudaOpen(false);
+                  setModalManualesOpen(true);
+                }}
+                className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 font-medium text-left"
+              >
+                <BookOpen className="w-4 h-4 text-teal-600" />
+                <span>Manuales del módulo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAyudaOpen(false);
+                  setModalSyncOpen(true);
+                }}
+                className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 font-medium text-left"
+              >
+                <Radio className="w-4 h-4 text-emerald-600" />
+                <span>Estado de sincronización</span>
+              </button>
+              <a
+                href="/DOSSIER_COMERCIAL_ZONDA_ERP.pdf"
+                download="DOSSIER_COMERCIAL_ZONDA_ERP.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMenuAyudaOpen(false)}
+                className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 font-medium"
+              >
+                <FileDown className="w-4 h-4 text-slate-500" />
+                <span>Descargar Dossier PDF</span>
+              </a>
+              {onIrWebPublica && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuAyudaOpen(false);
+                    onIrWebPublica();
+                  }}
+                  className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 font-medium text-left border-t border-slate-100 mt-1 pt-2"
+                >
+                  <Globe className="w-4 h-4 text-[#3563e9]" />
+                  <span>Ver Sitio Web Público</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Notificaciones */}
         <div className="relative">
           <button
-            onClick={() => setShowNotif(!showNotif)}
-            title="Notificaciones de Auditoría y Base de Datos"
+            onClick={() => {
+              setShowNotif(!showNotif);
+              setMenuAyudaOpen(false);
+              setMenuUsuarioOpen(false);
+            }}
+            title="Notificaciones"
             className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors relative"
           >
             <Bell className="w-3.5 h-3.5" />
@@ -736,38 +799,93 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
           </button>
 
           {showNotif && (
-            <div className="absolute right-0 mt-2 w-80 bg-white border border-[#064e3b] shadow-xl z-50 p-3 text-xs space-y-2">
-              <div className="flex items-center justify-between border-b border-emerald-800/15 pb-1.5">
-                <span className="font-bold text-[#042f22] uppercase">Centro de Alertas ERP</span>
-                <button onClick={() => setShowNotif(false)} className="text-[#357a59] hover:text-[#042f22]">
+            <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl border border-slate-200 shadow-xl z-50 p-3.5 text-xs space-y-2">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <span className="font-bold text-slate-900">Notificaciones</span>
+                <button onClick={() => setShowNotif(false)} className="text-slate-400 hover:text-slate-700">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <div className="p-2 bg-emerald-50 border border-emerald-200 text-[#064e3b] text-[11px]">
-                <strong>Sincronización Activa:</strong> Última actualización a las {lastSync}.
+              <div className="p-2.5 rounded-xl bg-slate-50 text-slate-700 text-[11px]">
+                <strong>Sincronizado:</strong> Última actualización a las {lastSync}.
               </div>
-              <div className="p-2 bg-emerald-50/50 border border-emerald-200 text-[#065f46] text-[11px]">
-                <strong>Vencimiento Próximo:</strong> F.931 Cargas Sociales ARCA y Facturas de Cuenta Corriente.
+              <div className="p-2.5 rounded-xl bg-teal-50/70 text-teal-800 text-[11px]">
+                <strong>Agenda Fiscal:</strong> Revisá tus próximos vencimientos en Configuración.
               </div>
             </div>
           )}
         </div>
 
-        {/* Perfil Usuario Operador (Cambiar de Usuario Aislado o entrar como Zonda Cloud) */}
-        <button
-          onClick={() => setModalRolesOpen(true)}
-          title="Cambiar de Usuario Aislado (cada usuario ve solo lo suyo) o ingresar como Cuenta Zonda Cloud"
-          className="h-8 flex items-center gap-2 pl-2 pr-2.5 border border-emerald-800/35 bg-emerald-50/60 hover:bg-emerald-100/80 transition-colors whitespace-nowrap"
-        >
-          <div className="w-5 h-5 bg-[#064e3b] text-white flex items-center justify-center font-bold text-[10px] shrink-0">
-            <UserCheck className="w-3.5 h-3.5 text-emerald-300" />
-          </div>
-          <span className="hidden lg:inline text-[10px] font-bold text-[#042f22] tracking-wide uppercase whitespace-nowrap">
-            {operadorActual.esCuentaZondaCloud
-              ? 'Cuenta Zonda Cloud'
-              : operadorActual.nombre.split('(')[0].trim()}
-          </span>
-        </button>
+        {/* Menú de Perfil / Sesión */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              setMenuUsuarioOpen(!menuUsuarioOpen);
+              setMenuAyudaOpen(false);
+              setShowNotif(false);
+            }}
+            className="h-8 flex items-center gap-2 pl-2 pr-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors whitespace-nowrap"
+          >
+            <div className="w-5 h-5 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-[10px] shrink-0">
+              <UserCheck className="w-3 h-3 text-teal-400" />
+            </div>
+            <span className="hidden lg:inline text-xs font-semibold text-slate-800 max-w-[140px] truncate">
+              {operadorActual.esCuentaZondaCloud
+                ? 'Zonda Cloud'
+                : operadorActual.nombre.split('(')[0].trim()}
+            </span>
+            <ChevronDown className="w-3 h-3 text-slate-400" />
+          </button>
+
+          {menuUsuarioOpen && (
+            <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-slate-200 shadow-xl z-50 p-1.5 text-xs">
+              <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                <div className="font-bold text-slate-900 truncate">
+                  {operadorActual.nombre.split('(')[0].trim()}
+                </div>
+                <div className="text-[11px] text-slate-400 truncate">{operadorActual.email}</div>
+              </div>
+              {onOpenSuscripcion && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuUsuarioOpen(false);
+                    onOpenSuscripcion();
+                  }}
+                  className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 font-medium text-left"
+                >
+                  <CreditCard className="w-4 h-4 text-[#3563e9]" />
+                  <span>Suscripción y Dominio Email</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuUsuarioOpen(false);
+                  setModalRolesOpen(true);
+                }}
+                className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 flex items-center gap-2.5 text-slate-700 font-medium text-left"
+              >
+                <UserCheck className="w-4 h-4 text-teal-600" />
+                <span>Cambiar perfil / operador</span>
+              </button>
+              {onCerrarSesion && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuUsuarioOpen(false);
+                    onCerrarSesion();
+                  }}
+                  className="w-full px-3 py-2 rounded-xl hover:bg-rose-50 flex items-center gap-2.5 text-rose-600 font-semibold text-left border-t border-slate-100 mt-1 pt-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Cerrar sesión</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modal Centralizado de Manuales e Instrucciones */}
@@ -784,13 +902,6 @@ export const Header: React.FC<HeaderProps> = ({ empresa, activeModule }) => {
         operadorActual={operadorActual}
         onSelectOperador={(op) => {
           setOperadorActual(op);
-          try {
-            if (localStorage.getItem(LOGIN_TUTORIAL_STORAGE_KEY) !== 'true') {
-              setModalTutorialOpen(true);
-            }
-          } catch {
-            // ignore storage errors
-          }
         }}
       />
 

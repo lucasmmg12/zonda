@@ -96,11 +96,14 @@ export const ContabilidadModule: React.FC = () => {
     '5.1': true
   });
 
-  // Filtros de fecha
+  // Filtros de fecha y revelación progresiva ("Menos es Más")
   const [fechaDesde, setFechaDesde] = useState('01/01/2026');
   const [fechaHasta, setFechaHasta] = useState('31/10/2026');
   const [mostrarAjusteInflacion, setMostrarAjusteInflacion] = useState(true);
   const [guardadoExitoso, setGuardadoExitoso] = useState(false);
+  const [verSumasDetalladas, setVerSumasDetalladas] = useState(false);
+  const [editarFichaCuenta, setEditarFichaCuenta] = useState(false);
+  const [menuReportesOpen, setMenuReportesOpen] = useState(false);
 
   const cuentasPlanas = flattenCuentasContables(planDeCuentas);
   const cuentaSeleccionada =
@@ -343,32 +346,31 @@ export const ContabilidadModule: React.FC = () => {
             </td>
 
             {/* Columna Nro. Cuenta */}
-            <td className="py-1.5 px-2 border-r border-slate-200 text-slate-600 text-center">
+            <td className="py-2 px-3 text-slate-400 text-center tabular-nums">
               {c.codigo}
             </td>
 
-            {/* Saldo Inicio */}
-            <td className="py-1.5 px-2 border-r border-slate-200 text-right text-slate-500">
-              {(c.saldoInicio ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-            </td>
-
-            {/* Débito */}
-            <td className="py-1.5 px-2 border-r border-slate-200 text-right font-medium text-slate-900">
-              {(c.debito ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-            </td>
-
-            {/* Crédito */}
-            <td className="py-1.5 px-2 border-r border-slate-200 text-right font-medium text-slate-900">
-              {(c.credito ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-            </td>
+            {verSumasDetalladas && (
+              <>
+                <td className="py-2 px-2 text-right text-slate-400 tabular-nums">
+                  {(c.saldoInicio ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                </td>
+                <td className="py-2 px-2 text-right font-medium text-slate-700 tabular-nums">
+                  {(c.debito ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                </td>
+                <td className="py-2 px-2 text-right font-medium text-slate-700 tabular-nums">
+                  {(c.credito ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                </td>
+              </>
+            )}
 
             {/* Saldo Final */}
             <td
-              className={`py-1.5 px-2 text-right font-bold ${
-                (c.saldoFinal ?? 0) < 0 ? 'text-rose-700' : 'text-slate-900'
+              className={`py-2 px-4 text-right font-bold tabular-nums ${
+                (c.saldoFinal ?? 0) < 0 ? 'text-rose-600' : 'text-slate-900'
               }`}
             >
-              {(c.saldoFinal ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              ${(c.saldoFinal ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
             </td>
           </tr>
 
@@ -379,143 +381,167 @@ export const ContabilidadModule: React.FC = () => {
   };
 
   return (
-    <div className="space-y-0 text-slate-800 font-sans">
-      {/* 1. BARRA SUPERIOR DE ENCABEZADO Y LLAMADA AL CALENDARIO */}
-      <div className="bg-white border-b border-slate-300 px-4 py-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight font-mono uppercase">
-            Contabilidad general
-          </h1>
-          <span className="text-xs text-slate-400 font-mono">| PLAN DE CUENTAS, MAYOR Y LIBRO DIARIO</span>
+    <div className="space-y-4 text-slate-800 font-sans">
+      {/* 1. CABECERA LIMPIA ("MENOS ES MÁS") */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 px-5 py-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Contabilidad y Libros</h1>
+          <p className="text-xs text-slate-500">
+            Plan de cuentas, Libro Mayor, Libro Diario y Libro IVA Digital
+          </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+            <button
+              onClick={() => setTabPrincipal('plan')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                tabPrincipal === 'plan'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Plan y Mayor
+            </button>
+            <button
+              onClick={() => setTabPrincipal('diario')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                tabPrincipal === 'diario'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Libro Diario ({asientosContables.length})
+            </button>
+            <button
+              onClick={() => setTabPrincipal('iva_digital')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                tabPrincipal === 'iva_digital'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              IVA Digital
+            </button>
+          </div>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuReportesOpen(!menuReportesOpen)}
+              className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5"
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-[#3563e9]" />
+              <span>Reportes y Balances ▾</span>
+            </button>
+
+            {menuReportesOpen && (
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-xl z-30 p-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuReportesOpen(false);
+                    setShowPosicionImpositivaModal(true);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2"
+                >
+                  <DollarSign className="w-3.5 h-3.5 text-[#3563e9]" />
+                  <span>Posición Impositiva (IVA / IIBB)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuReportesOpen(false);
+                    void handleExportarBalanceRt54Xlsx();
+                  }}
+                  className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Exportar Balance RT 54 (.xlsx)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuReportesOpen(false);
+                    setShowReportesModal(true);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2"
+                >
+                  <BarChart3 className="w-3.5 h-3.5 text-teal-600" />
+                  <span>Balance PDF y Libro Diario</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuReportesOpen(false);
+                    setShowCalendarioModal(true);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Calendario de vencimientos</span>
+                </button>
+              </div>
+            )}
+          </div>
+
           <button
             type="button"
-            onClick={handleExportarBalanceRt54Xlsx}
-            className="px-3.5 py-1.5 bg-[#042f22] hover:bg-[#064e3b] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-emerald-400 shadow-sm"
+            onClick={() => setShowAsientoModal(true)}
+            className="px-4 py-2 rounded-xl bg-[#3563e9] hover:bg-[#2952cc] text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-300" />
-            <span>Exportar Balance Oficial RT 54 (.xlsx - 22 Hojas)</span>
-          </button>
-
-          <button
-            onClick={() => setShowCalendarioModal(true)}
-            className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Calendario de vencimientos</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>Nuevo Asiento</span>
           </button>
         </div>
-      </div>
-
-      {/* 2. PESTAÑAS PRINCIPALES DEL MÓDULO */}
-      <div className="bg-[#ecfdf5]/40 border-b border-slate-300 px-2 pt-1 flex items-center gap-1">
-        <button
-          onClick={() => setTabPrincipal('plan')}
-          className={`px-4 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
-            tabPrincipal === 'plan'
-              ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
-              : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          Panel de cuentas y Libro Mayor
-        </button>
-        <button
-          onClick={() => setTabPrincipal('diario')}
-          className={`px-4 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
-            tabPrincipal === 'diario'
-              ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
-              : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          Libro Diario General ({asientosContables.length} asientos)
-        </button>
-        <button
-          onClick={() => setTabPrincipal('iva_digital')}
-          className={`px-4 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
-            tabPrincipal === 'iva_digital'
-              ? 'bg-white border-t-[#064e3b] text-[#064e3b] border-x border-slate-300 -mb-[1px] z-10'
-              : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          Libro IVA Digital ARCA / AFIP (RG 4597 .TXT)
-        </button>
       </div>
 
       {tabPrincipal === 'plan' ? (
-        /* 3. VISTA PRINCIPAL: SPLIT-SCREEN MASTER-DETAIL */
-        <div className="flex flex-col lg:flex-row min-h-[660px] bg-white border border-slate-300 border-t-0">
-          {/* PANEL IZQUIERDO: SUMAS Y SALDOS / PLAN DE CUENTAS */}
-          <div className="w-full lg:w-1/2 border-r border-slate-300 bg-white flex flex-col justify-between">
+        /* 2. SPLIT-SCREEN LIMPIO: PLAN DE CUENTAS + MAYOR */
+        <div className="flex flex-col lg:flex-row min-h-[600px] bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          {/* PANEL IZQUIERDO: PLAN DE CUENTAS */}
+          <div className="w-full lg:w-1/2 border-r border-slate-200/80 bg-white flex flex-col justify-between">
             <div>
-              {/* Header del Panel Izquierdo */}
-              <div className="bg-[#f0fdf4] border-b border-slate-300 px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
-                <span>Sumas y saldos</span>
-                <button title="Ayuda sumas y saldos" className="text-[#064e3b] hover:text-[#047857]">
-                  <HelpCircle className="w-4 h-4" />
-                </button>
+              <div className="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-800">Plan de Cuentas</span>
+                  <span className="text-[11px] text-slate-400">
+                    {fechaDesde} – {fechaHasta}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setVerSumasDetalladas(!verSumasDetalladas)}
+                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-[11px] font-semibold text-slate-600"
+                  >
+                    {verSumasDetalladas ? 'Vista simple' : 'Ver sumas (Debe/Haber)'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowNuevaCuentaModal(true)}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-[11px] font-semibold text-slate-700"
+                  >
+                    + Subcuenta
+                  </button>
+                </div>
               </div>
 
-              {/* Barra de Filtros: Desde, Hasta, Recalcular, Reportes */}
-              <div className="p-2 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2 text-xs font-mono">
-                <span className="text-slate-600">Desde:</span>
-                <select
-                  value={fechaDesde}
-                  onChange={(e) => setFechaDesde(e.target.value)}
-                  className="px-2 py-1 bg-white border border-slate-300 text-xs"
-                >
-                  <option value="01/01/2026">01/01/2026</option>
-                  <option value="01/09/2026">01/09/2026</option>
-                  <option value="01/10/2026">01/10/2026</option>
-                </select>
-
-                <span className="text-slate-600">Hasta:</span>
-                <select
-                  value={fechaHasta}
-                  onChange={(e) => setFechaHasta(e.target.value)}
-                  className="px-2 py-1 bg-white border border-slate-300 text-xs"
-                >
-                  <option value="31/10/2026">31/10/2026</option>
-                  <option value="30/11/2026">30/11/2026</option>
-                  <option value="31/12/2026">31/12/2026</option>
-                </select>
-
-                <button
-                  onClick={() => refreshAllFromDb()}
-                  className="px-3.5 py-1 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold transition-colors border border-[#064e3b]"
-                >
-                  Recalcular
-                </button>
-
-                <button
-                  onClick={() => setShowReportesModal(true)}
-                  className="px-3 py-1 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1 transition-colors border border-[#064e3b]"
-                >
-                  <BarChart3 className="w-3.5 h-3.5" />
-                  <span>Reportes ▼</span>
-                </button>
-
-                <button
-                  onClick={() => setShowPosicionImpositivaModal(true)}
-                  className="px-3 py-1 bg-[#1b365d] hover:bg-[#142847] text-white font-mono text-xs font-bold flex items-center gap-1 transition-colors border border-[#1b365d] rounded-sm"
-                >
-                  <DollarSign className="w-3.5 h-3.5" />
-                  <span>Posición Impositiva</span>
-                </button>
-              </div>
-
-              {/* Tabla de Sumas y Saldos (Tree View) */}
-              <div className="overflow-x-auto max-h-[500px]">
-                <table className="w-full text-left text-xs border-collapse">
+              <div className="overflow-x-auto max-h-[520px]">
+                <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="bg-slate-100 border-b border-slate-300 text-[11px] font-mono font-bold text-slate-700">
-                      <th className="py-2 px-2.5 border-r border-slate-200">Cuenta</th>
-                      <th className="py-2 px-2 border-r border-slate-200 text-center">Código</th>
-                      <th className="py-2 px-2 border-r border-slate-200 text-right">Saldo inicio</th>
-                      <th className="py-2 px-2 border-r border-slate-200 text-right">Débito</th>
-                      <th className="py-2 px-2 border-r border-slate-200 text-right">Crédito</th>
-                      <th className="py-2 px-2 text-right">Saldo final</th>
+                    <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      <th className="py-2.5 px-4">Cuenta</th>
+                      <th className="py-2.5 px-3 text-center">Código</th>
+                      {verSumasDetalladas && (
+                        <>
+                          <th className="py-2.5 px-2 text-right">Inicio</th>
+                          <th className="py-2.5 px-2 text-right">Débito</th>
+                          <th className="py-2.5 px-2 text-right">Crédito</th>
+                        </>
+                      )}
+                      <th className="py-2.5 px-4 text-right">Saldo</th>
                     </tr>
                   </thead>
                   <tbody>{renderTreeRows(planDeCuentas)}</tbody>
@@ -523,169 +549,103 @@ export const ContabilidadModule: React.FC = () => {
               </div>
             </div>
 
-            {/* Pie del Panel Izquierdo */}
-            <div className="bg-[#f8fafc] border-t border-slate-300 px-3 py-2 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setShowNuevoPlanModal(true)}
-                  className="px-3 py-1.5 bg-[#15803d] hover:bg-[#166534] text-white font-bold text-xs transition-colors"
-                >
-                  Nuevo plan De cuentas
-                </button>
-                <button
-                  onClick={handleExportarPlanExcel}
-                  className="text-sanatorio-700 hover:underline text-[11px] font-bold"
-                >
-                  Descargar plan de cuentas actual (Excel)
-                </button>
-              </div>
-
-              <label className="flex items-center gap-1.5 cursor-pointer text-slate-700 text-[11px]">
-                <span>Mostrar Asientos de Ajuste por Inflación:</span>
+            <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <button
+                onClick={handleExportarPlanExcel}
+                className="text-[#3563e9] hover:underline font-semibold"
+              >
+                Exportar plan a Excel
+              </button>
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-500 text-[11px]">
                 <input
                   type="checkbox"
                   checked={mostrarAjusteInflacion}
                   onChange={(e) => setMostrarAjusteInflacion(e.target.checked)}
-                  className="accent-[#064e3b] w-3.5 h-3.5"
+                  className="rounded accent-[#3563e9]"
                 />
+                <span>Incluir ajuste por inflación</span>
               </label>
             </div>
           </div>
 
-          {/* PANEL DERECHO: SELECCIÓN DE CUENTA & LIBRO MAYOR */}
+          {/* PANEL DERECHO: LIBRO MAYOR + EDICIÓN COLAPSABLE DE LA CUENTA */}
           <div className="w-full lg:w-1/2 flex flex-col justify-between bg-white min-w-0">
             <div>
-              {/* SECCIÓN SUPERIOR: FORMULARIO DE CUENTA */}
-              <div className="border-b border-slate-300">
-                <div className="bg-[#f0fdf4] border-b border-slate-300 px-4 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
-                  <span>Cuenta seleccionada: {cuentaSeleccionada?.codigo} - {cuentaSeleccionada?.nombre}</span>
-                  {guardadoExitoso && (
-                    <span className="text-emerald-700 flex items-center gap-1 text-[11px]">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Guardado en Supabase
-                    </span>
-                  )}
+              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    {cuentaSeleccionada?.codigo} · {cuentaSeleccionada?.nombre}
+                  </h2>
+                  <p className="text-[11px] text-slate-400">Movimientos del Libro Mayor</p>
                 </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditarFichaCuenta(!editarFichaCuenta)}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-600"
+                  >
+                    {editarFichaCuenta ? 'Cerrar edición' : 'Editar cuenta ▾'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportarMayorExcel}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-600 flex items-center gap-1"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Excel</span>
+                  </button>
+                </div>
+              </div>
 
-                <form onSubmit={handleGuardarCuenta} className="p-3 space-y-2 text-xs font-mono">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2">
-                      <label className="text-slate-600 text-[11px] w-28 shrink-0">Código cuenta:</label>
+              {editarFichaCuenta && (
+                <form
+                  onSubmit={handleGuardarCuenta}
+                  className="p-4 bg-slate-50/70 border-b border-slate-100 space-y-3 text-xs"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                        Nombre de la cuenta
+                      </label>
                       <input
                         type="text"
-                        readOnly
-                        value={formCodigo}
-                        className="px-2 py-1 bg-slate-100 border border-slate-300 text-xs w-full max-w-[140px] font-bold"
+                        value={formDescripcion}
+                        onChange={(e) => setFormDescripcion(e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs"
                       />
                     </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                        Saldo habitual
+                      </label>
+                      <select
+                        value={formSaldoHabitual}
+                        onChange={(e) => setFormSaldoHabitual(e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs"
+                      >
+                        <option value="Deudor">Deudor</option>
+                        <option value="Acreedor">Acreedor</option>
+                      </select>
+                    </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <label className="text-slate-600 text-[11px] w-28 shrink-0">Descripción:</label>
-                    <input
-                      type="text"
-                      value={formDescripcion}
-                      onChange={(e) => setFormDescripcion(e.target.value)}
-                      className="px-2 py-1 bg-white border border-slate-300 text-xs flex-1 focus:outline-none focus:border-[#064e3b]"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <label className="text-slate-600 text-[11px] w-28 shrink-0">Admite asiento manual:</label>
-                    <select
-                      value={formAdmiteManual}
-                      onChange={(e) => setFormAdmiteManual(e.target.value)}
-                      className="px-2 py-1 bg-white border border-slate-300 text-xs w-28"
-                    >
-                      <option value="Si">Si</option>
-                      <option value="No">No</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <label className="text-slate-600 text-[11px] w-28 shrink-0">Saldo habitual:</label>
-                    <select
-                      value={formSaldoHabitual}
-                      onChange={(e) => setFormSaldoHabitual(e.target.value)}
-                      className="px-2 py-1 bg-white border border-slate-300 text-xs w-36"
-                    >
-                      <option value="Deudor">Deudor</option>
-                      <option value="Acreedor">Acreedor</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <label className="text-slate-600 text-[11px] w-28 shrink-0">Tipo de cuenta:</label>
-                    <input
-                      type="text"
-                      value={formTipoCuenta}
-                      onChange={(e) => setFormTipoCuenta(e.target.value)}
-                      className="px-2 py-1 bg-white border border-slate-300 text-xs flex-1 focus:outline-none focus:border-[#064e3b]"
-                    />
-                    <HelpCircle className="w-4 h-4 text-[#064e3b] shrink-0" />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <label className="text-slate-600 text-[11px] w-28 shrink-0">Título sumas y saldos:</label>
-                    <input
-                      type="text"
-                      value={formTituloSumas}
-                      onChange={(e) => setFormTituloSumas(e.target.value)}
-                      className="px-2 py-1 bg-white border border-slate-300 text-xs flex-1 focus:outline-none focus:border-[#064e3b]"
-                    />
-                  </div>
-
-                  {/* Botones de acción del formulario */}
-                  <div className="pt-2 flex justify-end items-center gap-2 border-t border-slate-200">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const allExpanded: Record<string, boolean> = {};
-                        cuentasPlanas.forEach((cta) => {
-                          allExpanded[cta.codigo] = true;
-                        });
-                        setExpandedNodes(allExpanded);
-                      }}
-                      className="px-3 py-1 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold transition-colors border border-[#064e3b] flex items-center gap-1"
-                    >
-                      <Folder className="w-3.5 h-3.5" />
-                      <span>Expandir Títulos ▼</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowNuevaCuentaModal(true)}
-                      className="px-3 py-1 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold transition-colors border border-[#064e3b] flex items-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Nueva Subcuenta ▼</span>
-                    </button>
-
+                  <div className="flex items-center justify-between">
+                    {guardadoExitoso ? (
+                      <span className="text-emerald-600 font-semibold">✓ Cambios guardados</span>
+                    ) : (
+                      <span />
+                    )}
                     <button
                       type="submit"
-                      className="px-3.5 py-1 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold transition-colors border border-[#064e3b]"
+                      className="px-4 py-1.5 rounded-lg bg-slate-900 text-white font-semibold"
                     >
-                      Guardar
+                      Guardar cuenta
                     </button>
                   </div>
                 </form>
-              </div>
+              )}
 
-              {/* SECCIÓN INFERIOR: MAYOR (LIBRO MAYOR DE LA CUENTA SELECCIONADA) */}
+              {/* Grilla limpia del Libro Mayor */}
               <div>
-                <div className="bg-[#f0fdf4] border-b border-slate-300 px-4 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
-                  <div className="flex items-center gap-1.5">
-                    <span>Mayor de {cuentaSeleccionada?.nombre}</span>
-                    <HelpCircle className="w-3.5 h-3.5 text-[#064e3b]" />
-                  </div>
-                  <button
-                    onClick={handleExportarMayorExcel}
-                    title="Exportar Mayor a Excel"
-                    className="p-0.5 hover:bg-slate-200 text-emerald-700 flex items-center gap-1"
-                  >
-                    <FileSpreadsheet className="w-4 h-4" />
-                    <span className="text-[10px]">Excel</span>
-                  </button>
-                </div>
 
                 {/* Grilla del Libro Mayor */}
                 <div className="overflow-x-auto min-h-[220px]">

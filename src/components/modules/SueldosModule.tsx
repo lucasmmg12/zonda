@@ -52,10 +52,10 @@ export const SueldosModule: React.FC = () => {
   const [searchEmpleado, setSearchEmpleado] = useState('');
   const [filtroCct, setFiltroCct] = useState<string>('TODOS');
 
-  // Pestañas principales
+  // Pestañas principales ("Menos es Más": 1 ejemplar limpio y ajustes CCT colapsados por defecto)
   const [tabPrincipal, setTabPrincipal] = useState<'recibo' | 'nomina' | 'cct' | 'afip_lsd'>('recibo');
-  const [ejemplarVista, setEjemplarVista] = useState<'ORIGINAL' | 'DUPLICADO' | 'DOBLE'>('DOBLE');
-  const [mostrarPanelManualCct, setMostrarPanelManualCct] = useState<boolean>(true);
+  const [ejemplarVista, setEjemplarVista] = useState<'ORIGINAL' | 'DUPLICADO' | 'DOBLE'>('ORIGINAL');
+  const [mostrarPanelManualCct, setMostrarPanelManualCct] = useState<boolean>(false);
 
   // Modales
   const [showNuevaLiquidacionModal, setShowNuevaLiquidacionModal] = useState(false);
@@ -743,32 +743,55 @@ export const SueldosModule: React.FC = () => {
   };
 
   return (
-    <div className="space-y-0 text-slate-800 font-sans">
-      {/* 1. BARRA SUPERIOR DE ENCABEZADO */}
-      <div className="bg-white border-b border-slate-300 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight uppercase">
-            Liquidación de Sueldos y Cargas Sociales
-          </h1>
-          <span className="text-xs text-slate-500 font-medium hidden md:inline">
-            | MULTI-CONVENIO CCT ACTUALIZADO, CASILLAS MANUALES Y RECIBO LEY 20.744
-          </span>
+    <div className="space-y-4 text-slate-800 font-sans">
+      {/* 1. CABECERA LIMPIA ("MENOS ES MÁS") */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 px-5 py-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Sueldos y Legajos</h1>
+          <p className="text-xs text-slate-500">
+            Recibos de haberes, convenios colectivos y Libro de Sueldos Digital
+          </p>
         </div>
 
-        <button
-          onClick={() => setShowCalendarioModal(true)}
-          className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>Calendario de vencimientos</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+            {[
+              { key: 'recibo', label: 'Recibos' },
+              { key: 'nomina', label: 'Legajos' },
+              { key: 'cct', label: 'Escalas CCT' },
+              { key: 'afip_lsd', label: 'Libro Digital' }
+            ].map((tab) => {
+              const isActive = tabPrincipal === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setTabPrincipal(tab.key as 'recibo' | 'nomina' | 'cct' | 'afip_lsd')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    isActive
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={handleImprimirReciboPdf}
+            className="px-4 py-2 rounded-xl bg-[#3563e9] hover:bg-[#2952cc] text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Imprimir Recibo</span>
+          </button>
+        </div>
       </div>
 
-      {/* NOTIFICACIÓN DE ACTUALIZACIÓN AUTOMÁTICA */}
       {notificacion && (
-        <div className="bg-emerald-50 border-b border-emerald-400 px-4 py-2 flex items-center justify-between text-xs font-bold text-[#042f22]">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs font-medium text-emerald-800">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-[#047857]" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             <span>{notificacion}</span>
           </div>
           <button onClick={() => setNotificacion(null)} className="text-[11px] underline">
@@ -777,34 +800,9 @@ export const SueldosModule: React.FC = () => {
         </div>
       )}
 
-      {/* 2. PESTAÑAS PRINCIPALES DEL MÓDULO */}
-      <div className="bg-[#ecfdf5]/40 border-b border-slate-300 px-2 pt-1 flex flex-wrap items-center gap-1">
-        {[
-          { key: 'recibo', label: 'Liquidación y Recibos de Sueldo' },
-          { key: 'nomina', label: 'Nómina de Legajos' },
-          { key: 'cct', label: 'Convenios CCT y Escalas Actualizadas' },
-          { key: 'afip_lsd', label: 'Libro Sueldos Digital AFIP (TXT RG 3781)' }
-        ].map((tab) => {
-          const isActive = tabPrincipal === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setTabPrincipal(tab.key as 'recibo' | 'nomina' | 'cct' | 'afip_lsd')}
-              className={`px-3.5 py-2 text-xs font-bold transition-all border-t-2 ${
-                isActive
-                  ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
-                  : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-white/50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 3. VISTA 1: RECIBO DE SUELDO & PARAMETRIZACIÓN AUTOMÁTICA POR CCT */}
+      {/* 2. VISTA PRINCIPAL LIMPIA: LEGAJOS + RECIBO */}
       {tabPrincipal === 'recibo' && (
-        <div className="flex flex-col lg:flex-row min-h-[700px] bg-white border border-slate-300 border-t-0">
+        <div className="flex flex-col lg:flex-row min-h-[640px] bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
           {/* PANEL IZQUIERDO: LISTA DE LEGAJOS (MASTER) */}
           <div className="w-full lg:w-72 border-r border-slate-300 bg-white flex flex-col justify-between shrink-0">
             <div>

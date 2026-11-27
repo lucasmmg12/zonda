@@ -41,7 +41,7 @@ export const TesoreriaModule: React.FC = () => {
 
   const [cuentaSeleccionadaId, setCuentaSeleccionadaId] = useState<string>('CTA-01');
   const [periodoGrafico, setPeriodoGrafico] = useState<'mensual' | 'trimestral' | 'anual'>('mensual');
-  const [graficoColapsado, setGraficoColapsado] = useState(false);
+  const [graficoColapsado, setGraficoColapsado] = useState(true);
 
   // Modales
   const [showAgregarCuentaModal, setShowAgregarCuentaModal] = useState(false);
@@ -275,149 +275,106 @@ export const TesoreriaModule: React.FC = () => {
   const totalEmitidos = chequesEmitidos.reduce((acc, c) => acc + c.importe, 0);
 
   return (
-    <div className="space-y-0 text-slate-800 font-sans">
-      {/* 1. BARRA SUPERIOR DE ENCABEZADO */}
-      <div className="bg-white border-b border-slate-300 px-4 py-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight font-mono uppercase">
-            Tesorería
-          </h1>
-          <span className="text-xs text-slate-400 font-mono">| CAJAS, BANCOS, CHEQUES Y CONCILIACIONES</span>
+    <div className="space-y-4 text-slate-800 font-sans">
+      {/* 1. CABECERA LIMPIA */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 px-5 py-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Tesorería y Bancos</h1>
+          <p className="text-xs text-slate-500">
+            Saldos disponibles, conciliación bancaria y movimientos
+          </p>
         </div>
 
-        <button
-          onClick={() => setShowCalendarioModal(true)}
-          className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>Calendario de vencimientos</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setGraficoColapsado(!graficoColapsado)}
+            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+          >
+            <span>{graficoColapsado ? 'Ver gráfico y cheques' : 'Ocultar gráfico'}</span>
+            {graficoColapsado ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            onClick={() => setShowAgregarCuentaModal(true)}
+            className="px-4 py-2 rounded-xl bg-[#3563e9] hover:bg-[#2952cc] text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Nueva Cuenta</span>
+          </button>
+        </div>
       </div>
 
-      {/* 2. LAYOUT SPLIT-SCREEN MASTER-DETAIL DE TESORERÍA */}
-      <div className="flex flex-col lg:flex-row min-h-[660px] bg-white border border-slate-300 border-t-0">
-        {/* PANEL IZQUIERDO: LISTA DE CAJAS/BANCOS */}
-        <div className="w-full lg:w-80 shrink-0 border-r border-slate-300 bg-white flex flex-col justify-between">
+      {/* 2. VISTA PRINCIPAL LIMPIA */}
+      <div className="flex flex-col lg:flex-row min-h-[600px] bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        {/* PANEL IZQUIERDO: CUENTAS */}
+        <div className="w-full lg:w-80 shrink-0 border-r border-slate-200/80 bg-white flex flex-col justify-between">
           <div>
-            {/* Cabecera del Panel Izquierdo */}
-            <div className="bg-[#ecfdf5]/60 border-b border-slate-300 px-3 py-2 flex items-center justify-between text-xs font-mono font-bold text-slate-900">
-              <div className="flex items-center gap-1.5">
-                <span>Lista de Cajas/Bancos</span>
-                <HelpCircle className="w-3.5 h-3.5 text-[#064e3b]" />
-              </div>
-              <span className="text-[10px] text-slate-500">{cuentasBancarias.length} cuentas</span>
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800">Cajas y Cuentas</span>
+              <span className="text-[11px] text-slate-400">{cuentasBancarias.length} activas</span>
             </div>
 
-            {/* Lista de Tarjetas de Cuentas */}
-            <div className="divide-y divide-slate-200 overflow-y-auto max-h-[580px]">
+            <div className="divide-y divide-slate-100 overflow-y-auto max-h-[540px]">
               {cuentasBancarias.map((c) => {
                 const isSelected = cuentaActiva?.id === c.id;
                 return (
                   <div
                     key={c.id}
                     onClick={() => setCuentaSeleccionadaId(c.id)}
-                    className={`p-3 cursor-pointer transition-colors ${
+                    className={`p-4 cursor-pointer transition-colors ${
                       isSelected
-                        ? 'bg-[#f0fdf4] border-l-4 border-l-[#064e3b]'
+                        ? 'bg-[#eff3fd]/70 border-l-4 border-l-[#3563e9]'
                         : 'hover:bg-slate-50 bg-white'
                     }`}
                   >
-                    <div className="flex items-start justify-between">
-                      <h3 className="font-bold text-slate-900 text-xs font-mono">{c.nombre}</h3>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-semibold text-slate-900 text-xs truncate">{c.nombre}</h3>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-semibold">
+                        {c.moneda}
+                      </span>
                     </div>
 
-                    <div className="mt-1.5 font-mono text-[11px] space-y-0.5">
-                      <div className="text-slate-700">
-                        <span>Saldo: </span>
-                        <strong className={c.saldoActual < 0 ? 'text-rose-700' : 'text-slate-900'}>
-                          ${c.saldoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                        </strong>
-                      </div>
-                      <div className="text-slate-500">
-                        <span>Saldo conciliado: </span>
-                        <span>${c.saldoConciliado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                      </div>
+                    <div className="mt-1.5 text-base font-extrabold tabular-nums">
+                      <span className={c.saldoActual < 0 ? 'text-rose-600' : 'text-slate-900'}>
+                        ${c.saldoActual.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
                     </div>
 
-                    {/* Botones de la Tarjeta */}
-                    <div className="mt-2.5 flex items-center justify-between gap-1">
-                      <div className="flex items-center gap-1">
+                    {isSelected && (
+                      <div className="mt-2.5 flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowConciliarModal(true);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-semibold"
+                        >
+                          Conciliar extracto
+                        </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAbrirEditar(c);
                           }}
-                          className="px-2.5 py-0.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[10px] font-mono font-semibold"
+                          className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-500 text-[11px] font-medium"
                         >
                           Editar
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCuentaSeleccionadaId(c.id);
-                            setShowConciliarModal(true);
-                          }}
-                          className="px-2.5 py-0.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[10px] font-mono font-semibold"
-                        >
-                          Conciliar
-                        </button>
                       </div>
-
-                      {c.conectarDisponible && (
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCuentaSeleccionadaId(c.id);
-                              setShowConciliarModal(true);
-                            }}
-                            className="px-2 py-0.5 bg-[#15803d] hover:bg-[#166534] text-white text-[10px] font-mono font-bold flex items-center gap-1"
-                          >
-                            <span>Conectar</span>
-                          </button>
-                          <HelpCircle className="w-3 h-3 text-slate-400" />
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                 );
               })}
             </div>
           </div>
-
-          {/* Botón inferior: Agregar Cuenta */}
-          <div className="p-2 border-t border-slate-300 bg-[#f8fafc]">
-            <button
-              onClick={() => setShowAgregarCuentaModal(true)}
-              className="w-full py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center justify-center gap-1.5 border border-[#064e3b] transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Agregar cuenta</span>
-            </button>
-          </div>
         </div>
 
-        {/* PANEL DERECHO: DETALLE, GRÁFICO 12 MESES Y MOVIMIENTOS */}
+        {/* PANEL DERECHO: DETALLE Y MOVIMIENTOS */}
         <div className="flex-1 flex flex-col justify-between bg-white min-w-0">
           <div>
-            {/* SECCIÓN SUPERIOR: GRÁFICO 12 MESES + WIDGET REPORTES */}
-            <div className="border-b border-slate-300">
-              {/* Barra de Título Superior del Gráfico */}
-              <div className="bg-[#ecfdf5]/60 border-b border-slate-200 px-4 py-2 flex items-center justify-between text-xs font-mono font-bold text-slate-900">
-                <div className="flex items-center gap-1.5">
-                  <span>Saldo / Ingresos / Egresos {cuentaActiva?.nombre}</span>
-                  <HelpCircle className="w-3.5 h-3.5 text-[#064e3b]" />
-                </div>
-                <button
-                  onClick={() => setGraficoColapsado(!graficoColapsado)}
-                  className="text-slate-500 hover:text-slate-800"
-                >
-                  {graficoColapsado ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-                </button>
-              </div>
-
-              {!graficoColapsado && (
-                <div className="p-4 grid grid-cols-1 lg:grid-cols-4 gap-4 bg-white">
+            {/* GRÁFICO DESPLEGABLE BAJO DEMANDA ("MENOS ES MÁS") */}
+            {!graficoColapsado && (
+              <div className="border-b border-slate-100 bg-slate-50/40">
+                <div className="p-4 grid grid-cols-1 lg:grid-cols-4 gap-4">
                   {/* Centro: Gráfico Últimos 12 Meses */}
                   <div className="lg:col-span-3 space-y-3">
                     <div className="flex items-center justify-between text-[11px] font-mono text-slate-600">
@@ -533,72 +490,74 @@ export const TesoreriaModule: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* SECCIÓN INFERIOR: MOVIMIENTOS DE LA CUENTA */}
+            {/* SECCIÓN PRINCIPAL: MOVIMIENTOS DE LA CUENTA (5 Columnas Limpias) */}
             <div>
-              {/* Barra de Título de Movimientos */}
-              <div className="bg-[#ecfdf5]/60 border-b border-slate-200 px-4 py-2 flex items-center justify-between text-xs font-mono font-bold text-slate-900">
-                <div className="flex items-center gap-1.5">
-                  <span>Movimientos {cuentaActiva?.nombre}</span>
-                  <HelpCircle className="w-3.5 h-3.5 text-[#064e3b]" />
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    Movimientos — {cuentaActiva?.nombre}
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Ingresos, egresos y saldo conciliado en tiempo real
+                  </p>
                 </div>
                 <button
                   onClick={handleExportarMovimientosExcel}
-                  title="Exportar Movimientos a Excel (CSV)"
-                  className="p-1 hover:bg-slate-200 text-emerald-700 flex items-center gap-1 font-bold"
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 flex items-center gap-1.5 text-xs font-semibold"
                 >
-                  <FileSpreadsheet className="w-4 h-4" />
-                  <span className="text-[10px]">Excel</span>
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Excel</span>
                 </button>
               </div>
 
-              {/* Grilla de Movimientos */}
-              <div className="overflow-x-auto min-h-[300px]">
-                <table className="w-full text-left text-xs border-collapse font-mono">
+              <div className="overflow-x-auto min-h-[360px]">
+                <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="bg-slate-100 border-b border-slate-300 text-[11px] font-bold text-slate-700">
-                      <th className="py-2 px-3 border-r border-slate-200">Fecha</th>
-                      <th className="py-2 px-3 border-r border-slate-200">Cliente/Proveedor</th>
-                      <th className="py-2 px-3 border-r border-slate-200">Tipo</th>
-                      <th className="py-2 px-3 border-r border-slate-200">Nro</th>
-                      <th className="py-2 px-3 border-r border-slate-200">Nro Cheque</th>
-                      <th className="py-2 px-3 border-r border-slate-200">Descripción</th>
-                      <th className="py-2 px-3 border-r border-slate-200 text-right">Ingresos</th>
-                      <th className="py-2 px-3 border-r border-slate-200 text-right">Egresos</th>
-                      <th className="py-2 px-3 text-right">Saldo</th>
+                    <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      <th className="py-3 px-5">Fecha</th>
+                      <th className="py-3 px-3">Concepto / Contraparte</th>
+                      <th className="py-3 px-3 text-right">Ingresos</th>
+                      <th className="py-3 px-3 text-right">Egresos</th>
+                      <th className="py-3 px-5 text-right">Saldo</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-100">
                     {cuentaActiva?.movimientos && cuentaActiva.movimientos.length > 0 ? (
                       cuentaActiva.movimientos.map((m) => (
-                        <tr key={m.id} className="hover:bg-slate-50">
-                          <td className="py-2 px-3 border-r border-slate-200">{m.fecha}</td>
-                          <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-900 font-sans text-[11px]">
-                            {m.clienteProveedor || '-'}
+                        <tr key={m.id} className="hover:bg-slate-50/80">
+                          <td className="py-3 px-5 text-slate-500 tabular-nums whitespace-nowrap">
+                            {m.fecha}
                           </td>
-                          <td className="py-2 px-3 border-r border-slate-200 text-slate-600">{m.tipo}</td>
-                          <td className="py-2 px-3 border-r border-slate-200 text-slate-700">{m.nro}</td>
-                          <td className="py-2 px-3 border-r border-slate-200 text-slate-400">{m.nroCheque || '-'}</td>
-                          <td className="py-2 px-3 border-r border-slate-200 text-slate-600 font-sans text-[11px]">
-                            {m.descripcion || '-'}
+                          <td className="py-3 px-3">
+                            <div className="font-semibold text-slate-900">
+                              {m.clienteProveedor || m.descripcion || '-'}
+                            </div>
+                            <div className="text-[11px] text-slate-400">
+                              {m.tipo} #{m.nro} {m.descripcion ? `· ${m.descripcion}` : ''}
+                            </div>
                           </td>
-                          <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-emerald-700">
-                            {m.ingresos > 0 ? m.ingresos.toLocaleString('es-AR', { minimumFractionDigits: 2 }) : '0,00'}
+                          <td className="py-3 px-3 text-right font-semibold text-emerald-600 tabular-nums">
+                            {m.ingresos > 0
+                              ? `+$${m.ingresos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                              : '-'}
                           </td>
-                          <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-rose-700">
-                            {m.egresos > 0 ? m.egresos.toLocaleString('es-AR', { minimumFractionDigits: 2 }) : '0,00'}
+                          <td className="py-3 px-3 text-right font-semibold text-rose-600 tabular-nums">
+                            {m.egresos > 0
+                              ? `-$${m.egresos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                              : '-'}
                           </td>
-                          <td className="py-2 px-3 text-right font-bold text-slate-900">
-                            {m.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                          <td className="py-3 px-5 text-right font-bold text-slate-900 tabular-nums">
+                            ${m.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={9} className="py-16 text-center text-slate-400 font-mono text-xs">
-                          Sin movimientos registrados para esta cuenta
+                        <td colSpan={5} className="py-16 text-center text-slate-400 text-xs">
+                          Aún no hay movimientos registrados en esta cuenta.
                         </td>
                       </tr>
                     )}
@@ -608,50 +567,36 @@ export const TesoreriaModule: React.FC = () => {
             </div>
           </div>
 
-          {/* 3. BARRA INFERIOR DE ACCIONES Y PAGINACIÓN */}
-          <div className="bg-[#f8fafc] border-t border-slate-300 px-4 py-2 flex flex-col sm:flex-row items-center justify-between gap-3">
-            {/* Paginación */}
-            <div className="flex items-center gap-1 text-[11px] font-mono text-slate-600">
-              <button className="p-0.5 hover:bg-slate-200"><ChevronsLeft className="w-3.5 h-3.5" /></button>
-              <button className="p-0.5 hover:bg-slate-200"><ChevronLeft className="w-3.5 h-3.5" /></button>
-              <span>Página</span>
-              <input type="text" readOnly value="1" className="w-6 text-center border border-slate-300 bg-white py-0.5 text-[10px]" />
-              <span>de 1</span>
-              <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
-              <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-              <button onClick={() => refreshAllFromDb()} title="Sincronizar con Supabase" className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5" /></button>
-            </div>
+          {/* 3. BARRA INFERIOR DE ACCIONES LIMPIA */}
+          <div className="border-t border-slate-100 px-5 py-3.5 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs text-slate-400">
+              {cuentaActiva?.movimientos?.length || 0} movimiento(s)
+            </span>
 
-            {/* Botonera de Acciones (Pagos, Cobranzas, Depósitos/Extracciones/Canjes) */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => setShowPagoModal(true)}
-                className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
+                onClick={() => setShowCobroModal(true)}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
               >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Pagos ▼</span>
+                <DollarSign className="w-3.5 h-3.5" />
+                <span>Registrar Ingreso</span>
               </button>
 
               <button
-                onClick={() => setShowCobroModal(true)}
-                className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
+                onClick={() => setShowPagoModal(true)}
+                className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
               >
-                <DollarSign className="w-3.5 h-3.5" />
-                <span>Cobranzas ▼</span>
+                <FileText className="w-3.5 h-3.5 text-rose-500" />
+                <span>Registrar Pago</span>
               </button>
 
               <button
                 onClick={() => setShowMovimientoInternoModal(true)}
-                className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold flex items-center gap-1.5 transition-colors"
               >
                 <ArrowRightLeft className="w-3.5 h-3.5" />
-                <span>Depósitos / Extracciones / Canjes ▼</span>
+                <span>Transferir / Canje</span>
               </button>
-            </div>
-
-            {/* Contador de registros a la derecha */}
-            <div className="text-[11px] font-mono text-slate-500">
-              Mostrando 1 - {cuentaActiva?.movimientos?.length || 0} de {cuentaActiva?.movimientos?.length || 0}
             </div>
           </div>
         </div>

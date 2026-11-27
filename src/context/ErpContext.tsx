@@ -668,7 +668,8 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'migracion',
       'configuracion',
       'usuarios',
-      'zondacloud'
+      'zondacloud',
+      'ecommerce'
     ];
     if (validModules.includes(hash)) return hash;
     return 'tablero';
@@ -788,7 +789,14 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const cambiarTenantActivo = (nuevoTenantId: string) => {
-    if (nuevoTenantId === activeTenantId) return;
+    const listaActualizada = loadTenantsList();
+    setTenants(listaActualizada);
+    if (nuevoTenantId === activeTenantId) {
+      const snapMismo = loadTenantDataSnapshot(nuevoTenantId);
+      setEmpresa(snapMismo.empresa);
+      setEmpresaExtra(snapMismo.empresaExtra);
+      return;
+    }
     // Guardar el estado actual del tenant saliente
     saveTenantDataSnapshot(activeTenantId, {
       empresa,

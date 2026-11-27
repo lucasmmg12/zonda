@@ -51,10 +51,11 @@ export const ConfiguracionModule: React.FC = () => {
     setModalConexionesOpen(true);
   };
 
-  // Pestaña activa superior
+  // Pestaña activa superior ("Menos es Más": 4 pestañas principales + desplegable Más ajustes)
   const [tabActiva, setTabActiva] = useState<
     'generales' | 'impositivos' | 'clientes_proveedores' | 'talonarios' | 'portal' | 'tesoreria' | 'integraciones' | 'costos' | 'zonda_cloud'
   >('generales');
+  const [masAjustesOpen, setMasAjustesOpen] = useState(false);
 
   // Integraciones (AFIP & Mercado Pago)
   const [subTabIntegracion, setSubTabIntegracion] = useState<'afip' | 'mercadopago'>('afip');
@@ -223,101 +224,115 @@ export const ConfiguracionModule: React.FC = () => {
   };
 
   return (
-    <div className="space-y-0 text-slate-800 font-sans">
-      {/* 1. BARRA SUPERIOR DE ENCABEZADO Y CONEXIONES (Supabase | ARCA | Mercado Pago) */}
-      <div className="bg-white border-b border-emerald-800/25 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-extrabold text-[#042f22] tracking-tight uppercase">
-            Configuración de la Empresa
+    <div className="space-y-4 text-slate-800 font-sans">
+      {/* 1. CABECERA LIMPIA ("MENOS ES MÁS") */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 px-5 py-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">
+            Configuración Fiscal y Conexiones
           </h1>
-          <span className="text-xs text-[#357a59] font-medium hidden md:inline">
-            | PARÁMETROS FISCALES, TALONARIOS Y CONEXIONES CLOUD
-          </span>
+          <p className="text-xs text-slate-500">
+            Datos de tu empresa, facturación ARCA, Mercado Pago, dominio de correo y suscripción
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Barra Segmentada Unificada contenida en Configuración: Supabase | ARCA | Mercado Pago */}
-          <div className="flex items-center h-8 border border-emerald-800/25 bg-emerald-50/30 divide-x divide-emerald-800/20 whitespace-nowrap">
-            {/* Supabase */}
-            <button
-              type="button"
-              onClick={refreshAllFromDb}
-              title={`Base de Datos Supabase PostgreSQL (Última sincr.: ${lastSync}). Click para refrescar.`}
-              className="h-full px-3 flex items-center gap-1.5 text-[11px] font-bold text-[#064e3b] hover:bg-emerald-50 transition-colors whitespace-nowrap"
-            >
-              {dbStatus === 'sincronizando' ? (
-                <RefreshCw className="w-3 h-3 animate-spin text-[#047857]" />
-              ) : (
-                <span className="w-2 h-2 bg-[#16a34a] inline-block"></span>
-              )}
-              <span>Supabase</span>
-            </button>
-
-            {/* ARCA */}
-            <button
-              type="button"
-              onClick={() => abrirModalConexiones('afip')}
-              title="Configurar o verificar Web Services de ARCA (ex-AFIP)"
-              className="h-full px-3 flex items-center gap-1.5 text-[11px] font-bold text-[#064e3b] hover:bg-emerald-50 transition-colors whitespace-nowrap"
-            >
-              <span
-                className={`w-2 h-2 inline-block ${
-                  afipConfig.estadoConexion === 'conectado' ? 'bg-[#16a34a]' : 'bg-emerald-600/50'
-                }`}
-              ></span>
-              <span>ARCA</span>
-            </button>
-
-            {/* Mercado Pago */}
-            <button
-              type="button"
-              onClick={() => abrirModalConexiones('mercadopago')}
-              title="Configurar o verificar pasarela Mercado Pago (Checkout Pro y QR)"
-              className="h-full px-3 flex items-center gap-1.5 text-[11px] font-bold text-[#064e3b] hover:bg-emerald-50 transition-colors whitespace-nowrap"
-            >
-              <CreditCard className="w-3 h-3 text-[#047857]" />
-              <span>Mercado Pago</span>
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent('zonda_open_suscripcion_modal', { detail: { tab: 'dominio' } })
+              )
+            }
+            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5"
+          >
+            <span>Dominio Email (DNS)</span>
+          </button>
 
           <button
-            onClick={() => setCalendarioModalOpen(true)}
-            className="h-8 px-3.5 bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
+            type="button"
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent('zonda_open_suscripcion_modal', { detail: { tab: 'plan' } })
+              )
+            }
+            className="px-4 py-2 rounded-xl bg-[#3563e9] hover:bg-[#2952cc] text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
           >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Calendario de vencimientos</span>
+            <CreditCard className="w-3.5 h-3.5" />
+            <span>Mi Suscripción ($20.000/mes)</span>
           </button>
         </div>
       </div>
 
-      {/* 2. PESTAÑAS PRINCIPALES DEL MÓDULO */}
-      <div className="bg-[#ecfdf5]/40 border-b border-slate-300 px-2 pt-1 flex flex-wrap items-center gap-1">
-        {[
-          { key: 'generales', label: 'Datos generales' },
-          { key: 'impositivos', label: 'Datos Impositivos' },
-          { key: 'clientes_proveedores', label: 'Clientes/Proveedores' },
-          { key: 'talonarios', label: 'Talonarios' },
-          { key: 'integraciones', label: 'Integraciones AFIP & Mercado Pago' },
-          { key: 'portal', label: 'Portal Clientes' },
-          { key: 'tesoreria', label: 'Tesorería' },
-          { key: 'costos', label: 'Centros de Costos' },
-          { key: 'zonda_cloud', label: 'Autorización Zonda Cloud (ARCA)' }
-        ].map((tab) => {
-          const isActive = tabActiva === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setTabActiva(tab.key as typeof tabActiva)}
-              className={`px-3 py-1.5 text-xs font-bold transition-all border-t-2 ${
-                isActive
-                  ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
-                  : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-white/50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+      {/* 2. PESTAÑAS CONSOLIDADAS (4 principales + Más ajustes ▾) */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-1.5 shadow-xs flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1">
+          {[
+            { key: 'generales', label: 'Datos de la Empresa' },
+            { key: 'talonarios', label: 'Puntos de Venta' },
+            { key: 'integraciones', label: 'ARCA & Mercado Pago' },
+            { key: 'zonda_cloud', label: 'Vínculo Contador (Cloud)' }
+          ].map((tab) => {
+            const isActive = tabActiva === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setTabActiva(tab.key as typeof tabActiva)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  isActive
+                    ? 'bg-[#eff3fd] text-[#3563e9]'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMasAjustesOpen(!masAjustesOpen)}
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 border border-slate-200/80"
+          >
+            Más ajustes ▾
+          </button>
+
+          {masAjustesOpen && (
+            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl z-30 p-1.5 text-xs">
+              {[
+                { key: 'impositivos', label: 'Datos impositivos' },
+                { key: 'costos', label: 'Centros de costos' },
+                { key: 'clientes_proveedores', label: 'Reglas Clientes/Proveedores' },
+                { key: 'tesoreria', label: 'Parámetros de Tesorería' },
+                { key: 'portal', label: 'Portal de Clientes' }
+              ].map((sub) => (
+                <button
+                  key={sub.key}
+                  type="button"
+                  onClick={() => {
+                    setTabActiva(sub.key as typeof tabActiva);
+                    setMasAjustesOpen(false);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700"
+                >
+                  {sub.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setMasAjustesOpen(false);
+                  setCalendarioModalOpen(true);
+                }}
+                className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-[#3563e9] border-t border-slate-100 mt-1 pt-2"
+              >
+                Calendario de vencimientos
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* NOTIFICACIÓN TOAST */}

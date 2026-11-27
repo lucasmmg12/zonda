@@ -63,6 +63,7 @@ export const ClientesModule: React.FC = () => {
   const [tabDetalle, setTabDetalle] = useState<'adeudadas' | 'comprobantes' | 'cuenta' | 'general' | 'otra'>('adeudadas');
   const [showNcNdModal, setShowNcNdModal] = useState(false);
   const [facturaDetalle, setFacturaDetalle] = useState<FacturaAdeudada | null>(null);
+  const [masOpcionesOpen, setMasOpcionesOpen] = useState(false);
 
   // Escuchar selección directa desde el Buscador Global del Header
   useEffect(() => {
@@ -868,189 +869,144 @@ export const ClientesModule: React.FC = () => {
   const totalAVencer = Math.max(0, totalPorCobrar - totalVencido);
 
   return (
-    <div className="space-y-0 text-slate-800 font-sans">
-      {/* 1. BARRA SUPERIOR DE ENCABEZADO Y LLAMADAS A LA ACCIÓN */}
-      <div className="bg-white border-b border-slate-300 px-4 py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight font-mono uppercase">
-            CLIENTES
-          </h1>
-          <span className="text-xs text-slate-400 font-mono">| GESTIÓN COMERCIAL Y CUENTAS CORRIENTES</span>
+    <div className="space-y-4 text-slate-800 font-sans">
+      {/* 1. CABECERA LIMPIA ESTILO GROW LABS ("MENOS ES MÁS") */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 px-5 py-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Clientes y Ventas</h1>
+          <p className="text-xs text-slate-500">
+            Cuentas corrientes, facturación electrónica ARCA y cobranzas
+          </p>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="text-slate-600">¿Querés emitir Factura electrónica?</span>
-            <button
-              onClick={() => setShowConfigAfipModal(true)}
-              className="px-3 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-zonda-700 font-bold flex items-center gap-1.5 transition-colors uppercase text-[11px]"
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span>Configuralo ahora</span>
-            </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+            {[
+              { key: 'gestion', label: 'Clientes' },
+              { key: 'resumen', label: 'Resumen' },
+              { key: 'importacion', label: 'Importar' },
+              { key: 'pasarela', label: 'Cobros Online' }
+            ].map((tab) => {
+              const isActive = tabPrincipal === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setTabPrincipal(tab.key as any)}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    isActive
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
           <button
-            onClick={() => setShowCalendarioModal(true)}
-            className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
+            onClick={() => setShowFacturaModal(true)}
+            className="px-4 py-2 rounded-xl bg-[#3563e9] hover:bg-[#2952cc] text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
           >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Calendario de vencimientos</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>Nueva Factura</span>
           </button>
         </div>
       </div>
 
-      {/* 2. PESTAÑAS PRINCIPALES DEL MÓDULO */}
-      <div className="bg-[#ecfdf5]/40 border-b border-slate-300 px-2 pt-1 flex items-center gap-1">
-        {[
-          { key: 'resumen', label: 'Resumen clientes' },
-          { key: 'gestion', label: 'Gestión de clientes' },
-          { key: 'importacion', label: 'Importación de facturas' },
-          { key: 'pasarela', label: 'Mercado Pago / Cobros Online' }
-        ].map((tab) => {
-          const isActive = tabPrincipal === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setTabPrincipal(tab.key as any)}
-              className={`px-4 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
-                isActive
-                  ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
-                  : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-white/50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 3. VISTA PRINCIPAL: SPLIT-SCREEN MASTER-DETAIL (GESTIÓN DE CLIENTES) */}
+      {/* 2. VISTA PRINCIPAL LIMPIA: LISTA + DETALLE */}
       {tabPrincipal === 'gestion' ? (
-        <div className="flex flex-col lg:flex-row min-h-[640px] bg-white border border-slate-300 border-t-0">
-          {/* PANEL IZQUIERDO: LISTA DE CLIENTES (MASTER) */}
+        <div className="flex flex-col lg:flex-row min-h-[600px] bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          {/* PANEL IZQUIERDO: LISTA DE CLIENTES */}
           <div
-            className={`border-r border-slate-300 bg-white flex flex-col justify-between transition-all duration-200 ${
+            className={`border-r border-slate-200/80 bg-white flex flex-col justify-between transition-all duration-200 ${
               panelIzquierdoColapsado ? 'w-12 overflow-hidden' : 'w-full lg:w-80 shrink-0'
             }`}
           >
             <div>
-              {/* Cabecera del Panel Izquierdo */}
-              <div className="bg-[#f0fdf4] border-b border-slate-300 px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
-                {!panelIzquierdoColapsado && <span>Lista de clientes</span>}
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                {!panelIzquierdoColapsado && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800">Padrón</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFiltroActivos(filtroActivos === 'activos' ? 'inactivos' : 'activos')
+                      }
+                      className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium"
+                    >
+                      {filtroActivos === 'activos'
+                        ? `Activos (${clientes.filter((c) => c.activo).length})`
+                        : `Inactivos (${clientes.filter((c) => !c.activo).length})`}
+                    </button>
+                  </div>
+                )}
                 <button
                   onClick={() => setPanelIzquierdoColapsado(!panelIzquierdoColapsado)}
                   title={panelIzquierdoColapsado ? 'Expandir lista' : 'Colapsar lista'}
-                  className="p-1 hover:bg-slate-200 text-slate-600 transition-colors ml-auto"
+                  className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors ml-auto"
                 >
-                  {panelIzquierdoColapsado ? <ChevronsRight className="w-3.5 h-3.5" /> : <ChevronsLeft className="w-3.5 h-3.5" />}
+                  {panelIzquierdoColapsado ? (
+                    <ChevronsRight className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronsLeft className="w-3.5 h-3.5" />
+                  )}
                 </button>
               </div>
 
               {!panelIzquierdoColapsado && (
                 <>
-                  {/* Pestañas Activos / Inactivos */}
-                  <div className="grid grid-cols-2 border-b border-slate-300 text-xs font-mono">
-                    <button
-                      onClick={() => setFiltroActivos('activos')}
-                      className={`py-1.5 text-center font-bold transition-colors ${
-                        filtroActivos === 'activos'
-                          ? 'bg-white text-slate-900 border-b-2 border-b-[#064e3b]'
-                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                      }`}
-                    >
-                      Activos ({clientes.filter((c) => c.activo).length})
-                    </button>
-                    <button
-                      onClick={() => setFiltroActivos('inactivos')}
-                      className={`py-1.5 text-center font-bold transition-colors ${
-                        filtroActivos === 'inactivos'
-                          ? 'bg-white text-slate-900 border-b-2 border-b-[#064e3b]'
-                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                      }`}
-                    >
-                      Inactivos ({clientes.filter((c) => !c.activo).length})
-                    </button>
+                  <div className="p-3 border-b border-slate-100">
+                    <input
+                      type="text"
+                      value={searchCliente}
+                      onChange={(e) => setSearchCliente(e.target.value)}
+                      placeholder="Buscar cliente o CUIT..."
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs focus:bg-white focus:outline-none focus:border-[#3563e9]"
+                    />
                   </div>
 
-                  {/* Buscador de Cliente */}
-                  <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center gap-2 text-xs font-mono">
-                    <span className="text-slate-600 text-[11px] whitespace-nowrap">Buscar cliente:</span>
-                    <div className="relative flex-1">
-                      <input
-                        type="text"
-                        value={searchCliente}
-                        onChange={(e) => setSearchCliente(e.target.value)}
-                        placeholder="Nombre o CUIT..."
-                        className="w-full px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
-                      />
-                    </div>
-                    <button title="Filtra por nombre, razón social o CUIT" className="text-slate-400 hover:text-slate-600">
-                      <HelpCircle className="w-4 h-4 text-[#064e3b]" />
-                    </button>
-                  </div>
-
-                  {/* Tabla de Clientes */}
-                  <div className="overflow-y-auto max-h-[460px]">
-                    <table className="w-full text-left text-xs border-collapse font-sans">
-                      <thead>
-                        <tr className="bg-slate-100 border-b border-slate-300 text-[11px] font-mono font-bold text-slate-700">
-                          <th className="py-2 px-2.5 border-r border-slate-200">Nombre</th>
-                          <th className="py-2 px-2 border-r border-slate-200">Razón social</th>
-                          <th className="py-2 px-2 text-right">Saldo ($)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {clientesFiltrados.map((cli) => {
-                          const isSelected = clienteActivo?.id === cli.id;
-                          return (
-                            <tr
-                              key={cli.id}
-                              onClick={() => setClienteSeleccionadoId(cli.id)}
-                              className={`cursor-pointer transition-colors group ${
-                                isSelected
-                                  ? 'bg-[#ecfdf5] font-semibold text-slate-900 border-l-4 border-l-[#064e3b]'
-                                  : 'hover:bg-slate-50 text-slate-700'
-                              }`}
-                              title="Haga click sobre clientes para ver información y cuenta corriente"
-                            >
-                              <td className="py-2 px-2.5 border-r border-slate-200 truncate max-w-[100px]">
-                                {cli.nombre}
-                              </td>
-                              <td className="py-2 px-2 border-r border-slate-200 truncate max-w-[100px] text-slate-500 text-[11px]">
-                                {cli.razonSocial}
-                              </td>
-                              <td className="py-2 px-2 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
-                                {cli.saldo > 0
-                                  ? `$${cli.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
-                                  : '$0,00'}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  {/* Lista simplificada a 2 columnas: Cliente + Saldo */}
+                  <div className="overflow-y-auto max-h-[490px] divide-y divide-slate-100">
+                    {clientesFiltrados.map((cli) => {
+                      const isSelected = clienteActivo?.id === cli.id;
+                      return (
+                        <div
+                          key={cli.id}
+                          onClick={() => setClienteSeleccionadoId(cli.id)}
+                          className={`px-4 py-3 cursor-pointer transition-colors flex items-center justify-between gap-3 ${
+                            isSelected
+                              ? 'bg-[#eff3fd]/70 border-l-4 border-l-[#3563e9]'
+                              : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-slate-900 truncate">
+                              {cli.razonSocial}
+                            </div>
+                            <div className="text-[11px] text-slate-400 truncate">{cli.cuit}</div>
+                          </div>
+                          <div className="text-xs font-bold text-slate-900 whitespace-nowrap tabular-nums">
+                            ${cli.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </>
               )}
             </div>
 
-            {/* Paginación del Panel Izquierdo */}
             {!panelIzquierdoColapsado && (
-              <div className="bg-[#f8fafc] border-t border-slate-300 px-2 py-1.5 flex items-center justify-between text-[11px] font-mono text-slate-600">
-                <div className="flex items-center gap-1">
-                  <button className="p-0.5 hover:bg-slate-200"><ChevronsLeft className="w-3.5 h-3.5" /></button>
-                  <button className="p-0.5 hover:bg-slate-200"><ChevronLeft className="w-3.5 h-3.5" /></button>
-                  <span>Página</span>
-                  <input type="text" readOnly value="1" className="w-6 text-center border border-slate-300 bg-white py-0.5 text-[10px]" />
-                  <span>de 1</span>
-                  <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
-                  <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                  <button onClick={refreshAllFromDb} title="Refrescar desde Supabase" className="p-0.5 hover:bg-slate-200 ml-1">
-                    <RotateCw className="w-3.5 h-3.5 text-[#064e3b]" />
-                  </button>
-                </div>
-                <span>Mostrando 1 - {clientesFiltrados.length} de {clientesFiltrados.length}</span>
+              <div className="p-3 border-t border-slate-100 bg-slate-50/50">
+                <button
+                  type="button"
+                  onClick={() => setShowNuevoClienteModal(true)}
+                  className="w-full py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <UserPlus className="w-3.5 h-3.5 text-[#3563e9]" />
+                  <span>Nuevo cliente</span>
+                </button>
               </div>
             )}
           </div>
@@ -1058,60 +1014,48 @@ export const ClientesModule: React.FC = () => {
           {/* PANEL DERECHO: DETALLE DEL CLIENTE SELECCIONADO */}
           <div className="flex-1 flex flex-col justify-between bg-white min-w-0">
             <div>
-              {/* Título del Cliente Seleccionado */}
-              <div className="bg-[#f0fdf4] border-b border-slate-300 px-4 py-2 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-xs font-bold text-slate-900 uppercase">
-                    {clienteActivo ? clienteActivo.razonSocial : 'Seleccionar cliente de la lista'}
-                  </span>
+              {/* Cabecera limpia del cliente */}
+              <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    {clienteActivo ? clienteActivo.razonSocial : 'Seleccioná un cliente'}
+                  </h2>
                   {clienteActivo && (
-                    <span className="text-[10px] font-mono px-2 py-0.5 bg-white border border-slate-300 text-slate-700">
-                      CUIT: {clienteActivo.cuit} | {clienteActivo.condicionIva}
-                    </span>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      CUIT {clienteActivo.cuit} · {clienteActivo.condicionIva}
+                    </p>
                   )}
                 </div>
 
                 {clienteActivo && (
-                  <div className="flex items-center gap-2 font-mono text-xs">
-                    <span className="text-slate-500">Saldo Total:</span>
-                    <span className="font-bold text-slate-900 bg-white px-2 py-0.5 border border-slate-300">
-                      ${clienteActivo.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                    </span>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="text-[11px] text-slate-400 block">Saldo pendiente</span>
+                      <span className="text-base font-extrabold text-slate-900 tabular-nums">
+                        ${clienteActivo.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Sub-Pestañas de Detalle */}
-              <div className="bg-slate-50 border-b border-slate-300 px-3 pt-1 flex flex-wrap items-center gap-1 text-xs font-mono">
+              {/* Sub-pestañas limpias */}
+              <div className="px-5 border-b border-slate-100 flex flex-wrap items-center gap-4 text-xs">
                 {[
-                  { key: 'adeudadas', label: `Facturas adeudadas (${clienteActivo?.facturasAdeudadas.length || 0})` },
-                  {
-                    key: 'comprobantes',
-                    label: `Comprobantes asociados (${
-                      clienteActivo
-                        ? facturasVenta.filter(
-                            (fv) =>
-                              fv.clienteCuit.replace(/[^0-9]/g, '') ===
-                                clienteActivo.cuit.replace(/[^0-9]/g, '') ||
-                              fv.clienteNombre.trim().toUpperCase() ===
-                                clienteActivo.razonSocial.trim().toUpperCase()
-                          ).length
-                        : 0
-                    })`
-                  },
-                  { key: 'cuenta', label: 'Cuenta cliente' },
-                  { key: 'general', label: 'Información general' },
-                  { key: 'otra', label: 'Otra información' }
+                  { key: 'adeudadas', label: `Pendientes (${clienteActivo?.facturasAdeudadas.length || 0})` },
+                  { key: 'comprobantes', label: 'Todos los comprobantes' },
+                  { key: 'cuenta', label: 'Cuenta corriente' },
+                  { key: 'general', label: 'Datos del cliente' }
                 ].map((t) => {
                   const isActive = tabDetalle === t.key;
                   return (
                     <button
                       key={t.key}
                       onClick={() => setTabDetalle(t.key as any)}
-                      className={`px-3 py-1.5 font-bold transition-colors border-t-2 ${
+                      className={`py-2.5 font-semibold border-b-2 transition-colors ${
                         isActive
-                          ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
-                          : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                          ? 'border-[#3563e9] text-[#3563e9]'
+                          : 'border-transparent text-slate-500 hover:text-slate-800'
                       }`}
                     >
                       {t.label}
@@ -1120,68 +1064,29 @@ export const ClientesModule: React.FC = () => {
                 })}
               </div>
 
-              {/* CONTENIDO DE LA PESTAÑA: FACTURAS ADEUDADAS */}
+              {/* CONTENIDO DE LA PESTAÑA: FACTURAS ADEUDADAS (5 columnas limpias) */}
               {tabDetalle === 'adeudadas' && (
                 <div>
-                  {/* Barra informativa */}
-                  <div className="bg-slate-50 px-4 py-1.5 border-b border-slate-200 flex items-center justify-between text-xs font-mono text-slate-600">
-                    <span>Facturas adeudadas por el cliente (sincronizado con Supabase)</span>
-                    <button
-                      onClick={handleExportFacturasAdeudadas}
-                      title="Exportar a Excel (CSV)"
-                      className="p-1 hover:bg-slate-200 text-emerald-700 flex items-center gap-1 font-bold"
-                    >
-                      <FileSpreadsheet className="w-4 h-4" />
-                      <span className="text-[10px]">Excel</span>
-                    </button>
-                  </div>
-
-                  {/* Aviso interactivo post-venta con descuento de inventario */}
                   {avisoVentaEmitida && (
-                    <div className="mx-3 my-2 p-3 bg-emerald-50 border-2 border-emerald-400 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-                      <div>
-                        <span className="font-bold text-[#042f22] uppercase block">
-                          ✓ Factura emitida por ${avisoVentaEmitida.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })} ({avisoVentaEmitida.clienteNombre}) — Medio pactado: {avisoVentaEmitida.medioPactado}
-                        </span>
-                        <span className="text-[11px] text-emerald-800 block mt-0.5">
-                          {avisoVentaEmitida.itemsCount > 0
-                            ? `Se descontaron automáticamente ${avisoVentaEmitida.unidadesDescontadas} unidad(es) de ${avisoVentaEmitida.itemsCount} artículo(s) del Inventario.`
-                            : 'Registrado en Cuenta Corriente y Libro Diario.'}
-                        </span>
-                      </div>
+                    <div className="mx-5 mt-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <span className="text-emerald-800 font-medium">
+                        ✓ Factura emitida por $
+                        {avisoVentaEmitida.total.toLocaleString('es-AR', {
+                          minimumFractionDigits: 2
+                        })}
+                      </span>
                       <div className="flex items-center gap-2">
-                        {avisoVentaEmitida.itemsCount > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (avisoVentaEmitida.primerArticuloId) {
-                                sessionStorage.setItem(
-                                  'zonda_global_search_target',
-                                  JSON.stringify({
-                                    modulo: 'inventario',
-                                    entityId: avisoVentaEmitida.primerArticuloId
-                                  })
-                                );
-                              }
-                              setActiveModule('inventario');
-                            }}
-                            className="px-3 py-1 bg-rose-700 hover:bg-rose-800 text-white font-bold uppercase text-[11px] flex items-center gap-1"
-                          >
-                            <Boxes className="w-3.5 h-3.5" />
-                            <span>Ver Descuento en Inventario</span>
-                          </button>
-                        )}
                         <button
                           type="button"
                           onClick={() => setShowCobroModal(true)}
-                          className="px-3 py-1 bg-[#064e3b] hover:bg-emerald-800 text-white font-bold uppercase text-[11px]"
+                          className="px-3 py-1 rounded-lg bg-emerald-700 text-white font-semibold text-[11px]"
                         >
-                          Registrar Cobro Ahora
+                          Registrar cobro
                         </button>
                         <button
                           type="button"
                           onClick={() => setAvisoVentaEmitida(null)}
-                          className="text-slate-500 hover:text-slate-800 font-bold px-1.5"
+                          className="text-slate-400 hover:text-slate-700"
                         >
                           ✕
                         </button>
@@ -1189,57 +1094,49 @@ export const ClientesModule: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Grilla de Facturas Adeudadas */}
                   <div className="overflow-x-auto min-h-[360px]">
-                    <table className="w-full text-left text-xs border-collapse font-mono">
+                    <table className="w-full text-left text-xs">
                       <thead>
-                        <tr className="bg-slate-100 border-b border-slate-300 text-[11px] font-bold text-slate-700">
-                          <th className="py-2 px-3 border-r border-slate-200">Nro. Comprobante</th>
-                          <th className="py-2 px-3 border-r border-slate-200">Tipo</th>
-                          <th className="py-2 px-3 border-r border-slate-200">Fecha pago</th>
-                          <th className="py-2 px-3 border-r border-slate-200">Descripción</th>
-                          <th className="py-2 px-3 border-r border-slate-200 text-right">Valor ME</th>
-                          <th className="py-2 px-3 border-r border-slate-200 text-right">Total</th>
-                          <th className="py-2 px-3 border-r border-slate-200 text-right">Cobrado</th>
-                          <th className="py-2 px-3 border-r border-slate-200 text-right">Saldo</th>
-                          <th className="py-2 px-3 border-r border-slate-200 text-right">Saldo acumulado</th>
-                          <th className="py-2 px-3 text-center">Acciones ARCA / WhatsApp</th>
+                        <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                          <th className="py-3 px-5">Comprobante</th>
+                          <th className="py-3 px-3">Vencimiento</th>
+                          <th className="py-3 px-3">Concepto</th>
+                          <th className="py-3 px-3 text-right">Saldo a cobrar</th>
+                          <th className="py-3 px-5 text-right">Acciones</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200">
+                      <tbody className="divide-y divide-slate-100">
                         {clienteActivo && clienteActivo.facturasAdeudadas.length > 0 ? (
                           clienteActivo.facturasAdeudadas.map((f) => (
                             <tr
                               key={f.id}
                               onClick={() => setFacturaDetalle(f)}
-                              title="Clic para ver el detalle completo de la factura, stock y asiento contable"
-                              className="hover:bg-emerald-50/60 cursor-pointer transition-colors"
+                              title="Clic para abrir el detalle completo de la factura"
+                              className="hover:bg-slate-50/80 cursor-pointer transition-colors"
                             >
-                              <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-900">
-                                {f.nroComprobante}
+                              <td className="py-3.5 px-5">
+                                <div className="font-bold text-slate-900">{f.nroComprobante}</div>
+                                <div className="text-[11px] text-slate-400">{f.tipo}</div>
                               </td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-slate-700">{f.tipo}</td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-slate-700">{f.fechaPago}</td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-slate-600 font-sans text-[11px] truncate max-w-xs">
+                              <td className="py-3.5 px-3 text-slate-600 tabular-nums">{f.fechaPago}</td>
+                              <td className="py-3.5 px-3 text-slate-600 truncate max-w-xs">
                                 {f.descripcion}
                               </td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-right text-slate-400">
-                                {f.valorMe > 0 ? `$${f.valorMe.toFixed(2)}` : '-'}
+                              <td className="py-3.5 px-3 text-right">
+                                <div className="font-bold text-slate-900 tabular-nums">
+                                  ${f.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                </div>
+                                {f.cobrado > 0 && (
+                                  <div className="text-[10px] text-emerald-600">
+                                    Cobrado: ${f.cobrado.toLocaleString('es-AR')}
+                                  </div>
+                                )}
                               </td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-slate-900">
-                                ${f.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-right text-emerald-700">
-                                ${f.cobrado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-rose-700">
-                                ${f.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-slate-900">
-                                ${f.saldoAcumulado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="py-2 px-3 text-center" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex items-center justify-center gap-1">
+                              <td
+                                className="py-3.5 px-5 text-right"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="inline-flex items-center gap-1.5">
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -1247,12 +1144,12 @@ export const ClientesModule: React.FC = () => {
                                       setMontoCobro(f.saldo);
                                       setShowCobroModal(true);
                                     }}
-                                    className="px-2 py-0.5 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-bold uppercase"
-                                    title="Registrar Cobro imputado directamente a esta factura"
+                                    className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-semibold transition-colors"
                                   >
-                                    $ Cobrar
+                                    Cobrar
                                   </button>
                                   <button
+                                    type="button"
                                     onClick={() =>
                                       printAfipElectronicInvoice({
                                         nroComprobante: f.nroComprobante,
@@ -1268,12 +1165,13 @@ export const ClientesModule: React.FC = () => {
                                         empresa
                                       })
                                     }
-                                    className="px-2 py-0.5 bg-slate-900 hover:bg-slate-700 text-white text-[10px] font-bold uppercase"
-                                    title="Imprimir Factura Electrónica Oficial con Código QR ARCA RG 4892"
+                                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 text-[11px] font-medium"
+                                    title="Descargar PDF con QR ARCA"
                                   >
-                                    PDF QR ARCA
+                                    PDF
                                   </button>
                                   <button
+                                    type="button"
                                     onClick={() =>
                                       sendInvoiceViaWhatsApp({
                                         telefonoCliente: clienteActivo.telefono,
@@ -1286,10 +1184,10 @@ export const ClientesModule: React.FC = () => {
                                         empresaNombre: empresa.razonSocial
                                       })
                                     }
-                                    className="px-2 py-0.5 bg-[#064e3b] hover:bg-emerald-800 text-white text-[10px] font-bold uppercase"
-                                    title="Enviar Comprobante y Link de Pago por WhatsApp al Cliente"
+                                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 text-[11px] font-medium"
+                                    title="Enviar por WhatsApp"
                                   >
-                                    WhatsApp
+                                    Enviar
                                   </button>
                                 </div>
                               </td>
@@ -1297,8 +1195,8 @@ export const ClientesModule: React.FC = () => {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={10} className="py-16 text-center text-slate-400 font-mono text-xs">
-                              Sin facturas adeudadas para este cliente
+                            <td colSpan={5} className="py-16 text-center text-slate-400 text-xs">
+                              Este cliente no tiene facturas pendientes de cobro.
                             </td>
                           </tr>
                         )}
@@ -1597,75 +1495,99 @@ export const ClientesModule: React.FC = () => {
             {/* BARRA INFERIOR DE ACCIONES Y PAGINACIÓN DEL DETALLE */}
             <div className="bg-[#f8fafc] border-t border-slate-300 px-4 py-2 flex flex-col sm:flex-row items-center justify-between gap-3">
               {/* Paginación del Detalle */}
-              <div className="flex items-center gap-1 text-[11px] font-mono text-slate-600">
-                <button className="p-0.5 hover:bg-slate-200"><ChevronsLeft className="w-3.5 h-3.5" /></button>
-                <button className="p-0.5 hover:bg-slate-200"><ChevronLeft className="w-3.5 h-3.5" /></button>
-                <span>Página</span>
-                <input type="text" readOnly value="1" className="w-6 text-center border border-slate-300 bg-white py-0.5 text-[10px]" />
-                <span>de 1</span>
-                <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
-                <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                <button onClick={refreshAllFromDb} className="p-0.5 hover:bg-slate-200 ml-1">
-                  <RotateCw className="w-3.5 h-3.5 text-[#064e3b]" />
-                </button>
-              </div>
+              <span className="text-xs text-slate-400">
+                Tocá cualquier comprobante para ver su desglose completo
+              </span>
 
-              {/* Botonera de Acciones */}
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Botonera limpia con menú desplegable ("Menos es Más") */}
+              <div className="flex flex-wrap items-center gap-2 relative">
                 <button
-                  onClick={() => {
-                    if (itemsVentaFactura.length === 0) {
-                      agregarItemVentaFactura();
-                    }
-                    setShowFacturaModal(true);
-                  }}
-                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-900 font-mono text-xs font-bold border border-rose-300 flex items-center gap-1.5 transition-colors"
-                  title="Emitir factura de venta seleccionando productos y descontando unidades del Inventario automáticamente"
+                  onClick={() => setShowCobroModal(true)}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
                 >
-                  <Boxes className="w-3.5 h-3.5 text-rose-700" />
-                  <span>Facturar Productos (Descontar Stock)</span>
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span>Registrar Cobro</span>
                 </button>
 
                 <button
                   onClick={() => setShowFacturaModal(true)}
-                  className="px-3 py-1.5 bg-[#ecfdf5] hover:bg-[#ddd6fe] text-[#064e3b] font-mono text-xs font-bold border border-[#c4b5fd] flex items-center gap-1.5 transition-colors"
+                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
                 >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Agregar factura ▼</span>
+                  <FileText className="w-3.5 h-3.5 text-[#3563e9]" />
+                  <span>Emitir Factura</span>
                 </button>
 
-                <button
-                  onClick={() => setShowCobroModal(true)}
-                  className="px-3 py-1.5 bg-[#ecfdf5] hover:bg-[#d1fae5] text-emerald-800 font-mono text-xs font-bold border border-emerald-300 flex items-center gap-1.5 transition-colors"
-                >
-                  <DollarSign className="w-3.5 h-3.5" />
-                  <span>Agregar cobro</span>
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setMasOpcionesOpen(!masOpcionesOpen)}
+                    className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold flex items-center gap-1.5"
+                  >
+                    <span>Más opciones ▾</span>
+                  </button>
 
-                <button
-                  onClick={() => setShowNcNdModal(true)}
-                  disabled={!clienteActivo}
-                  className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 font-mono text-xs font-bold border border-amber-300 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>NC / ND</span>
-                </button>
-
-                <button
-                  onClick={() => setShowNuevoClienteModal(true)}
-                  className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Nuevo cliente</span>
-                </button>
-
-                <button
-                  onClick={() => setTabPrincipal('importacion')}
-                  className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>Importar ▼</span>
-                </button>
+                  {masOpcionesOpen && (
+                    <div className="absolute right-0 bottom-11 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl z-30 p-1.5 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMasOpcionesOpen(false);
+                          if (itemsVentaFactura.length === 0) agregarItemVentaFactura();
+                          setShowFacturaModal(true);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2"
+                      >
+                        <Boxes className="w-3.5 h-3.5 text-rose-500" />
+                        <span>Facturar descontando stock</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!clienteActivo}
+                        onClick={() => {
+                          setMasOpcionesOpen(false);
+                          setShowNcNdModal(true);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2 disabled:opacity-50"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Nota de Crédito / Débito</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMasOpcionesOpen(false);
+                          handleExportFacturasAdeudadas();
+                        }}
+                        className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Exportar Excel (CSV)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMasOpcionesOpen(false);
+                          setShowConfigAfipModal(true);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2"
+                      >
+                        <Settings className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Configurar Factura ARCA</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMasOpcionesOpen(false);
+                          setShowCalendarioModal(true);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2"
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-[#3563e9]" />
+                        <span>Calendario de vencimientos</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

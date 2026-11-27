@@ -91,8 +91,9 @@ export const InventarioModule: React.FC = () => {
   const [showReportesModal, setShowReportesModal] = useState(false);
   const [showCalendarioModal, setShowCalendarioModal] = useState(false);
 
-  // Mensaje de confirmación en pantalla
+  // Mensaje de confirmación en pantalla + revelación progresiva
   const [feedbackBanner, setFeedbackBanner] = useState<string | null>(null);
+  const [verAlertasStock, setVerAlertasStock] = useState(false);
 
   // Formulario Nuevo Artículo (Si stockInicial > 0 exige Proveedor + Factura)
   const [nuevoCodigo, setNuevoCodigo] = useState('');
@@ -514,7 +515,7 @@ export const InventarioModule: React.FC = () => {
   }, [articuloActivo]);
 
   return (
-    <div className="space-y-0 text-slate-800 font-sans">
+    <div className="space-y-4 text-slate-800 font-sans">
       <input
         ref={fileInputRef}
         type="file"
@@ -523,189 +524,157 @@ export const InventarioModule: React.FC = () => {
         onChange={handleImportCsv}
       />
 
-      {/* 1. BARRA SUPERIOR DE ENCABEZADO Y LLAMADA AL CALENDARIO */}
-      <div className="bg-white border-b border-slate-300 px-4 py-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight font-mono uppercase">
-            Inventario
-          </h1>
-          <span className="text-xs text-slate-400 font-mono">
-            | CONTROL MULTIDEPÓSITO, ENTRADAS POR FACTURA DE PROVEEDOR Y SALIDAS A OBRA
-          </span>
+      {/* 1. CABECERA LIMPIA ("MENOS ES MÁS") */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 px-5 py-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Inventario y Stock</h1>
+          <p className="text-xs text-slate-500">
+            Catálogo de artículos, ingresos con factura y salidas trazables
+          </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => irAProveedoresCargarFactura()}
-            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-[#064e3b] font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-emerald-400"
-            title="Ir a Proveedores para cargar una Factura de Compra e ingresar stock"
-          >
-            <Building2 className="w-3.5 h-3.5" />
-            <span>Ir a Proveedores (Cargar Factura)</span>
-            <ExternalLink className="w-3 h-3" />
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+            {[
+              { key: 'items', label: 'Artículos' },
+              { key: 'listas', label: 'Listas de precios' },
+              { key: 'configuracion', label: 'Ajustes' }
+            ].map((tab) => {
+              const isActive = tabPrincipal === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setTabPrincipal(tab.key as 'items' | 'configuracion' | 'listas')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    isActive
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
 
           <button
-            onClick={() => setShowCalendarioModal(true)}
-            className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
+            onClick={() => setShowAgregarModal(true)}
+            className="px-4 py-2 rounded-xl bg-[#3563e9] hover:bg-[#2952cc] text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
           >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Calendario de vencimientos</span>
+            <Boxes className="w-3.5 h-3.5" />
+            <span>Nuevo Artículo</span>
           </button>
         </div>
       </div>
 
-      {/* BANNER DE CONFIRMACIÓN DE MOVIMIENTO */}
       {feedbackBanner && (
-        <div className="bg-emerald-50 border-b border-emerald-300 px-4 py-2 flex items-center justify-between text-xs font-mono text-[#042f22]">
-          <span className="font-bold">{feedbackBanner}</span>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-emerald-800 font-medium">
+          <span>{feedbackBanner}</span>
           <button
             onClick={() => setFeedbackBanner(null)}
-            className="text-slate-500 hover:text-slate-800 font-bold px-2"
+            className="text-slate-400 hover:text-slate-700 px-2"
           >
             ✕
           </button>
         </div>
       )}
 
-      {/* PANEL AUTOMÁTICO DE ALERTAS DE STOCK CRÍTICO / NEGATIVO Y REPOSICIÓN RÁPIDA EN 1 CLIC */}
+      {/* Alerta de stock bajo compactada en 1 línea desplegable */}
       {(() => {
         const itemsCriticos = inventario.filter(
           (art) => art.disponible <= (art.stockMinimo || 5)
         );
         if (itemsCriticos.length === 0) return null;
         return (
-          <div className="bg-amber-50 border-b border-amber-300 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-            <div className="flex items-center gap-2 text-amber-950">
-              <span className="px-2 py-0.5 bg-amber-600 text-white font-bold uppercase text-[10px]">
-                ⚠️ Alerta de Stock Crítico ({itemsCriticos.length})
+          <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl px-4 py-2.5 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold text-amber-900">
+                {itemsCriticos.length} artículo(s) requieren reposición de stock
               </span>
-              <span className="font-sans text-[11px]">
-                Artículos por debajo o al límite del stock mínimo:{' '}
-                <strong>
-                  {itemsCriticos
-                    .slice(0, 3)
-                    .map((i) => `[${i.codigo}] ${i.descripcion} (Disp: ${i.disponible} / Mín: ${i.stockMinimo || 5})`)
-                    .join(' · ')}
-                </strong>
-              </span>
+              <button
+                type="button"
+                onClick={() => setVerAlertasStock(!verAlertasStock)}
+                className="text-amber-800 font-semibold hover:underline"
+              >
+                {verAlertasStock ? 'Ocultar detalle ▴' : 'Ver artículos y reponer ▾'}
+              </button>
             </div>
-            <div className="flex items-center gap-1.5">
-              {itemsCriticos.slice(0, 2).map((artCrit) => (
-                <button
-                  key={artCrit.id}
-                  type="button"
-                  onClick={() => {
-                    try {
-                      sessionStorage.setItem(
-                        'zonda_open_proveedor_factura_stock',
-                        JSON.stringify({
-                          proveedorId: proveedores[0]?.id,
-                          articuloId: artCrit.id,
-                          cantidadSugerida: Math.max(25, (artCrit.stockMinimo || 10) * 2),
-                          costoSugerido: artCrit.costoCalculado
-                        })
-                      );
-                    } catch {
-                      // ignore
-                    }
-                    setActiveModule('proveedores');
-                  }}
-                  className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white font-bold text-[10px] uppercase flex items-center gap-1"
-                >
-                  <span>⚡ Reponer {artCrit.codigo} en Proveedores</span>
-                  <ExternalLink className="w-3 h-3" />
-                </button>
-              ))}
-            </div>
+            {verAlertasStock && (
+              <div className="mt-2.5 pt-2.5 border-t border-amber-200/70 flex flex-wrap items-center gap-2">
+                {itemsCriticos.map((artCrit) => (
+                  <button
+                    key={artCrit.id}
+                    type="button"
+                    onClick={() => {
+                      try {
+                        sessionStorage.setItem(
+                          'zonda_open_proveedor_factura_stock',
+                          JSON.stringify({
+                            proveedorId: proveedores[0]?.id,
+                            articuloId: artCrit.id,
+                            cantidadSugerida: Math.max(25, (artCrit.stockMinimo || 10) * 2),
+                            costoSugerido: artCrit.costoCalculado
+                          })
+                        );
+                      } catch {
+                        // ignore
+                      }
+                      setActiveModule('proveedores');
+                    }}
+                    className="px-3 py-1 rounded-lg bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 font-medium text-[11px] flex items-center gap-1.5"
+                  >
+                    <span>
+                      {artCrit.descripcion} ({artCrit.disponible} u.) → Reponer
+                    </span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         );
       })()}
 
-      {/* 2. PESTAÑAS PRINCIPALES DEL MÓDULO */}
-      <div className="bg-[#ecfdf5]/40 border-b border-slate-300 px-2 pt-1 flex items-center gap-1">
-        {[
-          { key: 'items', label: 'Items de inventario' },
-          { key: 'configuracion', label: 'Configuración de inventario' },
-          { key: 'listas', label: 'Listas de precios' }
-        ].map((tab) => {
-          const isActive = tabPrincipal === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setTabPrincipal(tab.key as 'items' | 'configuracion' | 'listas')}
-              className={`px-4 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
-                isActive
-                  ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
-                  : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-white/50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 3. VISTA PRINCIPAL: SPLIT-SCREEN MASTER-DETAIL (ITEMS DE INVENTARIO) */}
+      {/* 2. VISTA PRINCIPAL LIMPIA: CATÁLOGO (3 COLUMNAS) + KÁRDEX */}
       {tabPrincipal === 'items' && (
-        <div className="flex flex-col lg:flex-row min-h-[640px] bg-white border border-slate-300 border-t-0">
-          {/* PANEL IZQUIERDO: LISTADO DE ITEMS DE INVENTARIO (MASTER) */}
-          <div className="w-full lg:w-[46%] border-r border-slate-300 bg-white flex flex-col justify-between">
+        <div className="flex flex-col lg:flex-row min-h-[600px] bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          {/* PANEL IZQUIERDO: CATÁLOGO SIMPLIFICADO */}
+          <div className="w-full lg:w-[42%] border-r border-slate-200/80 bg-white flex flex-col justify-between">
             <div>
-              {/* Barra superior de búsqueda y acciones del panel izquierdo */}
-              <div className="p-2 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2">
+              <div className="p-3 border-b border-slate-100 flex items-center gap-2">
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por código o descripción"
-                  className="px-2.5 py-1.5 bg-white border border-slate-300 text-xs font-mono flex-1 min-w-[180px] focus:outline-none focus:border-[#064e3b]"
+                  placeholder="Buscar artículo o código..."
+                  className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs flex-1 focus:bg-white focus:outline-none focus:border-[#3563e9]"
                 />
-
                 <button
                   onClick={() => setShowPreciosModal(true)}
-                  className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
+                  className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shrink-0"
                 >
-                  <span>Actualizar precios ▼</span>
+                  Precios %
                 </button>
-
-                <button
-                  onClick={() => setShowReportesModal(true)}
-                  className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
-                >
-                  <BarChart3 className="w-3.5 h-3.5" />
-                  <span>Reportes ▼</span>
-                </button>
-              </div>
-
-              {/* Sub-cabecera de la tabla */}
-              <div className="bg-[#f0fdf4] border-b border-slate-300 px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
-                <span>Listado de items de inventario ({articulosFiltrados.length} registrados)</span>
                 <button
                   onClick={handleExportarInventarioExcel}
-                  title="Exportar a Excel (CSV)"
-                  className="p-0.5 hover:bg-slate-200 text-emerald-700 flex items-center gap-1"
+                  title="Exportar catálogo a Excel"
+                  className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-emerald-600"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
-                  <span className="text-[10px]">Excel</span>
                 </button>
               </div>
 
-              {/* Grilla de Artículos */}
-              <div className="overflow-x-auto max-h-[500px]">
-                <table className="w-full text-left text-xs border-collapse font-mono">
+              {/* Grilla reducida de 7 a 3 columnas claras: Artículo | Precio | Stock */}
+              <div className="overflow-x-auto max-h-[520px]">
+                <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="bg-slate-100 border-b border-slate-300 text-[11px] font-bold text-slate-700">
-                      <th className="py-2 px-2.5 border-r border-slate-200">Código</th>
-                      <th className="py-2 px-2.5 border-r border-slate-200">Descripción</th>
-                      <th className="py-2 px-2 border-r border-slate-200 text-center">Tipo</th>
-                      <th className="py-2 px-2 border-r border-slate-200 text-center">UM</th>
-                      <th className="py-2 px-2.5 border-r border-slate-200 text-right">P. Venta</th>
-                      <th className="py-2 px-2.5 border-r border-slate-200 text-right">Cto. Calculado</th>
-                      <th className="py-2 px-2.5 text-right">Disponible</th>
+                    <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      <th className="py-3 px-4">Artículo</th>
+                      <th className="py-3 px-3 text-right">Precio Venta</th>
+                      <th className="py-3 px-4 text-right">Disponible</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-100">
                     {articulosFiltrados.map((art) => {
                       const isSelected = articuloActivo?.id === art.id;
                       return (
@@ -714,34 +683,29 @@ export const InventarioModule: React.FC = () => {
                           onClick={() => setArticuloSeleccionadoId(art.id)}
                           className={`cursor-pointer transition-colors ${
                             isSelected
-                              ? 'bg-[#ecfdf5] font-semibold text-slate-900 border-l-4 border-l-[#064e3b]'
-                              : 'hover:bg-slate-50 text-slate-800'
+                              ? 'bg-[#eff3fd]/70 border-l-4 border-l-[#3563e9]'
+                              : 'hover:bg-slate-50'
                           }`}
                         >
-                          <td className="py-2 px-2.5 border-r border-slate-200 font-bold text-slate-900">
-                            {art.codigo}
+                          <td className="py-3 px-4">
+                            <div className="font-semibold text-slate-900 truncate max-w-[210px]">
+                              {art.descripcion}
+                            </div>
+                            <div className="text-[11px] text-slate-400">SKU {art.codigo}</div>
                           </td>
-                          <td className="py-2 px-2.5 border-r border-slate-200 truncate max-w-[190px]" title={art.descripcion}>
-                            {art.descripcion}
+                          <td className="py-3 px-3 text-right text-slate-700 font-medium tabular-nums">
+                            ${art.precioVentaNeto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                           </td>
-                          <td className="py-2 px-2 border-r border-slate-200 text-center text-slate-600">
-                            {art.tipo}
-                          </td>
-                          <td className="py-2 px-2 border-r border-slate-200 text-center text-slate-600">
-                            {art.um}
-                          </td>
-                          <td className="py-2 px-2.5 border-r border-slate-200 text-right">
-                            {art.precioVentaNeto.toLocaleString('es-AR', {
-                              minimumFractionDigits: art.precioVentaNeto % 1 === 0 ? 2 : 3
-                            })}
-                          </td>
-                          <td className="py-2 px-2.5 border-r border-slate-200 text-right text-slate-600">
-                            {art.costoCalculado.toLocaleString('es-AR', {
-                              minimumFractionDigits: art.costoCalculado % 1 === 0 ? 2 : 3
-                            })}
-                          </td>
-                          <td className={`py-2 px-2.5 text-right font-bold ${art.disponible < 0 ? 'text-rose-700' : 'text-slate-900'}`}>
-                            {art.disponible.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                          <td className="py-3 px-4 text-right">
+                            <span
+                              className={`px-2 py-0.5 rounded-full font-bold tabular-nums ${
+                                art.disponible <= 0
+                                  ? 'bg-rose-50 text-rose-700'
+                                  : 'bg-slate-100 text-slate-900'
+                              }`}
+                            >
+                              {art.disponible.toLocaleString('es-AR')}
+                            </span>
                           </td>
                         </tr>
                       );
@@ -751,73 +715,54 @@ export const InventarioModule: React.FC = () => {
               </div>
             </div>
 
-            {/* Paginación del Panel Izquierdo */}
-            <div className="bg-[#f8fafc] border-t border-slate-300 px-3 py-1.5 flex items-center justify-between text-[11px] font-mono text-slate-600">
-              <div className="flex items-center gap-1">
-                <button className="p-0.5 hover:bg-slate-200"><ChevronsLeft className="w-3.5 h-3.5" /></button>
-                <button className="p-0.5 hover:bg-slate-200"><ChevronLeft className="w-3.5 h-3.5" /></button>
-                <span>Página</span>
-                <input type="text" readOnly value="1" className="w-6 text-center border border-slate-300 bg-white py-0.5 text-[10px]" />
-                <span>de 1</span>
-                <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
-                <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                <button onClick={() => refreshAllFromDb()} className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#064e3b]" /></button>
-              </div>
-              <span>Mostrando 1 - {articulosFiltrados.length} de {articulosFiltrados.length}</span>
+            <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
+              <span>{articulosFiltrados.length} artículos</span>
+              <button
+                type="button"
+                onClick={() => setShowReportesModal(true)}
+                className="text-[#3563e9] hover:underline font-semibold"
+              >
+                Informe de valuación PDF →
+              </button>
             </div>
           </div>
 
-          {/* PANEL DERECHO: DETALLE Y MOVIMIENTOS DEL ITEM SELECCIONADO */}
-          <div className="w-full lg:w-[54%] flex flex-col justify-between bg-white min-w-0">
+          {/* PANEL DERECHO: DETALLE Y KÁRDEX */}
+          <div className="w-full lg:w-[58%] flex flex-col justify-between bg-white min-w-0">
             <div>
-              {/* Sub-Pestañas del Detalle */}
-              <div className="bg-slate-50 border-b border-slate-300 px-3 pt-1 flex items-center justify-between text-xs font-mono">
-                <div className="flex items-center gap-1">
-                  {[
-                    { key: 'movimientos', label: 'Movimientos (Entradas y Salidas)' },
-                    { key: 'general', label: 'Información general' }
-                  ].map((t) => {
-                    const isActive = tabDetalle === t.key;
-                    return (
-                      <button
-                        key={t.key}
-                        onClick={() => setTabDetalle(t.key as 'movimientos' | 'general')}
-                        className={`px-3 py-1.5 font-bold transition-colors border-t-2 ${
-                          isActive
-                            ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
-                            : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                        }`}
-                      >
-                        {t.label}
-                      </button>
-                    );
-                  })}
+              <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    {articuloActivo ? articuloActivo.descripcion : 'Seleccioná un artículo'}
+                  </h2>
+                  {articuloActivo && (
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Código {articuloActivo.codigo} · Costo unitario: $
+                      {articuloActivo.costoCalculado.toLocaleString('es-AR', {
+                        minimumFractionDigits: 2
+                      })}
+                    </p>
+                  )}
                 </div>
-                <span className="text-[10px] text-emerald-800 font-bold pb-1 hidden sm:inline">
-                  ✓ Todo ingreso requiere Factura + Proveedor
-                </span>
-              </div>
 
-              {/* Título de la Grilla de Movimientos + KPIs de Entradas y Salidas */}
-              <div className="bg-[#f0fdf4] border-b border-slate-300 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
-                <span className="font-mono text-xs font-bold text-slate-900">
-                  {articuloActivo
-                    ? `Movimientos: ${articuloActivo.codigo} - ${articuloActivo.descripcion}`
-                    : 'Movimientos de inventario del item'}
-                </span>
-                {articuloActivo && (
-                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono">
-                    <span className="px-2 py-0.5 bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold">
-                      Entradas (Facturas): +{resumenMovimientosActivo.totalEntradas.toFixed(2)}
-                    </span>
-                    <span className="px-2 py-0.5 bg-rose-100 border border-rose-300 text-rose-900 font-bold">
-                      Salidas (Remitos/Obras): -{resumenMovimientosActivo.totalSalidas.toFixed(2)}
-                    </span>
-                    <span className="px-2 py-0.5 bg-white border border-slate-400 text-slate-900 font-extrabold">
-                      Stock Disponible: {articuloActivo.disponible.toFixed(2)} {articuloActivo.unidadMedida}
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+                  {[
+                    { key: 'movimientos', label: 'Movimientos' },
+                    { key: 'general', label: 'Ficha técnica' }
+                  ].map((t) => (
+                    <button
+                      key={t.key}
+                      onClick={() => setTabDetalle(t.key as 'movimientos' | 'general')}
+                      className={`px-3 py-1 rounded-lg transition-all ${
+                        tabDetalle === t.key
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* TAB 1: MOVIMIENTOS DE INVENTARIO CON TRAZABILIDAD DE FACTURA Y PROVEEDOR */}
@@ -928,39 +873,14 @@ export const InventarioModule: React.FC = () => {
                             );
                           })
                         ) : (
-                          Array.from({ length: 8 }).map((_, idx) => (
-                            <tr key={idx} className="h-8 border-b border-slate-100 hover:bg-slate-50/50">
-                              <td className="border-r border-slate-100 px-3">&nbsp;</td>
-                              <td className="border-r border-slate-100 px-3"></td>
-                              <td className="border-r border-slate-100 px-3"></td>
-                              <td className="border-r border-slate-100 px-3"></td>
-                              <td className="border-r border-slate-100 px-3"></td>
-                              <td className="border-r border-slate-100 px-3"></td>
-                              <td className="px-3"></td>
-                            </tr>
-                          ))
+                          <tr>
+                            <td colSpan={7} className="py-16 text-center text-slate-400 text-xs font-sans">
+                              Sin movimientos registrados para este artículo.
+                            </td>
+                          </tr>
                         )}
                       </tbody>
                     </table>
-                  </div>
-
-                  {/* Paginación de la Grilla de Movimientos */}
-                  <div className="bg-[#f8fafc] border-t border-slate-300 px-3 py-1.5 flex items-center justify-between text-[11px] font-mono text-slate-600">
-                    <div className="flex items-center gap-1">
-                      <button className="p-0.5 hover:bg-slate-200"><ChevronsLeft className="w-3.5 h-3.5" /></button>
-                      <button className="p-0.5 hover:bg-slate-200"><ChevronLeft className="w-3.5 h-3.5" /></button>
-                      <span>Página</span>
-                      <input type="text" readOnly value="1" className="w-6 text-center border border-slate-300 bg-white py-0.5 text-[10px]" />
-                      <span>de 1</span>
-                      <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
-                      <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => refreshAllFromDb()} className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#064e3b]" /></button>
-                    </div>
-                    <span>
-                      {articuloActivo && articuloActivo.movimientos && articuloActivo.movimientos.length > 0
-                        ? `Mostrando 1 - ${articuloActivo.movimientos.length} de ${articuloActivo.movimientos.length}`
-                        : 'Sin movimientos'}
-                    </span>
                   </div>
                 </div>
               )}
@@ -1019,41 +939,33 @@ export const InventarioModule: React.FC = () => {
               )}
             </div>
 
-            {/* BOTONERA INFERIOR (Agregar item, Ingreso por Factura Proveedor, Salida de Stock, Importar CSV) */}
-            <div className="bg-[#ecfdf5]/30 border-t border-slate-300 px-4 py-2 flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setShowAgregarModal(true)}
-                className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
-              >
-                <Boxes className="w-3.5 h-3.5" />
-                <span>Agregar Item ▼</span>
-              </button>
-
-              <button
-                onClick={abrirModalIngresoStock}
-                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs font-bold border border-emerald-700 flex items-center gap-1.5 transition-colors"
-                title="Todo ingreso de mercadería requiere obligatoriamente Factura y Proveedor asociados"
-              >
-                <ArrowDownLeft className="w-3.5 h-3.5" />
-                <span>+ Ingreso por Factura (Proveedor)</span>
-              </button>
-
-              <button
-                onClick={abrirModalEgresoStock}
-                className="px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white font-mono text-xs font-bold border border-rose-700 flex items-center gap-1.5 transition-colors"
-                title="Registrar Salida / Egreso de Stock por Remito de Obra, Consumo o Venta"
-              >
-                <ArrowUpRight className="w-3.5 h-3.5" />
-                <span>- Salida / Egreso de Stock</span>
-              </button>
-
+            {/* BOTONERA INFERIOR LIMPIA */}
+            <div className="border-t border-slate-100 px-5 py-3.5 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold flex items-center gap-1.5"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Importar CSV</span>
               </button>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={abrirModalIngresoStock}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <ArrowDownLeft className="w-3.5 h-3.5" />
+                  <span>Registrar Ingreso</span>
+                </button>
+
+                <button
+                  onClick={abrirModalEgresoStock}
+                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <ArrowUpRight className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Registrar Salida</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

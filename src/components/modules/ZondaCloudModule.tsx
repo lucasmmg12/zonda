@@ -53,6 +53,7 @@ export const ZondaCloudModule: React.FC = () => {
   >('liquidacion_f2002');
   const [periodoFiscal, setPeriodoFiscal] = useState('2026-10');
   const [avisoOperacion, setAvisoOperacion] = useState<string | null>(null);
+  const [mostrarParametrosTecnicosArca, setMostrarParametrosTecnicosArca] = useState(false);
 
   // Parámetros de Balance Anual y Ajuste por Inflación (RT 54 FACPCE + RG 5908 F.713 + RG 4626 PUB)
   const [coefInflacionAnualIpc, setCoefInflacionAnualIpc] = useState<number>(38.5);
@@ -749,106 +750,118 @@ export const ZondaCloudModule: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Parámetros Editables del Contador en Zonda Cloud (Saldos Anteriores, Retenciones y Prorrateo Art. 13) */}
-                <div className="p-4 bg-slate-50 border border-slate-300 space-y-3 font-mono text-xs">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                    <span className="font-bold text-slate-900 uppercase flex items-center gap-1.5">
-                      <Scale className="w-4 h-4 text-[#064e3b]" />
-                      <span>Parámetros Técnicos de Liquidación ARCA (Editables por Zonda Cloud):</span>
+                {/* Parámetros Técnicos colapsados por defecto ("Menos es Más") */}
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 overflow-hidden text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setMostrarParametrosTecnicosArca(!mostrarParametrosTecnicosArca)}
+                    className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-100/70 transition-colors"
+                  >
+                    <span className="font-semibold text-slate-800 flex items-center gap-2">
+                      <Scale className="w-4 h-4 text-[#3563e9]" />
+                      <span>Ajustar saldos anteriores, retenciones y prorrateo IVA</span>
                     </span>
-                    <span className="text-[11px] text-slate-500">
-                      Recálculo instantáneo de F.2002 y DGR/SIFERE
+                    <span className="text-xs font-semibold text-[#3563e9]">
+                      {mostrarParametrosTecnicosArca ? 'Ocultar ▴' : 'Desplegar ▾'}
                     </span>
-                  </div>
+                  </button>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-                    <div>
-                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
-                        % Prorrateo IVA (Art. 13):
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={authCloud.porcentajeProrrateoIvaArt13}
-                        onChange={(e) =>
-                          actualizarAutorizacionZondaCloud(tenantCloudActual.tenantId, {
-                            porcentajeProrrateoIvaArt13: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0))
-                          })
-                        }
-                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
-                      />
-                    </div>
+                  {mostrarParametrosTecnicosArca && (
+                    <div className="p-4 bg-white border-t border-slate-100 grid grid-cols-1 sm:grid-cols-5 gap-3">
+                      <div>
+                        <label className="block text-[11px] text-slate-500 font-medium mb-1">
+                          % Prorrateo IVA (Art. 13)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={authCloud.porcentajeProrrateoIvaArt13}
+                          onChange={(e) =>
+                            actualizarAutorizacionZondaCloud(tenantCloudActual.tenantId, {
+                              porcentajeProrrateoIvaArt13: Math.min(
+                                100,
+                                Math.max(0, parseFloat(e.target.value) || 0)
+                              )
+                            })
+                          }
+                          className="w-full px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 font-semibold"
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
-                        Saldo Técnico Per. Ant. ($):
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={authCloud.saldoTecnicoAnteriorIva}
-                        onChange={(e) =>
-                          actualizarAutorizacionZondaCloud(tenantCloudActual.tenantId, {
-                            saldoTecnicoAnteriorIva: Math.max(0, parseFloat(e.target.value) || 0)
-                          })
-                        }
-                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-[11px] text-slate-500 font-medium mb-1">
+                          Saldo Técnico Ant. ($)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={authCloud.saldoTecnicoAnteriorIva}
+                          onChange={(e) =>
+                            actualizarAutorizacionZondaCloud(tenantCloudActual.tenantId, {
+                              saldoTecnicoAnteriorIva: Math.max(0, parseFloat(e.target.value) || 0)
+                            })
+                          }
+                          className="w-full px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 font-semibold"
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
-                        Saldo Libre Disp. Ant. ($):
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={authCloud.saldoLibreDisponibilidadAnterior}
-                        onChange={(e) =>
-                          actualizarAutorizacionZondaCloud(tenantCloudActual.tenantId, {
-                            saldoLibreDisponibilidadAnterior: Math.max(0, parseFloat(e.target.value) || 0)
-                          })
-                        }
-                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-[11px] text-slate-500 font-medium mb-1">
+                          Libre Disp. Ant. ($)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={authCloud.saldoLibreDisponibilidadAnterior}
+                          onChange={(e) =>
+                            actualizarAutorizacionZondaCloud(tenantCloudActual.tenantId, {
+                              saldoLibreDisponibilidadAnterior: Math.max(
+                                0,
+                                parseFloat(e.target.value) || 0
+                              )
+                            })
+                          }
+                          className="w-full px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 font-semibold"
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
-                        Retenciones IVA Sufridas ($):
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={authCloud.retencionesIvaSufridasMes}
-                        onChange={(e) =>
-                          actualizarAutorizacionZondaCloud(tenantCloudActual.tenantId, {
-                            retencionesIvaSufridasMes: Math.max(0, parseFloat(e.target.value) || 0)
-                          })
-                        }
-                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-[11px] text-slate-500 font-medium mb-1">
+                          Retenciones IVA ($)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={authCloud.retencionesIvaSufridasMes}
+                          onChange={(e) =>
+                            actualizarAutorizacionZondaCloud(tenantCloudActual.tenantId, {
+                              retencionesIvaSufridasMes: Math.max(0, parseFloat(e.target.value) || 0)
+                            })
+                          }
+                          className="w-full px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 font-semibold"
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-[10px] text-slate-600 font-bold mb-1">
-                        Alícuota IIBB Actividad (%):
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={authCloud.alicuotaIibbPromedio}
-                        onChange={(e) =>
-                          actualizarAutorizacionZondaCloud(tenantCloudActual.tenantId, {
-                            alicuotaIibbPromedio: Math.max(0, parseFloat(e.target.value) || 0)
-                          })
-                        }
-                        className="w-full px-2 py-1.5 bg-white border border-slate-300 font-bold"
-                      />
+                      <div>
+                        <label className="block text-[11px] text-slate-500 font-medium mb-1">
+                          Alícuota IIBB (%)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={authCloud.alicuotaIibbPromedio}
+                          onChange={(e) =>
+                            actualizarAutorizacionZondaCloud(tenantCloudActual.tenantId, {
+                              alicuotaIibbPromedio: Math.max(0, parseFloat(e.target.value) || 0)
+                            })
+                          }
+                          className="w-full px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 font-semibold"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Papel de Trabajo F.2002 ARCA + Exportadores Oficiales TXT */}

@@ -67,6 +67,8 @@ export const ProveedoresModule: React.FC = () => {
   const [tabDetalle, setTabDetalle] = useState<'adeudadas' | 'comprobantes' | 'cuenta' | 'general' | 'otra'>('adeudadas');
   const [showNcNdModal, setShowNcNdModal] = useState(false);
   const [facturaDetalle, setFacturaDetalle] = useState<FacturaAdeudadaProveedor | null>(null);
+  const [masOpcionesOpen, setMasOpcionesOpen] = useState(false);
+  const [verChequesProveedor, setVerChequesProveedor] = useState(false);
 
   // Escuchar selección directa desde el Buscador Global del Header
   useEffect(() => {
@@ -830,7 +832,7 @@ export const ProveedoresModule: React.FC = () => {
   };
 
   return (
-    <div className="space-y-0 text-slate-800 font-sans">
+    <div className="space-y-4 text-slate-800 font-sans">
       <input
         ref={fileInputRef}
         type="file"
@@ -839,236 +841,192 @@ export const ProveedoresModule: React.FC = () => {
         onChange={handleImportCsv}
       />
 
-      {/* 1. BARRA SUPERIOR DE ENCABEZADO Y LLAMADA AL CALENDARIO */}
-      <div className="bg-white border-b border-slate-300 px-4 py-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight font-mono uppercase">
-            Proveedores
-          </h1>
-          <span className="text-xs text-slate-400 font-mono">| GESTIÓN DE COMPRAS Y ÓRDENES DE PAGO</span>
+      {/* 1. CABECERA LIMPIA ("MENOS ES MÁS") */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 px-5 py-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Proveedores y Compras</h1>
+          <p className="text-xs text-slate-500">
+            Comprobantes recibidos, ingreso a stock y órdenes de pago
+          </p>
         </div>
 
-        <button
-          onClick={() => setShowCalendarioModal(true)}
-          className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#064e3b]"
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>Calendario de vencimientos</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+            {[
+              { key: 'gestion', label: 'Proveedores' },
+              { key: 'resumen', label: 'Resumen' }
+            ].map((tab) => {
+              const isActive = tabPrincipal === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setTabPrincipal(tab.key as 'resumen' | 'gestion')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    isActive
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={() => {
+              if (proveedorActivo?.cuentaGastoHabitual) {
+                setCuentaImputacionFactura(proveedorActivo.cuentaGastoHabitual);
+              }
+              setShowFacturaModal(true);
+            }}
+            className="px-4 py-2 rounded-xl bg-[#3563e9] hover:bg-[#2952cc] text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Cargar Compra</span>
+          </button>
+        </div>
       </div>
 
-      {/* 2. PESTAÑAS PRINCIPALES DEL MÓDULO */}
-      <div className="bg-[#ecfdf5]/40 border-b border-slate-300 px-2 pt-1 flex items-center gap-1">
-        {[
-          { key: 'resumen', label: 'Resumen proveedores' },
-          { key: 'gestion', label: 'Gestión de proveedores' }
-        ].map((tab) => {
-          const isActive = tabPrincipal === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setTabPrincipal(tab.key as 'resumen' | 'gestion')}
-              className={`px-4 py-2 text-xs font-mono font-bold transition-all border-t-2 ${
-                isActive
-                  ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
-                  : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-white/50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 3. VISTA PRINCIPAL: SPLIT-SCREEN MASTER-DETAIL (GESTIÓN DE PROVEEDORES) */}
+      {/* 2. VISTA PRINCIPAL LIMPIA: LISTA + DETALLE */}
       {tabPrincipal === 'gestion' ? (
-        <div className="flex flex-col lg:flex-row min-h-[640px] bg-white border border-slate-300 border-t-0">
-          {/* PANEL IZQUIERDO: LISTA DE PROVEEDORES (MASTER) */}
+        <div className="flex flex-col lg:flex-row min-h-[600px] bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          {/* PANEL IZQUIERDO: LISTA DE PROVEEDORES */}
           <div
-            className={`border-r border-slate-300 bg-white flex flex-col justify-between transition-all duration-200 ${
+            className={`border-r border-slate-200/80 bg-white flex flex-col justify-between transition-all duration-200 ${
               panelIzquierdoColapsado ? 'w-12 overflow-hidden' : 'w-full lg:w-80 shrink-0'
             }`}
           >
             <div>
-              {/* Cabecera del Panel Izquierdo */}
-              <div className="bg-[#f0fdf4] border-b border-slate-300 px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold text-slate-800">
-                {!panelIzquierdoColapsado && <span>Lista de proveedores</span>}
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                {!panelIzquierdoColapsado && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800">Padrón</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFiltroActivos(filtroActivos === 'activos' ? 'inactivos' : 'activos')
+                      }
+                      className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium"
+                    >
+                      {filtroActivos === 'activos'
+                        ? `Activos (${proveedores.filter((p) => p.activo).length})`
+                        : `Inactivos (${proveedores.filter((p) => !p.activo).length})`}
+                    </button>
+                  </div>
+                )}
                 <button
                   onClick={() => setPanelIzquierdoColapsado(!panelIzquierdoColapsado)}
                   title={panelIzquierdoColapsado ? 'Expandir lista' : 'Colapsar lista'}
-                  className="p-1 hover:bg-slate-200 text-slate-600 transition-colors ml-auto"
+                  className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors ml-auto"
                 >
-                  {panelIzquierdoColapsado ? <ChevronsRight className="w-3.5 h-3.5" /> : <ChevronsLeft className="w-3.5 h-3.5" />}
+                  {panelIzquierdoColapsado ? (
+                    <ChevronsRight className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronsLeft className="w-3.5 h-3.5" />
+                  )}
                 </button>
               </div>
 
               {!panelIzquierdoColapsado && (
                 <>
-                  {/* Pestañas Activos / Inactivos */}
-                  <div className="grid grid-cols-2 border-b border-slate-300 text-xs font-mono">
-                    <button
-                      onClick={() => setFiltroActivos('activos')}
-                      className={`py-1.5 text-center font-bold transition-colors ${
-                        filtroActivos === 'activos'
-                          ? 'bg-white text-slate-900 border-b-2 border-b-[#064e3b]'
-                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                      }`}
-                    >
-                      Activos ({proveedores.filter((p) => p.activo).length})
-                    </button>
-                    <button
-                      onClick={() => setFiltroActivos('inactivos')}
-                      className={`py-1.5 text-center font-bold transition-colors ${
-                        filtroActivos === 'inactivos'
-                          ? 'bg-white text-slate-900 border-b-2 border-b-[#064e3b]'
-                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                      }`}
-                    >
-                      Inactivos ({proveedores.filter((p) => !p.activo).length})
-                    </button>
+                  <div className="p-3 border-b border-slate-100">
+                    <input
+                      type="text"
+                      value={searchProveedor}
+                      onChange={(e) => setSearchProveedor(e.target.value)}
+                      placeholder="Buscar proveedor o CUIT..."
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs focus:bg-white focus:outline-none focus:border-[#3563e9]"
+                    />
                   </div>
 
-                  {/* Buscador de Proveedor */}
-                  <div className="p-2 border-b border-slate-200 bg-slate-50 flex items-center gap-2 text-xs font-mono">
-                    <span className="text-slate-600 text-[11px] whitespace-nowrap">Buscar proveedor:</span>
-                    <div className="relative flex-1">
-                      <input
-                        type="text"
-                        value={searchProveedor}
-                        onChange={(e) => setSearchProveedor(e.target.value)}
-                        placeholder="Razón social o CUIT..."
-                        className="w-full px-2 py-1 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#064e3b]"
-                      />
-                    </div>
-                    <button
-                      onClick={() => setSearchProveedor('')}
-                      title="Limpiar filtro"
-                      className="text-slate-400 hover:text-slate-600"
-                    >
-                      <HelpCircle className="w-4 h-4 text-[#064e3b]" />
-                    </button>
-                  </div>
-
-                  {/* Tabla de Proveedores */}
-                  <div className="overflow-y-auto max-h-[460px]">
-                    <table className="w-full text-left text-xs border-collapse font-sans">
-                      <thead>
-                        <tr className="bg-slate-100 border-b border-slate-300 text-[11px] font-mono font-bold text-slate-700">
-                          <th className="py-2 px-2.5 border-r border-slate-200">Nombre</th>
-                          <th className="py-2 px-2 border-r border-slate-200">Razón social</th>
-                          <th className="py-2 px-2 text-right">Saldo ($)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {proveedoresFiltrados.map((prv) => {
-                          const isSelected = proveedorActivo?.id === prv.id;
-                          return (
-                            <tr
-                              key={prv.id}
-                              onClick={() => setProveedorSeleccionadoId(prv.id)}
-                              className={`cursor-pointer transition-colors ${
-                                isSelected
-                                  ? 'bg-[#ecfdf5] font-semibold text-slate-900 border-l-4 border-l-[#064e3b]'
-                                  : 'hover:bg-slate-50 text-slate-700'
-                              }`}
-                              title="Haga click sobre proveedores para ver información y cuenta corriente"
-                            >
-                              <td className="py-2 px-2.5 border-r border-slate-200 truncate max-w-[100px]">
-                                {prv.nombre}
-                              </td>
-                              <td className="py-2 px-2 border-r border-slate-200 truncate max-w-[100px] text-slate-500 text-[11px]">
-                                {prv.razonSocial}
-                              </td>
-                              <td className={`py-2 px-2 text-right font-mono font-bold whitespace-nowrap ${prv.saldo < 0 ? 'text-rose-700' : 'text-slate-900'}`}>
-                                {prv.saldo !== 0
-                                  ? prv.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })
-                                  : '0,00'}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  {/* Lista simplificada a 2 columnas: Proveedor + Saldo */}
+                  <div className="overflow-y-auto max-h-[490px] divide-y divide-slate-100">
+                    {proveedoresFiltrados.map((prv) => {
+                      const isSelected = proveedorActivo?.id === prv.id;
+                      return (
+                        <div
+                          key={prv.id}
+                          onClick={() => setProveedorSeleccionadoId(prv.id)}
+                          className={`px-4 py-3 cursor-pointer transition-colors flex items-center justify-between gap-3 ${
+                            isSelected
+                              ? 'bg-[#eff3fd]/70 border-l-4 border-l-[#3563e9]'
+                              : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-slate-900 truncate">
+                              {prv.razonSocial}
+                            </div>
+                            <div className="text-[11px] text-slate-400 truncate">{prv.cuit}</div>
+                          </div>
+                          <div className="text-xs font-bold text-slate-900 whitespace-nowrap tabular-nums">
+                            ${prv.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </>
               )}
             </div>
 
-            {/* Paginación del Panel Izquierdo */}
             {!panelIzquierdoColapsado && (
-              <div className="bg-[#f8fafc] border-t border-slate-300 px-2 py-1.5 flex items-center justify-between text-[11px] font-mono text-slate-600">
-                <div className="flex items-center gap-1">
-                  <button className="p-0.5 hover:bg-slate-200"><ChevronsLeft className="w-3.5 h-3.5" /></button>
-                  <button className="p-0.5 hover:bg-slate-200"><ChevronLeft className="w-3.5 h-3.5" /></button>
-                  <span>Página</span>
-                  <input type="text" readOnly value="1" className="w-6 text-center border border-slate-300 bg-white py-0.5 text-[10px]" />
-                  <span>de 1</span>
-                  <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
-                  <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => refreshAllFromDb()} title="Sincronizar con Supabase" className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5" /></button>
-                </div>
-                <span>Mostrando 1 - {proveedoresFiltrados.length} de {proveedoresFiltrados.length}</span>
+              <div className="p-3 border-t border-slate-100 bg-slate-50/50">
+                <button
+                  type="button"
+                  onClick={() => setShowNuevoProveedorModal(true)}
+                  className="w-full py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <UserPlus className="w-3.5 h-3.5 text-[#3563e9]" />
+                  <span>Nuevo proveedor</span>
+                </button>
               </div>
             )}
           </div>
 
-          {/* PANEL DERECHO: DETALLE DEL PROVEEDOR SELECCIONADO */}
+          {/* PANEL DERECHO: DETALLE DEL PROVEEDOR */}
           <div className="flex-1 flex flex-col justify-between bg-white min-w-0">
             <div>
-              {/* Título del Proveedor Seleccionado */}
-              <div className="bg-[#f0fdf4] border-b border-slate-300 px-4 py-2 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-xs font-bold text-slate-900 uppercase">
-                    {proveedorActivo ? proveedorActivo.razonSocial : 'Seleccionar proveedor de la lista'}
-                  </span>
+              <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    {proveedorActivo ? proveedorActivo.razonSocial : 'Seleccioná un proveedor'}
+                  </h2>
                   {proveedorActivo && (
-                    <span className="text-[10px] font-mono px-2 py-0.5 bg-white border border-slate-300 text-slate-700">
-                      CUIT: {proveedorActivo.cuit} | {proveedorActivo.condicionIva}
-                    </span>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      CUIT {proveedorActivo.cuit} · {proveedorActivo.condicionIva}
+                    </p>
                   )}
                 </div>
 
                 {proveedorActivo && (
-                  <div className="flex items-center gap-2 font-mono text-xs">
-                    <span className="text-slate-500">Saldo por Pagar:</span>
-                    <span className={`font-bold bg-white px-2 py-0.5 border border-slate-300 ${proveedorActivo.saldo < 0 ? 'text-rose-700' : 'text-slate-900'}`}>
+                  <div className="text-right">
+                    <span className="text-[11px] text-slate-400 block">Saldo a pagar</span>
+                    <span className="text-base font-extrabold text-slate-900 tabular-nums">
                       ${proveedorActivo.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Sub-Pestañas de Detalle */}
-              <div className="bg-slate-50 border-b border-slate-300 px-3 pt-1 flex items-center gap-1 text-xs font-mono">
+              {/* Sub-pestañas limpias */}
+              <div className="px-5 border-b border-slate-100 flex flex-wrap items-center gap-4 text-xs">
                 {[
-                  { key: 'adeudadas', label: `Facturas adeudadas (${proveedorActivo?.facturasAdeudadas.length || 0})` },
-                  {
-                    key: 'comprobantes',
-                    label: `Comprobantes recibidos (${
-                      proveedorActivo
-                        ? facturasCompra.filter(
-                            (fc) =>
-                              fc.proveedorCuit.replace(/[^0-9]/g, '') ===
-                                proveedorActivo.cuit.replace(/[^0-9]/g, '') ||
-                              fc.proveedorNombre.trim().toUpperCase() ===
-                                proveedorActivo.razonSocial.trim().toUpperCase()
-                          ).length
-                        : 0
-                    })`
-                  },
-                  { key: 'cuenta', label: 'Cuenta proveedor' },
-                  { key: 'general', label: 'Información general' },
-                  { key: 'otra', label: 'Otra información' }
+                  { key: 'adeudadas', label: `Pendientes (${proveedorActivo?.facturasAdeudadas.length || 0})` },
+                  { key: 'comprobantes', label: 'Todos los comprobantes' },
+                  { key: 'cuenta', label: 'Cuenta corriente' },
+                  { key: 'general', label: 'Datos del proveedor' }
                 ].map((t) => {
                   const isActive = tabDetalle === t.key;
                   return (
                     <button
                       key={t.key}
                       onClick={() => setTabDetalle(t.key as any)}
-                      className={`px-3 py-1.5 font-bold transition-colors border-t-2 ${
+                      className={`py-2.5 font-semibold border-b-2 transition-colors ${
                         isActive
-                          ? 'bg-white border-t-[#064e3b] text-slate-900 border-x border-slate-300 -mb-[1px] z-10'
-                          : 'bg-transparent border-t-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                          ? 'border-[#3563e9] text-[#3563e9]'
+                          : 'border-transparent text-slate-500 hover:text-slate-800'
                       }`}
                     >
                       {t.label}
@@ -1077,153 +1035,84 @@ export const ProveedoresModule: React.FC = () => {
                 })}
               </div>
 
-              {/* CONTENIDO DE LA PESTAÑA: FACTURAS ADEUDADAS AL PROVEEDOR */}
+              {/* CONTENIDO: FACTURAS ADEUDADAS AL PROVEEDOR (5 Columnas limpias, sin banner fijo) */}
               {tabDetalle === 'adeudadas' && (
                 <div>
-                  {/* Instructivo Permanente de Flujo en 2 Pasos (Cargar Factura Pendiente -> Sacar Pago) */}
-                  <div className="bg-emerald-50/80 px-4 py-2.5 border-b border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-                    <div className="flex flex-wrap items-center gap-2 text-[#042f22]">
-                      <span className="px-2 py-0.5 bg-[#042f22] text-white font-bold text-[10px] uppercase">
-                        CÓMO REGISTRAR Y PAGAR
-                      </span>
-                      <span>
-                        <strong>Paso 1:</strong> En <strong>&ldquo;Agregar factura&rdquo;</strong> elegís el medio de pago previsto y la factura queda <strong>PENDIENTE</strong> (no descuenta caja).
-                      </span>
-                      <span className="text-emerald-700 font-bold">&rarr;</span>
-                      <span>
-                        <strong>Paso 2:</strong> Usá <strong>&ldquo;$ Agregar pago&rdquo;</strong> o el botón <strong>&ldquo;$ Sacar Pago&rdquo;</strong> de la tabla para debitar el dinero de Tesorería.
-                      </span>
-                    </div>
-                    <button
-                      onClick={handleExportarAdeudadasExcel}
-                      title="Exportar a Excel (CSV)"
-                      className="p-1 hover:bg-emerald-100 text-emerald-800 flex items-center gap-1 font-bold shrink-0"
-                    >
-                      <FileSpreadsheet className="w-4 h-4" />
-                      <span className="text-[10px]">Excel</span>
-                    </button>
-                  </div>
-
-                  {/* Banner interactivo cuando el usuario acaba de cargar una factura (Paso 1 completado -> Invitación a Paso 2) */}
                   {avisoFacturaPendiente && (
-                    <div className="bg-amber-50 border-b-2 border-amber-300 px-4 py-3 flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
-                      <div className="space-y-0.5">
-                        <span className="font-bold text-amber-950 uppercase block">
-                          ✓ PASO 1 COMPLETADO: {avisoFacturaPendiente.nroFactura || 'FACTURA'} REGISTRADA COMO PENDIENTE (${avisoFacturaPendiente.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })})
-                          {avisoFacturaPendiente.itemsIngresadosCount && avisoFacturaPendiente.itemsIngresadosCount > 0 ? (
-                            <span className="ml-2 px-2 py-0.5 bg-emerald-700 text-white text-[10px]">
-                              + {avisoFacturaPendiente.itemsIngresadosCount} ÍTEM(S) INGRESADOS A INVENTARIO
-                            </span>
-                          ) : null}
-                        </span>
-                        <p className="text-[11px] text-amber-900 font-sans">
-                          Medio de pago pactado: <strong>{avisoFacturaPendiente.medioPactado}</strong>. El stock ya impactó en Inventario con su factura y proveedor asociados. Para desembolsar el pago ahora o cuando corresponda, ejecutá el <strong>Paso 2</strong>:
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {avisoFacturaPendiente.itemsIngresadosCount && avisoFacturaPendiente.itemsIngresadosCount > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => setActiveModule('inventario')}
-                            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
-                          >
-                            <Boxes className="w-3.5 h-3.5" />
-                            <span>Ver Ingreso en Inventario</span>
-                          </button>
-                        ) : null}
+                    <div className="mx-5 mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <span className="text-amber-900 font-medium">
+                        ✓ Compra registrada ($
+                        {avisoFacturaPendiente.total.toLocaleString('es-AR', {
+                          minimumFractionDigits: 2
+                        })}
+                        )
+                      </span>
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => abrirModalPagoConMedio(avisoFacturaPendiente.total, avisoFacturaPendiente.medioPactado)}
-                          className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+                          onClick={() =>
+                            abrirModalPagoConMedio(
+                              avisoFacturaPendiente.total,
+                              avisoFacturaPendiente.medioPactado
+                            )
+                          }
+                          className="px-3 py-1 rounded-lg bg-slate-900 text-white font-semibold text-[11px]"
                         >
-                          <DollarSign className="w-3.5 h-3.5" />
-                          <span>Paso 2: Sacar Pago Ahora (${avisoFacturaPendiente.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })})</span>
+                          Pagar ahora
                         </button>
                         <button
                           type="button"
                           onClick={() => setAvisoFacturaPendiente(null)}
-                          className="px-2 py-1 text-amber-800 hover:bg-amber-100 font-bold text-xs"
+                          className="text-slate-400 hover:text-slate-700"
                         >
-                          Dejar Pendiente
+                          ✕
                         </button>
                       </div>
                     </div>
                   )}
 
-                  {/* Grilla de Facturas Adeudadas */}
                   <div className="overflow-x-auto min-h-[360px]">
-                    <table className="w-full text-left text-xs border-collapse font-mono">
+                    <table className="w-full text-left text-xs">
                       <thead>
-                        <tr className="bg-slate-100 border-b border-slate-300 text-[11px] font-bold text-slate-700">
-                          <th className="py-2 px-3 border-r border-slate-200">Nro. Comprobante</th>
-                          <th className="py-2 px-3 border-r border-slate-200">Tipo</th>
-                          <th className="py-2 px-3 border-r border-slate-200">Fecha pago</th>
-                          <th className="py-2 px-3 border-r border-slate-200">Descripción</th>
-                          <th className="py-2 px-3 border-r border-slate-200">Medio de Pago Pactado</th>
-                          <th className="py-2 px-3 border-r border-slate-200 text-right">Total</th>
-                          <th className="py-2 px-3 border-r border-slate-200 text-right">Pagado</th>
-                          <th className="py-2 px-3 border-r border-slate-200 text-right">Saldo Pendiente</th>
-                          <th className="py-2 px-3 text-center">Acción (Paso 2)</th>
+                        <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                          <th className="py-3 px-5">Comprobante</th>
+                          <th className="py-3 px-3">Vencimiento</th>
+                          <th className="py-3 px-3">Concepto</th>
+                          <th className="py-3 px-3 text-right">Saldo a pagar</th>
+                          <th className="py-3 px-5 text-right">Acción</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200">
+                      <tbody className="divide-y divide-slate-100">
                         {proveedorActivo && proveedorActivo.facturasAdeudadas.length > 0 ? (
                           proveedorActivo.facturasAdeudadas.map((f) => (
                             <tr
                               key={f.id}
                               onClick={() => setFacturaDetalle(f)}
-                              title="Clic para ver el detalle completo de la factura, stock y asiento contable"
-                              className="hover:bg-emerald-50/60 cursor-pointer transition-colors"
+                              title="Clic para abrir el detalle completo de la compra"
+                              className="hover:bg-slate-50/80 cursor-pointer transition-colors"
                             >
-                              <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-900">
-                                {f.nroComprobante}
+                              <td className="py-3.5 px-5">
+                                <div className="font-bold text-slate-900">{f.nroComprobante}</div>
+                                <div className="text-[11px] text-slate-400">{f.tipo}</div>
                               </td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-slate-700">{f.tipo}</td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-slate-700">{f.fechaPago}</td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-slate-600 font-sans text-[11px] max-w-xs">
+                              <td className="py-3.5 px-3 text-slate-600 tabular-nums">{f.fechaPago}</td>
+                              <td className="py-3.5 px-3 text-slate-600 max-w-xs">
                                 <div className="truncate">{f.descripcion}</div>
-                                {f.chequesAsociados && f.chequesAsociados.length > 0 && (
-                                  <div className="mt-1 flex flex-wrap gap-1">
-                                    {f.chequesAsociados.map((ch) => (
-                                      <span
-                                        key={ch.id}
-                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold bg-indigo-50 text-indigo-900 border border-indigo-200"
-                                        title={`Cheque #${ch.numero} (${ch.bancoEmisor}) · Vence: ${ch.fechaPago} · $${ch.importe.toLocaleString('es-AR')}`}
-                                      >
-                                        🏦 Chq #{ch.numero} · Vto {ch.fechaPago} (${ch.importe.toLocaleString('es-AR')})
-                                      </span>
-                                    ))}
+                                <div className="text-[11px] text-slate-400 truncate">
+                                  {f.medioPagoPactado || 'Cuenta corriente'}
+                                </div>
+                              </td>
+                              <td className="py-3.5 px-3 text-right">
+                                <div className="font-bold text-slate-900 tabular-nums">
+                                  ${f.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                </div>
+                                {f.pagado > 0 && (
+                                  <div className="text-[10px] text-emerald-600">
+                                    Pagado: ${f.pagado.toLocaleString('es-AR')}
                                   </div>
                                 )}
                               </td>
-                              <td className="py-2 px-3 border-r border-slate-200">
-                                <div className="flex flex-col gap-0.5">
-                                  <span className="text-[10px] font-bold text-[#042f22]">
-                                    {f.medioPagoPactado || 'Transferencia Bancaria Santander'}
-                                  </span>
-                                  {f.saldo > 0 ? (
-                                    <span className="inline-block w-fit text-[9px] font-bold uppercase px-1.5 py-0.2 bg-amber-100 text-amber-800 border border-amber-300">
-                                      {f.pagado > 0
-                                        ? `PAGO PARCIAL EN CUOTAS (${f.cuotasPagadas || 1}/${f.cantidadCuotas || 2})`
-                                        : 'PENDIENTE DE SALIDA'}
-                                    </span>
-                                  ) : (
-                                    <span className="inline-block w-fit text-[9px] font-bold uppercase px-1.5 py-0.2 bg-indigo-100 text-indigo-800 border border-indigo-300">
-                                      CUBIERTA CON {f.chequesAsociados?.length || 1} CHEQUE(S) DIFERIDOS
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-slate-900">
-                                ${f.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-right text-emerald-700 font-bold">
-                                ${f.pagado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-rose-700">
-                                ${f.saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="py-2 px-3 text-center">
+                              <td className="py-3.5 px-5 text-right">
                                 {f.saldo > 0 ? (
                                   <button
                                     type="button"
@@ -1231,59 +1120,31 @@ export const ProveedoresModule: React.FC = () => {
                                       e.stopPropagation();
                                       abrirModalPagoConMedio(f.saldo, f.medioPagoPactado, f.id);
                                     }}
-                                    className="px-2.5 py-1 bg-[#064e3b] hover:bg-[#047857] text-white text-[10px] font-bold uppercase inline-flex items-center gap-1"
-                                    title="Pagar total, en cuotas o con varios cheques"
+                                    className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-semibold inline-flex items-center gap-1"
                                   >
                                     <DollarSign className="w-3 h-3" />
-                                    <span>Sacar Pago / Cheques</span>
+                                    <span>Pagar</span>
                                   </button>
                                 ) : (
-                                  <span className="text-[10px] font-bold text-emerald-700 uppercase">
-                                    ✓ Cheques Emitidos
+                                  <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold">
+                                    Cubierta
                                   </span>
                                 )}
                               </td>
                             </tr>
                           ))
                         ) : (
-                          Array.from({ length: 9 }).map((_, idx) => (
-                            <tr key={idx} className="h-8 border-b border-slate-100 hover:bg-slate-50/50">
-                              <td className="border-r border-slate-100 px-3">&nbsp;</td>
-                              <td className="border-r border-slate-100 px-3"></td>
-                              <td className="border-r border-slate-100 px-3"></td>
-                              <td className="border-r border-slate-100 px-3"></td>
-                              <td className="border-r border-slate-100 px-3"></td>
-                              <td className="border-r border-slate-100 px-3"></td>
-                              <td className="border-r border-slate-100 px-3"></td>
-                              <td className="border-r border-slate-100 px-3"></td>
-                              <td className="px-3"></td>
-                            </tr>
-                          ))
+                          <tr>
+                            <td colSpan={5} className="py-16 text-center text-slate-400 text-xs">
+                              Este proveedor no tiene facturas pendientes de pago.
+                            </td>
+                          </tr>
                         )}
                       </tbody>
                     </table>
                   </div>
 
-                  {/* Paginación de la Grilla de Facturas Adeudadas */}
-                  <div className="bg-[#f8fafc] border-t border-slate-300 px-3 py-1.5 flex items-center justify-between text-[11px] font-mono text-slate-600">
-                    <div className="flex items-center gap-1">
-                      <button className="p-0.5 hover:bg-slate-200"><ChevronsLeft className="w-3.5 h-3.5" /></button>
-                      <button className="p-0.5 hover:bg-slate-200"><ChevronLeft className="w-3.5 h-3.5" /></button>
-                      <span>Página</span>
-                      <input type="text" readOnly value="1" className="w-6 text-center border border-slate-300 bg-white py-0.5 text-[10px]" />
-                      <span>de 1</span>
-                      <button className="p-0.5 hover:bg-slate-200"><ChevronRight className="w-3.5 h-3.5" /></button>
-                      <button className="p-0.5 hover:bg-slate-200"><ChevronsRight className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => refreshAllFromDb()} className="p-0.5 hover:bg-slate-200 ml-1"><RotateCw className="w-3.5 h-3.5 text-[#064e3b]" /></button>
-                    </div>
-                    <span>
-                      {proveedorActivo && proveedorActivo.facturasAdeudadas.length > 0
-                        ? `Mostrando 1 - ${proveedorActivo.facturasAdeudadas.length} de ${proveedorActivo.facturasAdeudadas.length}`
-                        : 'Sin facturas pendientes'}
-                    </span>
-                  </div>
-
-                  {/* PANEL DE SEGUIMIENTO DE CHEQUES Y FECHAS DE VENCIMIENTO ATADOS A FACTURAS Y PROVEEDOR */}
+                  {/* Cheques asociados colapsados bajo demanda ("Menos es Más") */}
                   {(() => {
                     const chequesDeEsteProveedor = [
                       ...(proveedorActivo?.facturasAdeudadas.flatMap((f) =>
@@ -1301,83 +1162,41 @@ export const ProveedoresModule: React.FC = () => {
                       )
                     ].filter((ch, idx, arr) => arr.findIndex((x) => x.numero === ch.numero) === idx);
 
-                    return (
-                      <div className="border-t-2 border-indigo-200 bg-indigo-50/35 p-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                          <div>
-                            <h5 className="text-xs font-extrabold text-indigo-950 uppercase flex items-center gap-1.5">
-                              <span>🏦 Seguimiento de Cheques y Vencimientos Atados a Facturas ({proveedorActivo?.razonSocial})</span>
-                            </h5>
-                            <p className="text-[10px] text-slate-600">
-                              Control de cheques entregados en cuotas o pagos múltiples, vinculados a cada factura y proveedor.
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold text-[10px]">
-                              {chequesDeEsteProveedor.length} cheque(s) asociados
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setShowCalendarioModal(true)}
-                              className="px-2.5 py-1 bg-[#064e3b] hover:bg-[#042f22] text-white font-bold text-[10px] uppercase flex items-center gap-1"
-                            >
-                              <Calendar className="w-3 h-3" />
-                              <span>Ver en Calendario</span>
-                            </button>
-                          </div>
-                        </div>
+                    if (chequesDeEsteProveedor.length === 0) return null;
 
-                        {chequesDeEsteProveedor.length === 0 ? (
-                          <div className="p-2.5 bg-white border border-slate-200 text-[11px] text-slate-500">
-                            Aún no hay cheques asociados a facturas de este proveedor. Al pulsar <strong>«Sacar Pago / Cheques»</strong> podés dividir cualquier factura en cuotas o pagar con múltiples cheques diferidos.
-                          </div>
-                        ) : (
-                          <div className="overflow-x-auto bg-white border border-indigo-200">
-                            <table className="w-full text-left text-[11px] border-collapse">
+                    return (
+                      <div className="border-t border-slate-100 px-5 py-3 bg-slate-50/40">
+                        <button
+                          type="button"
+                          onClick={() => setVerChequesProveedor(!verChequesProveedor)}
+                          className="text-xs font-semibold text-[#3563e9] hover:underline flex items-center gap-1.5"
+                        >
+                          <span>
+                            {verChequesProveedor ? 'Ocultar' : 'Ver'} cheques entregados (
+                            {chequesDeEsteProveedor.length})
+                          </span>
+                        </button>
+                        {verChequesProveedor && (
+                          <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                            <table className="w-full text-left text-xs">
                               <thead>
-                                <tr className="bg-indigo-100/70 text-indigo-950 font-bold border-b border-indigo-200">
-                                  <th className="py-1.5 px-2.5 border-r border-indigo-200">N° Cheque</th>
-                                  <th className="py-1.5 px-2.5 border-r border-indigo-200">Banco Emisor</th>
-                                  <th className="py-1.5 px-2.5 border-r border-indigo-200">Tipo</th>
-                                  <th className="py-1.5 px-2.5 border-r border-indigo-200">Factura Asociada</th>
-                                  <th className="py-1.5 px-2.5 border-r border-indigo-200">Proveedor</th>
-                                  <th className="py-1.5 px-2.5 border-r border-indigo-200 text-center">Cuota</th>
-                                  <th className="py-1.5 px-2.5 border-r border-indigo-200">Fecha Vencimiento</th>
-                                  <th className="py-1.5 px-2.5 border-r border-indigo-200 text-right">Importe ($)</th>
-                                  <th className="py-1.5 px-2.5 text-center">Estado</th>
+                                <tr className="border-b border-slate-100 text-[11px] text-slate-400 font-semibold">
+                                  <th className="py-2 px-3">Cheque</th>
+                                  <th className="py-2 px-3">Banco</th>
+                                  <th className="py-2 px-3">Factura</th>
+                                  <th className="py-2 px-3">Vencimiento</th>
+                                  <th className="py-2 px-3 text-right">Importe</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-slate-200">
+                              <tbody className="divide-y divide-slate-100">
                                 {chequesDeEsteProveedor.map((ch) => (
-                                  <tr key={ch.id} className="hover:bg-indigo-50/40">
-                                    <td className="py-1.5 px-2.5 border-r border-slate-200 font-extrabold text-indigo-950">
-                                      #{ch.numero}
-                                    </td>
-                                    <td className="py-1.5 px-2.5 border-r border-slate-200 font-semibold text-slate-800">
-                                      {ch.bancoEmisor}
-                                    </td>
-                                    <td className="py-1.5 px-2.5 border-r border-slate-200 text-[10px] text-slate-600">
-                                      {ch.tipo}
-                                    </td>
-                                    <td className="py-1.5 px-2.5 border-r border-slate-200 font-bold text-[#064e3b]">
-                                      {ch.facturaNro || 'Factura Asociada'}
-                                    </td>
-                                    <td className="py-1.5 px-2.5 border-r border-slate-200 font-semibold text-slate-800">
-                                      {ch.proveedorNombre || proveedorActivo?.razonSocial}
-                                    </td>
-                                    <td className="py-1.5 px-2.5 border-r border-slate-200 text-center font-bold text-slate-700">
-                                      {ch.cuotaNro ? `Cuota ${ch.cuotaNro}/${ch.totalCuotas || ch.cuotaNro}` : '1/1'}
-                                    </td>
-                                    <td className="py-1.5 px-2.5 border-r border-slate-200 font-extrabold text-amber-800">
-                                      📅 {ch.fechaPago}
-                                    </td>
-                                    <td className="py-1.5 px-2.5 border-r border-slate-200 text-right font-extrabold text-slate-900">
+                                  <tr key={ch.id}>
+                                    <td className="py-2 px-3 font-semibold">#{ch.numero}</td>
+                                    <td className="py-2 px-3 text-slate-600">{ch.bancoEmisor}</td>
+                                    <td className="py-2 px-3 text-slate-600">{ch.facturaNro}</td>
+                                    <td className="py-2 px-3 text-amber-700 font-medium">{ch.fechaPago}</td>
+                                    <td className="py-2 px-3 text-right font-bold">
                                       ${ch.importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                    </td>
-                                    <td className="py-1.5 px-2.5 text-center">
-                                      <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold text-[9px] uppercase">
-                                        {ch.estado}
-                                      </span>
                                     </td>
                                   </tr>
                                 ))}
@@ -1684,89 +1503,128 @@ export const ProveedoresModule: React.FC = () => {
               )}
             </div>
 
-            {/* BARRA INFERIOR DE ACCIONES (Agregar factura, Agregar pago, Nuevo proveedor, Importar) */}
-            <div className="bg-[#ecfdf5]/30 border-t border-slate-300 px-4 py-2 flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => {
-                  if (proveedorActivo?.cuentaGastoHabitual) {
-                    setCuentaImputacionFactura(proveedorActivo.cuentaGastoHabitual);
-                  }
-                  setShowFacturaModal(true);
-                }}
-                title="Paso 1: Cargar factura y elegir medio de pago pactado (queda pendiente en cuenta corriente)"
-                className="px-3.5 py-1.5 bg-[#ecfdf5] hover:bg-emerald-100 text-[#042f22] font-mono text-xs font-bold border border-emerald-400 flex items-center gap-1.5 transition-colors"
-              >
-                <FileText className="w-3.5 h-3.5 text-[#064e3b]" />
-                <span>1° Agregar factura (Pendiente) ▼</span>
-              </button>
+            {/* BARRA INFERIOR LIMPIA CON DESPLEGABLE ("MENOS ES MÁS") */}
+            <div className="border-t border-slate-100 px-5 py-3.5 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-xs text-slate-400">
+                Tocá una factura para ver su desglose, stock y asiento
+              </span>
 
-              <button
-                onClick={() => {
-                  if (proveedorActivo?.cuentaGastoHabitual) {
-                    setCuentaImputacionFactura(proveedorActivo.cuentaGastoHabitual);
-                  }
-                  if (itemsFactura.length === 0) {
-                    const artDefault = inventario[0];
-                    const itemInicial: ItemFacturaCompraExtraido = {
-                      id: `IT-MAN-${Date.now()}`,
-                      codigoProveedor: artDefault?.codigo || '000001',
-                      descripcionProveedor: artDefault?.descripcion || 'MATERIAL BASE',
-                      cantidad: 10,
-                      costoUnitarioNeto: artDefault?.costoCalculado || 1500,
-                      subtotalNeto: Number((10 * (artDefault?.costoCalculado || 1500)).toFixed(2)),
-                      articuloAsociadoId: artDefault?.id || ''
-                    };
-                    recalcularNetoDesdeItems([itemInicial]);
-                  }
-                  setShowFacturaModal(true);
-                }}
-                title="Cargar Factura de Compra del Proveedor con Ingreso directo de Artículos al Inventario"
-                className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs font-bold border border-emerald-700 flex items-center gap-1.5 transition-colors"
-              >
-                <Boxes className="w-3.5 h-3.5" />
-                <span>Cargar Factura + Ingreso de Stock</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2 relative">
+                <button
+                  onClick={() => {
+                    const primeraPendiente = proveedorActivo?.facturasAdeudadas?.[0];
+                    if (primeraPendiente) {
+                      abrirModalPagoConMedio(primeraPendiente.saldo, primeraPendiente.medioPagoPactado);
+                    } else {
+                      setShowPagoModal(true);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <DollarSign className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Registrar Pago</span>
+                </button>
 
-              <button
-                onClick={() => {
-                  const primeraPendiente = proveedorActivo?.facturasAdeudadas?.[0];
-                  if (primeraPendiente) {
-                    abrirModalPagoConMedio(primeraPendiente.saldo, primeraPendiente.medioPagoPactado);
-                  } else {
-                    setShowPagoModal(true);
-                  }
-                }}
-                title="Paso 2: Sacar el pago de Tesorería para cancelar facturas pendientes"
-                className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-950 font-mono text-xs font-bold border border-amber-400 flex items-center gap-1.5 transition-colors"
-              >
-                <DollarSign className="w-3.5 h-3.5 text-amber-800" />
-                <span>2° Agregar pago (Sacar Pago)</span>
-              </button>
+                <button
+                  onClick={() => {
+                    if (proveedorActivo?.cuentaGastoHabitual) {
+                      setCuentaImputacionFactura(proveedorActivo.cuentaGastoHabitual);
+                    }
+                    setShowFacturaModal(true);
+                  }}
+                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <FileText className="w-3.5 h-3.5 text-[#3563e9]" />
+                  <span>Agregar Compra</span>
+                </button>
 
-              <button
-                onClick={() => setShowNcNdModal(true)}
-                disabled={!proveedorActivo}
-                className="px-3.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-900 font-mono text-xs font-bold border border-sky-300 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-              >
-                <FileText className="w-3.5 h-3.5 text-sky-800" />
-                <span>NC / ND</span>
-              </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setMasOpcionesOpen(!masOpcionesOpen)}
+                    className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold"
+                  >
+                    Más opciones ▾
+                  </button>
 
-              <button
-                onClick={() => setShowNuevoProveedorModal(true)}
-                className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>Nuevo proveedor</span>
-              </button>
-
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="px-3.5 py-1.5 bg-[#064e3b] hover:bg-[#047857] text-white font-mono text-xs font-bold border border-[#064e3b] flex items-center gap-1.5 transition-colors"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Importar CSV ▼</span>
-              </button>
+                  {masOpcionesOpen && (
+                    <div className="absolute right-0 bottom-11 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl z-30 p-1.5 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMasOpcionesOpen(false);
+                          if (itemsFactura.length === 0) {
+                            const artDefault = inventario[0];
+                            recalcularNetoDesdeItems([
+                              {
+                                id: `IT-MAN-${Date.now()}`,
+                                codigoProveedor: artDefault?.codigo || '000001',
+                                descripcionProveedor: artDefault?.descripcion || 'MATERIAL BASE',
+                                cantidad: 10,
+                                costoUnitarioNeto: artDefault?.costoCalculado || 1500,
+                                subtotalNeto: Number(
+                                  (10 * (artDefault?.costoCalculado || 1500)).toFixed(2)
+                                ),
+                                articuloAsociadoId: artDefault?.id || ''
+                              }
+                            ]);
+                          }
+                          setShowFacturaModal(true);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2"
+                      >
+                        <Boxes className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Compra con ingreso de stock</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!proveedorActivo}
+                        onClick={() => {
+                          setMasOpcionesOpen(false);
+                          setShowNcNdModal(true);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2 disabled:opacity-50"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Nota de Crédito / Débito</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMasOpcionesOpen(false);
+                          handleExportarAdeudadasExcel();
+                        }}
+                        className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Exportar Excel (CSV)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMasOpcionesOpen(false);
+                          fileInputRef.current?.click();
+                        }}
+                        className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Importar proveedores CSV</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMasOpcionesOpen(false);
+                          setShowCalendarioModal(true);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl hover:bg-slate-50 text-left font-medium text-slate-700 flex items-center gap-2"
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-[#3563e9]" />
+                        <span>Calendario de vencimientos</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

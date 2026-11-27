@@ -453,29 +453,55 @@ export const UsuariosModule: React.FC = () => {
   const totalSuspendidos = usuarios.length - totalActivos;
 
   return (
-    <div className="space-y-5 font-sans text-[#042f22]">
-      {/* Cabecera Institucional del Módulo 10 */}
-      <div className="bg-white border border-emerald-800/25 p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <div className="space-y-4 font-sans text-slate-800">
+      {/* Cabecera Limpia "Menos es Más" */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 px-5 py-4 shadow-xs flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-[11px] font-bold text-[#047857] uppercase tracking-wider mb-1">
-            <ShieldCheck className="w-4 h-4" />
-            <span>MÓDULO 10 // SEGURIDAD, ROLES Y CONTROL DE ACCESOS (RBAC)</span>
-          </div>
-          <h2 className="text-lg font-extrabold text-[#042f22] tracking-tight uppercase">
-            Administración de Usuarios, Roles Operativos y Permisos por Módulo
+          <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+            Usuarios y Permisos
           </h2>
-          <p className="text-xs text-[#357a59] mt-0.5">
-            Agregue o quite usuarios, asigne PINs de autorización y controle qué módulos e impuestos puede operar cada perfil en tiempo real.
+          <p className="text-xs text-slate-500">
+            {totalActivos} usuario(s) activos · administrá roles y accesos por módulo
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+            <button
+              onClick={() => setActiveTab('padron')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                activeTab === 'padron' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'
+              }`}
+            >
+              Usuarios
+            </button>
+            <button
+              onClick={() => setActiveTab('matriz')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                activeTab === 'matriz' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'
+              }`}
+            >
+              Matriz de permisos
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('auditoria');
+                void cargarAuditoria();
+              }}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                activeTab === 'auditoria' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'
+              }`}
+            >
+              Actividad
+            </button>
+          </div>
+
           <button
             onClick={abrirModalNuevoUsuario}
-            className="px-4 py-2 bg-[#064e3b] hover:bg-[#047857] text-white text-xs font-bold uppercase flex items-center gap-2 transition-colors shadow-sm"
+            className="px-4 py-2 rounded-xl bg-[#3563e9] hover:bg-[#2952cc] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
           >
-            <UserPlus className="w-4 h-4" />
-            <span>+ Agregar Nuevo Usuario</span>
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Nuevo Usuario</span>
           </button>
         </div>
       </div>
@@ -483,17 +509,17 @@ export const UsuariosModule: React.FC = () => {
       {/* Notificación de estado en vivo */}
       {bannerMsg && (
         <div
-          className={`p-3 border flex items-center justify-between text-xs font-bold ${
+          className={`p-3 rounded-xl border flex items-center justify-between text-xs font-semibold ${
             bannerMsg.tipo === 'ok'
-              ? 'bg-emerald-50 border-emerald-500 text-[#042f22]'
-              : 'bg-red-50 border-red-400 text-red-900'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border-rose-200 text-rose-800'
           }`}
         >
           <div className="flex items-center gap-2">
             {bannerMsg.tipo === 'ok' ? (
-              <CheckCircle2 className="w-4 h-4 text-[#047857] shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             ) : (
-              <AlertTriangle className="w-4 h-4 text-red-700 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             )}
             <span>{bannerMsg.texto}</span>
           </div>
@@ -503,102 +529,8 @@ export const UsuariosModule: React.FC = () => {
         </div>
       )}
 
-      {/* Tarjetas KPI de Usuarios y Seguridad */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white border border-emerald-800/25 border-t-4 border-t-[#064e3b] p-4">
-          <span className="text-[10px] font-bold text-[#357a59] uppercase block">
-            TOTAL USUARIOS REGISTRADOS
-          </span>
-          <div className="text-2xl font-extrabold text-[#042f22] mt-1 tabular-nums">
-            {usuarios.length}
-          </div>
-          <span className="text-[11px] text-[#047857] font-semibold mt-1 block">
-            Padrón institucional activo
-          </span>
-        </div>
-
-        <div className="bg-white border border-emerald-800/25 border-t-4 border-t-[#059669] p-4">
-          <span className="text-[10px] font-bold text-[#357a59] uppercase block">
-            USUARIOS HABILITADOS / SUSPENDIDOS
-          </span>
-          <div className="text-2xl font-extrabold text-[#042f22] mt-1 tabular-nums">
-            {totalActivos} <span className="text-sm font-semibold text-[#357a59]">activos</span> / {totalSuspendidos}{' '}
-            <span className="text-sm font-semibold text-amber-700">susp.</span>
-          </div>
-          <span className="text-[11px] text-[#047857] font-semibold mt-1 block">
-            Control de acceso inmediato
-          </span>
-        </div>
-
-        <div className="bg-white border border-emerald-800/25 border-t-4 border-t-[#047857] p-4">
-          <span className="text-[10px] font-bold text-[#357a59] uppercase block">
-            ROL EN SESIÓN ACTIVA AHORA
-          </span>
-          <div className="text-sm font-extrabold text-[#064e3b] mt-1.5 uppercase truncate">
-            {operadorActual.rol}
-          </div>
-          <span className="text-[11px] text-[#357a59] font-semibold mt-1 block truncate">
-            {operadorActual.nombre} ({operadorActual.modulosPermitidos.length}/10 módulos)
-          </span>
-        </div>
-
-        <div className="bg-white border border-emerald-800/25 border-t-4 border-t-emerald-700 p-4">
-          <span className="text-[10px] font-bold text-[#357a59] uppercase block">
-            AUDITORÍA DE ACCESOS RBAC
-          </span>
-          <div className="text-2xl font-extrabold text-[#042f22] mt-1 tabular-nums">
-            {logsRbac.length} <span className="text-xs font-semibold text-[#357a59]">eventos</span>
-          </div>
-          <span className="text-[11px] text-[#047857] font-semibold mt-1 block">
-            Trazabilidad de seguridad activa
-          </span>
-        </div>
-      </div>
-
-      {/* Pestañas de Navegación del Módulo */}
-      <div className="bg-white border border-emerald-800/25">
-        <div className="border-b border-emerald-800/20 px-4 flex flex-wrap items-center justify-between gap-2 bg-emerald-50/30">
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setActiveTab('padron')}
-              className={`px-4 py-3 text-xs font-bold uppercase border-b-2 transition-colors flex items-center gap-1.5 ${
-                activeTab === 'padron'
-                  ? 'border-[#064e3b] text-[#042f22] bg-white'
-                  : 'border-transparent text-[#357a59] hover:text-[#042f22]'
-              }`}
-            >
-              <UserCheck className="w-3.5 h-3.5" />
-              <span>1. Padrón de Usuarios (Alta / Baja / Edición)</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('matriz')}
-              className={`px-4 py-3 text-xs font-bold uppercase border-b-2 transition-colors flex items-center gap-1.5 ${
-                activeTab === 'matriz'
-                  ? 'border-[#064e3b] text-[#042f22] bg-white'
-                  : 'border-transparent text-[#357a59] hover:text-[#042f22]'
-              }`}
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>2. Matriz Interactiva de Permisos por Módulo</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setActiveTab('auditoria');
-                void cargarAuditoria();
-              }}
-              className={`px-4 py-3 text-xs font-bold uppercase border-b-2 transition-colors flex items-center gap-1.5 ${
-                activeTab === 'auditoria'
-                  ? 'border-[#064e3b] text-[#042f22] bg-white'
-                  : 'border-transparent text-[#357a59] hover:text-[#042f22]'
-              }`}
-            >
-              <Activity className="w-3.5 h-3.5" />
-              <span>3. Bitácora de Auditoría de Accesos ({logsRbac.length})</span>
-            </button>
-          </div>
-        </div>
+      {/* Contenedor Principal Limpio (sin las 4 tarjetas pesadas redundantes) */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
 
         {/* PESTAÑA 1: PADRÓN DE USUARIOS */}
         {activeTab === 'padron' && (

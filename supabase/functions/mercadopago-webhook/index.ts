@@ -78,7 +78,29 @@ Deno.serve(async (req: Request) => {
       procesado: true
     });
 
-    // 4. Si el pago fue aprobado y tiene monto > 0, impactar en Tesorería y Contabilidad
+    // 4. Si corresponde a una Suscripción SaaS Zonda ($20.000 ARS/mes), activar/renovar el Tenant automáticamente
+    if (
+      paymentStatus === 'approved' &&
+      typeof externalReference === 'string' &&
+      externalReference.startsWith('SUB-ZONDA-20K-')
+    ) {
+      const partes = externalReference.split('-');
+      const tenantRef = partes.slice(3, partes.length - 1).join('-');
+      const proximoVto = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      if (tenantRef) {
+        await supabase
+          .from('saas_cuentas_suscripcion')
+          .update({
+            estado_suscripcion: 'active_paid',
+            mp_ultimo_pago_id: String(paymentId || logId),
+            proximo_vencimiento: proximoVto,
+            updated_at: new Date().toISOString()
+          })
+          .eq('tenant_id', tenantRef);
+      }
+    }
+
+    // 5. Si el pago fue aprobado y tiene monto > 0, impactar en Tesorería y Contabilidad
     if (paymentStatus === 'approved' && montoCobrado > 0) {
       const hoy = new Date().toISOString().split('T')[0];
 
